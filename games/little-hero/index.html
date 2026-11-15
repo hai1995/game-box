@@ -66,10 +66,21 @@
   .fly-btn .ic { font-size: 34px; }
   .fly-btn .tx { font-size: 20px; }
   #loading { position: fixed; inset:0; display:flex; align-items:center; justify-content:center; font-size:28px; color:#fff; background:#87ceeb; z-index:20;}
+  /* 返回主页按钮 */
+  .home-btn {
+    position: fixed; left: 14px; top: 88px; z-index: 8;
+    width: 52px; height: 52px; border-radius: 50%;
+    background: rgba(255,255,255,.9); border: 3px solid #ffd23f;
+    box-shadow: 0 4px 0 rgba(0,0,0,.15); color: #ff5e5b;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; text-decoration: none;
+  }
+  .home-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.15); }
 </style>
 </head>
 <body>
 <div id="game"></div>
+<a class="home-btn" href="../../" aria-label="返回主页" title="返回主页">🏠</a>
 
 <div id="hud" class="hidden">
   <div class="pill" id="score-pill">⭐ 打败 0 只</div>

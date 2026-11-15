@@ -91,6 +91,15 @@
     display: flex; align-items: center; justify-content: center;
   }
   .mini-btn.active { background: linear-gradient(180deg,#B39DDB,#9575CD); box-shadow: 0 4px 0 #5E35B1, 0 0 16px #B39DDB; }
+  /* 返回主页按钮（位于左下角，避开计分与技能按钮） */
+  .home-btn {
+    position: absolute; left: 16px; top: 82px; z-index: 8;
+    width: 56px; height: 56px; border-radius: 50%;
+    background: rgba(255,255,255,.9); color: #3949AB; font-size: 30px;
+    box-shadow: 0 4px 0 rgba(0,0,0,.2); text-decoration: none;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .home-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.2); }
   /* 功能按钮只显示 emoji，隐藏文字 */
   .skill-btn span, .mini-btn span { display: none; }
   .skill-btn.active { background: linear-gradient(180deg,#4DD0E1,#00ACC1); box-shadow: 0 5px 0 #00838F, 0 0 18px #4DD0E1; }
@@ -125,6 +134,7 @@
   <div id="score">⭐ 0</div>
   <button id="gyroBtn" class="mini-btn">📱<span id="gyroState">关</span></button>
   <button id="helpBtn" class="help-btn">?</button>
+  <a class="home-btn" href="../../" aria-label="返回主页" title="返回主页">🏠</a>
   <button id="boostBtn" class="skill-btn boost">⚡<span id="boostState">就绪</span></button>
   <button id="missileBtn" class="skill-btn missile">🚀<span id="missileState">就绪</span></button>
   <button id="stealthBtn" class="skill-btn">🛡️<span id="stealthState">就绪</span></button>

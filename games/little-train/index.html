@@ -33,14 +33,12 @@
     z-index:6; cursor:pointer; box-shadow:0 4px 0 rgba(0,0,0,.15); }
   .trackBtn:active { transform:translateY(-50%) scale(.94); }
   #btnLeft{left:12px} #btnRight{right:12px}
-  #start { position:fixed; inset:0; z-index:20; display:flex; flex-direction:column;
-    align-items:center; justify-content:center; text-align:center; padding:24px;
-    background:linear-gradient(180deg,#aee3ff 0%,#d8f3ff 100%); }
-  #start h1 { font-size:38px; color:#ef476f; text-shadow:2px 2px 0 #fff; margin-bottom:10px; }
-  #start p { font-size:19px; color:#2b2d42; margin-bottom:26px; line-height:1.6; }
-  #startBtn { border:6px solid #fff; border-radius:40px; background:#ffd166; color:#d62828;
-    font-size:30px; font-weight:900; padding:20px 46px; box-shadow:0 8px 0 rgba(0,0,0,.18); cursor:pointer; }
-  #startBtn:active { transform:translateY(4px); box-shadow:0 4px 0 rgba(0,0,0,.18); }
+  .home-btn { position:fixed; top:calc(60px + env(safe-area-inset-top)); left:12px; z-index:8;
+    width:52px; height:52px; border-radius:50%; background:rgba(255,255,255,.92);
+    border:3px solid #ffb703; box-shadow:0 4px 0 rgba(0,0,0,.16);
+    display:flex; align-items:center; justify-content:center; text-decoration:none;
+    font-size:28px; color:#d62828; touch-action:manipulation; }
+  .home-btn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,.16); }
   .hidden { display:none !important; }
   .hint { position:fixed; bottom:116px; left:0; right:0; text-align:center; color:#fff;
     font-size:17px; font-weight:700; text-shadow:1px 1px 2px rgba(0,0,0,.35);
@@ -72,11 +70,7 @@
     <div class="btn b5" id="btnParty">🎉<small>烟花</small></div>
   </div>
 
-  <div id="start">
-    <h1>🚂 小火车呜呜开</h1>
-    <p>3D 小火车去旅行啦！<br>收集 ⭐星星 ❤️爱心 🎈气球，<br>按 ◀▶ 换轨道去接它们，钻山洞 🌗、看昼夜～</p>
-    <button id="startBtn">▶ 开始开车</button>
-  </div>
+  <a class="home-btn" href="../../" aria-label="返回主页" title="返回主页">🏠</a>
 
 <script>
 (function () {
@@ -698,18 +692,14 @@
   document.getElementById("btnRight").addEventListener("click", function () { currentTrack=Math.min(2,currentTrack+1); });
   cv.addEventListener("pointerdown", function () { ensureAudio(); honk(); });
 
-  var startEl=document.getElementById("start");
-  document.getElementById("startBtn").addEventListener("click", function () {
-    ensureAudio(); startEngine();
-    startEl.classList.add("hidden");
-    document.getElementById("hint").classList.add("hidden");
-    if (!running) { running=true; initScene(); animate(); }
-  });
-
   window.addEventListener("resize", resize);
   resize();
-  // 先画一帧静态背景，避免开始前白屏
-  drawSky(0); drawGround(0); drawTracks();
+
+  // 进入即直接开始游戏（音频受浏览器策略限制，首次触摸时自动恢复）
+  ensureAudio(); startEngine();
+  if (!running) { running=true; initScene(); animate(); }
+  // 玩法提示先展示几秒再淡出，避免一直挡住画面
+  setTimeout(function () { document.getElementById("hint").classList.add("hidden"); }, 5000);
 })();
 </script>
 </body>
