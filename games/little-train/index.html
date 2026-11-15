@@ -237,7 +237,7 @@
   var cv = document.getElementById("game"), ctx = cv.getContext("2d");
   var fxc = document.getElementById("fx"), fx = fxc.getContext("2d");
   var W, H, DPR, FOCAL, HORIZON;
-  var CAM_H = 3.6; // 相机高度：抬高后俯视角更大，能看到更多轨道延伸和两侧场景
+  var CAM_H = 4.8; // 相机高度：进一步抬高，俯视能看到更多节车厢顶部
   var FOV = 100; // 水平视野角度(度)：越大视角越广、看到越多场景
   function resize() {
     DPR = Math.min(window.devicePixelRatio || 1, 2);
@@ -250,7 +250,7 @@
     fx.setTransform(DPR,0,0,DPR,0,0);
     // 由水平 FOV 反推焦距：FOCAL = (W/2) / tan(FOV/2)，视角变广则焦距变小、看到更多
     FOCAL = (W / 2) / Math.tan((FOV / 2) * Math.PI / 180);
-    HORIZON = H * 0.32; // 地平线上移，给地面场景留出更多画面
+    HORIZON = H * 0.40; // 地平线下移，天空占比更大，火车与轨道占用更协调
   }
   // 世界坐标 -> 屏幕。x 横向, y 高度, d 深度(越大越远)
   function P(x, y, d) {
@@ -292,6 +292,8 @@
   var running=false, distance=0, score=0;
   var baseSpeed=.30, speed=baseSpeed, fast=false, offset=0, wheelAngle=0;
   var currentTrack=1, trainX=TRACK_X[1];
+  var carX=[0,0,0,0,0,0,0,0,0,0]; // 10 节车厢各自的横向位置，用于蛇形转弯
+  var CAR_FOLLOW=0.16; // 车厢跟随前一节的速度：越小转弯越舒缓、S 形越明显
   var lastPick=0, lastTunnel=0, lastMilestone=0;
 
   var trees=[], clouds=[], pickups=[], smoke=[], fireworks=[], tunnel=null, flash=0;
@@ -300,6 +302,7 @@
     trees=[]; clouds=[]; pickups=[]; smoke=[]; fireworks=[]; tunnel=null; flash=0;
     speedLines=[]; toasts=[]; boostPunch=0;
     distance=0; score=0; offset=0; currentTrack=1; trainX=TRACK_X[1];
+    for (var ci=0;ci<carX.length;ci++) carX[ci]=trainX;
     lastPick=0; lastTunnel=0; lastMilestone=0;
     document.getElementById("score").textContent="0";
     document.getElementById("dist").textContent="0";
@@ -455,14 +458,15 @@
     var lp=P(hx,1.0,hd-1.32); ctx.fillStyle="#ffe066";
     ctx.beginPath(); ctx.arc(lp.x,lp.y,Math.max(2,.2*lp.s),0,6.28); ctx.fill(); // 大灯
     drawWheels(hx, hd-1.3, .9);
-    // 10 节车厢
+    // 10 节车厢：每节用各自的 carX，转弯时依次跟随车头形成蛇形
     var colors=[0x4d96ff,0x6bcb77,0xffca3a,0xff9f1c,0xc77dff,0xff595e,0x26c6da,0xec407a,0x9ccc65,0xff7043];
     for (var i=1;i<=10;i++) {
       var d=HEAD_D-i*CAR_GAP, col=colors[(i-1)%colors.length];
-      box(hx, .85, d, 1.4, 1.1, 2.1, col);
+      var cx=carX[i-1];
+      box(cx, .85, d, 1.4, 1.1, 2.1, col);
       var df=d-1.06;
-      poly([P(hx-.42,1.0,df),P(hx+.42,1.0,df),P(hx+.42,1.35,df),P(hx-.42,1.35,df)], "#cfefff"); // 窗
-      drawWheels(hx, df, .75);
+      poly([P(cx-.42,1.0,df),P(cx+.42,1.0,df),P(cx+.42,1.35,df),P(cx-.42,1.35,df)], "#cfefff"); // 窗
+      drawWheels(cx, df, .75);
     }
   }
   function drawWheels(x, d, half) {
@@ -534,7 +538,13 @@
     toasts.forEach(function (t) { t.y-=1.1; t.life-=.018; });
     toasts=toasts.filter(function (t) { return t.life>0; });
 
+    // 车头平滑趋近目标轨道；车厢依次跟随前一节，形成蛇形转弯
     trainX += (TRACK_X[currentTrack]-trainX)*.12;
+    var lead = trainX;
+    for (var ci=0; ci<carX.length; ci++) {
+      carX[ci] += (lead - carX[ci]) * CAR_FOLLOW;
+      lead = carX[ci];
+    }
 
     // 景物移动
     trees.forEach(function (t) { t.d-=realSpeed; if (t.d<NEAR) { t.d=FAR; t.x=(Math.random()<.5?-1:1)*(5+Math.random()*15); } });
