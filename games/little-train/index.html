@@ -238,7 +238,7 @@
   var fxc = document.getElementById("fx"), fx = fxc.getContext("2d");
   var W, H, DPR, FOCAL, HORIZON;
   var CAM_H = 3.6; // 相机高度：抬高后俯视角更大，能看到更多轨道延伸和两侧场景
-  var FOV = 90; // 水平视野角度(度)：越大视角越广、看到越多场景
+  var FOV = 100; // 水平视野角度(度)：越大视角越广、看到越多场景
   function resize() {
     DPR = Math.min(window.devicePixelRatio || 1, 2);
     W = window.innerWidth; H = window.innerHeight;
@@ -286,7 +286,7 @@
   /* ================= 场景参数 ================= */
   var TRACK_X = [-3, 0, 3];
   var NEAR = 3.2, FAR = 115;
-  var HEAD_D = 13, CAR_GAP = .9;
+  var HEAD_D = 16, CAR_GAP = .9; // 火车整体推远，视觉上更小、遮挡更少，露出更多轨道
   var SLEEPER = 1.05;
 
   var running=false, distance=0, score=0;
