@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>🚂 小火车呜呜开 · 3D 无限列车</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { width:100%; height:100%; overflow:hidden;
+    font-family:"PingFang SC","Microsoft YaHei","Comic Sans MS",system-ui,sans-serif;
+    background:#7ec8ff; user-select:none; -webkit-user-select:none; touch-action:manipulation; }
+  #game,#fx { position:fixed; inset:0; width:100%; height:100%; display:block; }
+  #fx { pointer-events:none; z-index:3; }
+  #hud { position:fixed; top:0; left:0; right:0; display:flex; justify-content:space-between;
+    align-items:center; padding:14px 18px; pointer-events:none; z-index:5; }
+  .badge { background:rgba(255,255,255,.85); border:4px solid #ffb703; border-radius:22px;
+    padding:8px 16px; font-size:26px; font-weight:800; color:#d62828;
+    box-shadow:0 4px 0 rgba(0,0,0,.12); display:flex; align-items:center; gap:8px; }
+  #controls { position:fixed; bottom:0; left:0; right:0; display:flex; gap:10px;
+    justify-content:center; padding:16px 12px calc(16px + env(safe-area-inset-bottom)); z-index:6; }
+  .btn { flex:1; max-width:130px; border:5px solid #fff; border-radius:26px; padding:14px 4px;
+    font-size:28px; color:#fff; font-weight:900; box-shadow:0 6px 0 rgba(0,0,0,.18);
+    cursor:pointer; transition:transform .06s,box-shadow .06s;
+    display:flex; flex-direction:column; align-items:center; gap:2px; line-height:1.1; }
+  .btn small { font-size:14px; font-weight:700; opacity:.95; }
+  .btn:active { transform:translateY(4px); box-shadow:0 2px 0 rgba(0,0,0,.18); }
+  .btn.b1{background:#ff6b6b}.btn.b2{background:#4d96ff}.btn.b3{background:#6bcb77}
+  .btn.b4{background:#ffa62b}.btn.b5{background:#c77dff}
+  .trackBtn { position:fixed; top:50%; transform:translateY(-50%); width:64px; height:110px;
+    border-radius:22px; background:rgba(255,255,255,.55); border:4px solid #fff; color:#d62828;
+    font-size:50px; font-weight:900; display:flex; align-items:center; justify-content:center;
+    z-index:6; cursor:pointer; box-shadow:0 4px 0 rgba(0,0,0,.15); }
+  .trackBtn:active { transform:translateY(-50%) scale(.94); }
+  #btnLeft{left:12px} #btnRight{right:12px}
+  #start { position:fixed; inset:0; z-index:20; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; padding:24px;
+    background:linear-gradient(180deg,#aee3ff 0%,#d8f3ff 100%); }
+  #start h1 { font-size:38px; color:#ef476f; text-shadow:2px 2px 0 #fff; margin-bottom:10px; }
+  #start p { font-size:19px; color:#2b2d42; margin-bottom:26px; line-height:1.6; }
+  #startBtn { border:6px solid #fff; border-radius:40px; background:#ffd166; color:#d62828;
+    font-size:30px; font-weight:900; padding:20px 46px; box-shadow:0 8px 0 rgba(0,0,0,.18); cursor:pointer; }
+  #startBtn:active { transform:translateY(4px); box-shadow:0 4px 0 rgba(0,0,0,.18); }
+  .hidden { display:none !important; }
+  .hint { position:fixed; bottom:116px; left:0; right:0; text-align:center; color:#fff;
+    font-size:17px; font-weight:700; text-shadow:1px 1px 2px rgba(0,0,0,.35);
+    pointer-events:none; z-index:4; }
+  #err { position:fixed; top:70px; left:12px; right:12px; z-index:30; background:#ffefef;
+    border:3px solid #ef476f; color:#b00; border-radius:14px; padding:12px; font-size:14px;
+    font-weight:700; display:none; }
+</style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <canvas id="fx"></canvas>
+  <div id="err"></div>
+
+  <div id="hud">
+    <div class="badge">⭐ <span id="score">0</span></div>
+    <div class="badge">📏 <span id="dist">0</span>米</div>
+  </div>
+
+  <div class="trackBtn" id="btnLeft">◀</div>
+  <div class="trackBtn" id="btnRight">▶</div>
+  <div class="hint" id="hint">点屏幕鸣笛 🚂 · 按 ◀▶ 换轨道去接 ⭐❤️🎈</div>
+
+  <div id="controls">
+    <div class="btn b1" id="btnWhistle">🚂<small>鸣笛</small></div>
+    <div class="btn b2" id="btnBell">🔔<small>叮咚</small></div>
+    <div class="btn b3" id="btnSteam">💨<small>喷气</small></div>
+    <div class="btn b4" id="btnSpeed">⚡<small>加速</small></div>
+    <div class="btn b5" id="btnParty">🎉<small>烟花</small></div>
+  </div>
+
+  <div id="start">
+    <h1>🚂 小火车呜呜开</h1>
+    <p>3D 小火车去旅行啦！<br>收集 ⭐星星 ❤️爱心 🎈气球，<br>按 ◀▶ 换轨道去接它们，钻山洞 🌗、看昼夜～</p>
+    <button id="startBtn">▶ 开始开车</button>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+  window.addEventListener("error", function (e) {
+    var el = document.getElementById("err");
+    el.style.display = "block";
+    el.textContent = "出错了：" + (e.message || e.error);
+  });
+
+  /* ================= 音效引擎（Web Audio 实时生成，无需音频文件） ================= */
+  var actx = null;
+  function ensureAudio() {
+    if (!actx) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      try { actx = new AC(); } catch (e) { return; }
+    }
+    if (actx.state === "suspended") actx.resume();
+  }
+  function playWhistle() {
+    ensureAudio(); if (!actx) return;
+    var t = actx.currentTime;
+    var partials = [
+      { f:392, g:.20, type:"sine" }, { f:588, g:.13, type:"sine" },
+      { f:784, g:.10, type:"triangle" }, { f:1176, g:.05, type:"sine" }
+    ];
+    var master = actx.createGain(), lp = actx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(900, t);
+    lp.frequency.linearRampToValueAtTime(1700, t + .4);
+    master.connect(lp).connect(actx.destination);
+    var oscs = [];
+    partials.forEach(function (p) {
+      var o = actx.createOscillator(); o.type = p.type;
+      o.frequency.setValueAtTime(p.f, t);
+      o.frequency.linearRampToValueAtTime(p.f * 1.05, t + .18);
+      o.frequency.linearRampToValueAtTime(p.f, t + .95);
+      var g = actx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(p.g, t + .12);
+      g.gain.setValueAtTime(p.g, t + .85);
+      g.gain.linearRampToValueAtTime(0, t + 1.35);
+      o.connect(g).connect(master);
+      o.start(t); o.stop(t + 1.4); oscs.push(o);
+    });
+    var lfo = actx.createOscillator(), lg = actx.createGain();
+    lfo.type = "sine"; lfo.frequency.value = 5.5; lg.gain.value = 4;
+    lfo.connect(lg); oscs.forEach(function (o) { lg.connect(o.frequency); });
+    lfo.start(t); lfo.stop(t + 1.4);
+  }
+  function playBell() {
+    ensureAudio(); if (!actx) return; var t = actx.currentTime;
+    [1046,1318,1568,2093].forEach(function (f, i) {
+      var o = actx.createOscillator(), g = actx.createGain();
+      o.type = "sine"; o.frequency.value = f; var s = t + i * .09;
+      g.gain.setValueAtTime(0, s); g.gain.linearRampToValueAtTime(.28, s + .01);
+      g.gain.exponentialRampToValueAtTime(.001, s + .5);
+      o.connect(g).connect(actx.destination); o.start(s); o.stop(s + .52);
+    });
+  }
+  function playSteam() {
+    ensureAudio(); if (!actx) return; var t = actx.currentTime;
+    var len = Math.floor(actx.sampleRate * .6), buf = actx.createBuffer(1, len, actx.sampleRate);
+    var d = buf.getChannelData(0); for (var i=0;i<len;i++) d[i]=Math.random()*2-1;
+    var src = actx.createBufferSource(); src.buffer = buf;
+    var hp = actx.createBiquadFilter(); hp.type="highpass"; hp.frequency.value=1200;
+    var g = actx.createGain(); g.gain.setValueAtTime(.3,t); g.gain.exponentialRampToValueAtTime(.001,t+.55);
+    src.connect(hp).connect(g).connect(actx.destination); src.start(t); src.stop(t+.6);
+  }
+  function playDing() {
+    ensureAudio(); if (!actx) return; var t = actx.currentTime;
+    [1318,1760].forEach(function (f, i) {
+      var o=actx.createOscillator(), g=actx.createGain(); o.type="sine"; o.frequency.value=f;
+      var s=t+i*.07; g.gain.setValueAtTime(0,s); g.gain.linearRampToValueAtTime(.3,s+.01);
+      g.gain.exponentialRampToValueAtTime(.001,s+.3);
+      o.connect(g).connect(actx.destination); o.start(s); o.stop(s+.32);
+    });
+  }
+  function playChime() {
+    ensureAudio(); if (!actx) return; var t = actx.currentTime;
+    [880,1109].forEach(function (f, i) {
+      var o=actx.createOscillator(), g=actx.createGain(); o.type="sine"; o.frequency.value=f;
+      var s=t+i*.06; g.gain.setValueAtTime(0,s); g.gain.linearRampToValueAtTime(.25,s+.02);
+      g.gain.exponentialRampToValueAtTime(.001,s+.5);
+      o.connect(g).connect(actx.destination); o.start(s); o.stop(s+.52);
+    });
+  }
+  function playPop() {
+    ensureAudio(); if (!actx) return; var t = actx.currentTime;
+    var o=actx.createOscillator(), g=actx.createGain(); o.type="sine";
+    o.frequency.setValueAtTime(500,t); o.frequency.exponentialRampToValueAtTime(1150,t+.12);
+    g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.3,t+.02);
+    g.gain.exponentialRampToValueAtTime(.001,t+.18);
+    o.connect(g).connect(actx.destination); o.start(t); o.stop(t+.2);
+  }
+  function playWhoosh() {
+    ensureAudio(); if (!actx) return; var t = actx.currentTime;
+    var len=Math.floor(actx.sampleRate*.8), buf=actx.createBuffer(1,len,actx.sampleRate);
+    var d=buf.getChannelData(0); for (var i=0;i<len;i++) d[i]=Math.random()*2-1;
+    var s=actx.createBufferSource(); s.buffer=buf;
+    var bp=actx.createBiquadFilter(); bp.type="bandpass"; bp.Q.value=1.2;
+    bp.frequency.setValueAtTime(300,t); bp.frequency.exponentialRampToValueAtTime(1500,t+.4);
+    bp.frequency.exponentialRampToValueAtTime(300,t+.8);
+    var g=actx.createGain(); g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.3,t+.1);
+    g.gain.exponentialRampToValueAtTime(.001,t+.8);
+    s.connect(bp).connect(g).connect(actx.destination); s.start(t); s.stop(t+.85);
+  }
+  function playFirework() {
+    ensureAudio(); if (!actx) return; var t = actx.currentTime;
+    var o=actx.createOscillator(), g=actx.createGain(); o.type="sine";
+    o.frequency.setValueAtTime(400,t); o.frequency.exponentialRampToValueAtTime(1200,t+.3);
+    g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.2,t+.05);
+    g.gain.exponentialRampToValueAtTime(.001,t+.32);
+    o.connect(g).connect(actx.destination); o.start(t); o.stop(t+.34);
+    var len=Math.floor(actx.sampleRate*.4), buf=actx.createBuffer(1,len,actx.sampleRate);
+    var d=buf.getChannelData(0); for (var i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2);
+    var s=actx.createBufferSource(); s.buffer=buf;
+    var bp=actx.createBiquadFilter(); bp.type="bandpass"; bp.frequency.value=800; bp.Q.value=.7;
+    var g2=actx.createGain(); g2.gain.setValueAtTime(.35,t+.32); g2.gain.exponentialRampToValueAtTime(.001,t+.7);
+    s.connect(bp).connect(g2).connect(actx.destination); s.start(t+.32); s.stop(t+.75);
+  }
+  function playBoost() {
+    ensureAudio(); if (!actx) return;
+    var t = actx.currentTime;
+    // 上扬的呼啸冲刺声（噪声）
+    var len=Math.floor(actx.sampleRate*.5), buf=actx.createBuffer(1,len,actx.sampleRate);
+    var d=buf.getChannelData(0); for (var i=0;i<len;i++) d[i]=Math.random()*2-1;
+    var s=actx.createBufferSource(); s.buffer=buf;
+    var bp=actx.createBiquadFilter(); bp.type="bandpass"; bp.Q.value=1.4;
+    bp.frequency.setValueAtTime(300,t); bp.frequency.exponentialRampToValueAtTime(2600,t+.38);
+    var g=actx.createGain(); g.gain.setValueAtTime(.001,t);
+    g.gain.linearRampToValueAtTime(.32,t+.06); g.gain.exponentialRampToValueAtTime(.001,t+.5);
+    s.connect(bp).connect(g).connect(actx.destination); s.start(t); s.stop(t+.52);
+    // 上扬的引擎音
+    var o=actx.createOscillator(), og=actx.createGain(), lp=actx.createBiquadFilter();
+    o.type="sawtooth"; lp.type="lowpass"; lp.frequency.value=1300;
+    o.frequency.setValueAtTime(160,t); o.frequency.exponentialRampToValueAtTime(520,t+.4);
+    og.gain.setValueAtTime(.001,t); og.gain.linearRampToValueAtTime(.11,t+.05);
+    og.gain.exponentialRampToValueAtTime(.001,t+.46);
+    o.connect(lp).connect(og).connect(actx.destination); o.start(t); o.stop(t+.46);
+  }
+  var engine = null;
+  function startEngine() {
+    ensureAudio(); if (!actx || engine) return;
+    var len=actx.sampleRate*2, buf=actx.createBuffer(1,len,actx.sampleRate);
+    var d=buf.getChannelData(0); for (var i=0;i<len;i++) d[i]=Math.random()*2-1;
+    var src=actx.createBufferSource(); src.buffer=buf; src.loop=true;
+    var lp=actx.createBiquadFilter(); lp.type="lowpass"; lp.frequency.value=220;
+    var g=actx.createGain(); g.gain.value=.06;
+    var lfo=actx.createOscillator(); lfo.type="square"; lfo.frequency.value=6;
+    var lg=actx.createGain(); lg.gain.value=.05; lfo.connect(lg); lg.connect(g.gain);
+    src.connect(lp).connect(g).connect(actx.destination); src.start(); lfo.start();
+    engine = { lfo:lfo };
+  }
+
+  /* ================= 画布 & 透视投影 ================= */
+  var cv = document.getElementById("game"), ctx = cv.getContext("2d");
+  var fxc = document.getElementById("fx"), fx = fxc.getContext("2d");
+  var W, H, DPR, FOCAL, HORIZON;
+  var CAM_H = 2.6;
+  var FOV = 75; // 水平视野角度(度)：越大视角越广、看到越多场景
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    [cv, fxc].forEach(function (c) {
+      c.width = Math.floor(W * DPR); c.height = Math.floor(H * DPR);
+      c.style.width = W + "px"; c.style.height = H + "px";
+    });
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    fx.setTransform(DPR,0,0,DPR,0,0);
+    // 由水平 FOV 反推焦距：FOCAL = (W/2) / tan(FOV/2)，视角变广则焦距变小、看到更多
+    FOCAL = (W / 2) / Math.tan((FOV / 2) * Math.PI / 180);
+    HORIZON = H * 0.34;
+  }
+  // 世界坐标 -> 屏幕。x 横向, y 高度, d 深度(越大越远)
+  function P(x, y, d) {
+    var s = FOCAL / Math.max(d, 1.6);
+    return { x: W/2 + x * s, y: HORIZON + (CAM_H - y) * s, s: s };
+  }
+  function poly(pts, fill, stroke) {
+    ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+    for (var i=1;i<pts.length;i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); }
+  }
+  function shade(hex, f) {
+    var r=(hex>>16)&255, g=(hex>>8)&255, b=hex&255;
+    return "rgb(" + Math.min(255,r*f|0) + "," + Math.min(255,g*f|0) + "," + Math.min(255,b*f|0) + ")";
+  }
+  // 画一个 3D 盒子（顶/前/一个侧面）
+  function box(x, y, d, w, h, l, color) {
+    var df=d-l/2, db=d+l/2, yb=y-h/2, yt=y+h/2, xl=x-w/2, xr=x+w/2;
+    var a=P(xl,yb,df), b=P(xr,yb,df), c=P(xr,yt,df), e=P(xl,yt,df);
+    var f=P(xl,yt,db), g=P(xr,yt,db);
+    poly([e,c,g,f], shade(color,1.18));            // 顶
+    if (x <= 0) {                                   // 物体偏左 -> 看到右侧面
+      var h2=P(xr,yb,db), i2=P(xr,yt,db);
+      poly([b,h2,i2,c], shade(color,.70));
+    } else {
+      var j2=P(xl,yb,db), k2=P(xl,yt,db);
+      poly([e,k2,j2,a], shade(color,.70));
+    }
+    poly([a,b,c,e], shade(color,.96));             // 前面(朝相机)
+  }
+
+  /* ================= 场景参数 ================= */
+  var TRACK_X = [-3, 0, 3];
+  var NEAR = 3.2, FAR = 115;
+  var HEAD_D = 13, CAR_GAP = .9;
+  var SLEEPER = 1.05;
+
+  var running=false, distance=0, score=0;
+  var baseSpeed=.30, speed=baseSpeed, fast=false, offset=0, wheelAngle=0;
+  var currentTrack=1, trainX=TRACK_X[1];
+  var lastPick=0, lastTunnel=0, lastMilestone=0;
+
+  var trees=[], clouds=[], pickups=[], smoke=[], fireworks=[], tunnel=null, flash=0;
+
+  function initScene() {
+    trees=[]; clouds=[]; pickups=[]; smoke=[]; fireworks=[]; tunnel=null; flash=0;
+    speedLines=[]; toasts=[]; boostPunch=0;
+    distance=0; score=0; offset=0; currentTrack=1; trainX=TRACK_X[1];
+    lastPick=0; lastTunnel=0; lastMilestone=0;
+    document.getElementById("score").textContent="0";
+    document.getElementById("dist").textContent="0";
+    for (var i=0;i<22;i++) {
+      var side = Math.random()<.5?-1:1;
+      trees.push({ x:side*(5+Math.random()*15), d:NEAR+Math.random()*(FAR-NEAR),
+                   s:.8+Math.random()*.9 });
+    }
+    for (var j=0;j<7;j++) clouds.push({ x:(Math.random()-.5)*40, y:8+Math.random()*6,
+                                        d:20+Math.random()*90, s:3+Math.random()*3 });
+  }
+  function spawnPickup() {
+    var r=Math.random(), type = r<.6?"star":(r<.82?"heart":"balloon");
+    var track=Math.floor(Math.random()*3);
+    var color = type==="star"?0xffd166 : type==="heart"?0xff5d8f : [0xff595e,0xffca3a,0x8ac926,0x1982c4,0xc77dff,0xff9f1c][track];
+    pickups.push({ track:track, type:type, d:FAR-4, color:color, phase:Math.random()*6.28, got:false });
+  }
+  function spawnTunnel() {
+    tunnel={ d:FAR, entered:false, exited:false, dim:0 };
+  }
+
+  /* ================= 矢量绘制 ================= */
+  function drawStar(cx,cy,r,fill,stroke) {
+    ctx.save(); ctx.translate(cx,cy); ctx.beginPath();
+    for (var i=0;i<5;i++) {
+      var a=-Math.PI/2+i*(Math.PI*2/5), a2=a+Math.PI/5;
+      ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r);
+      ctx.lineTo(Math.cos(a2)*r*.45, Math.sin(a2)*r*.45);
+    }
+    ctx.closePath(); ctx.fillStyle=fill; ctx.fill();
+    ctx.lineWidth=2; ctx.strokeStyle=stroke; ctx.stroke(); ctx.restore();
+  }
+  function drawHeart(cx,cy,r,fill) {
+    ctx.save(); ctx.translate(cx,cy); ctx.beginPath();
+    ctx.moveTo(0,r*.85);
+    ctx.bezierCurveTo(r*1.6,-r*.4, r*.95,-r*1.5, 0,-r*.35);
+    ctx.bezierCurveTo(-r*.95,-r*1.5, -r*1.6,-r*.4, 0,r*.85);
+    ctx.closePath(); ctx.fillStyle=fill; ctx.fill();
+    ctx.fillStyle="rgba(255,255,255,.45)";
+    ctx.beginPath(); ctx.arc(-r*.4,-r*.4,r*.16,0,6.28); ctx.fill(); ctx.restore();
+  }
+  function drawBalloon(cx,cy,r,color) {
+    ctx.save(); ctx.translate(cx,cy);
+    ctx.fillStyle="#"+color.toString(16).padStart(6,"0");
+    ctx.beginPath(); ctx.ellipse(0,0,r*.8,r,0,0,6.28); ctx.fill();
+    ctx.fillStyle="rgba(255,255,255,.5)";
+    ctx.beginPath(); ctx.ellipse(-r*.28,-r*.3,r*.18,r*.28,0,0,6.28); ctx.fill();
+    ctx.strokeStyle="#888"; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(0,r); ctx.lineTo(0,r*1.8); ctx.stroke(); ctx.restore();
+  }
+  function drawTree(t) {
+    var p=P(t.x,0,t.d), s=p.s*t.s;
+    if (p.x<-60||p.x>W+60||s<1) return;
+    var trunkH=.9*s, leafH=2.6*s, leafW=1.5*s;
+    ctx.fillStyle="#8a5a2b"; ctx.fillRect(p.x-.18*s, p.y-trunkH, .36*s, trunkH);
+    ctx.fillStyle="#3f9c46";
+    ctx.beginPath(); ctx.moveTo(p.x, p.y-trunkH-leafH);
+    ctx.lineTo(p.x-leafW, p.y-trunkH*.2);
+    ctx.lineTo(p.x+leafW, p.y-trunkH*.2); ctx.closePath(); ctx.fill();
+    ctx.fillStyle="#57b85c";
+    ctx.beginPath(); ctx.moveTo(p.x, p.y-trunkH-leafH*.78);
+    ctx.lineTo(p.x-leafW*.8, p.y-trunkH*.35);
+    ctx.lineTo(p.x+leafW*.8, p.y-trunkH*.35); ctx.closePath(); ctx.fill();
+  }
+  function drawCloud(c) {
+    var p=P(c.x,c.y,c.d), s=p.s*c.s;
+    if (p.x<-200||p.x>W+200||s<1) return;
+    ctx.fillStyle="rgba(255,255,255,.92)";
+    [[0,0,1],[.9,.15,.75],[-.9,.15,.75],[.3,-.5,.7]].forEach(function (o) {
+      ctx.beginPath(); ctx.arc(p.x+o[0]*s, p.y+o[1]*s, o[2]*s, 0, 6.28); ctx.fill();
+    });
+  }
+  function drawSky(night) {
+    var g=ctx.createLinearGradient(0,0,0,HORIZON+2);
+    g.addColorStop(0, "rgb("+(126-70*night|0)+","+(200-120*night|0)+","+(255-160*night|0)+")");
+    g.addColorStop(1, "rgb("+(232-160*night|0)+","+(248-150*night|0)+","+(255-140*night|0)+")");
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,HORIZON+2);
+    // 太阳
+    if (night<.85) {
+      ctx.globalAlpha=1-night;
+      ctx.fillStyle="#ffe066";
+      ctx.beginPath(); ctx.arc(W*.84, H*.11, H*.055, 0, 6.28); ctx.fill();
+      ctx.fillStyle="rgba(255,224,102,.35)";
+      ctx.beginPath(); ctx.arc(W*.84, H*.11, H*.085, 0, 6.28); ctx.fill();
+      ctx.globalAlpha=1;
+    }
+    // 月亮
+    if (night>.15) {
+      ctx.globalAlpha=night; ctx.fillStyle="#f5f3ce";
+      ctx.beginPath(); ctx.arc(W*.84, H*.11, H*.045, 0, 6.28); ctx.fill();
+      ctx.fillStyle="rgb("+(126-70*night|0)+","+(200-120*night|0)+","+(255-160*night|0)+")";
+      ctx.beginPath(); ctx.arc(W*.86, H*.095, H*.04, 0, 6.28); ctx.fill();
+      ctx.globalAlpha=1;
+      // 小星星
+      ctx.fillStyle="rgba(255,255,255,"+night+")";
+      for (var i=0;i<26;i++) {
+        var sx=((i*97)%100)/100*W, sy=((i*53)%70)/100*H;
+        var r=1+((i*13)%3)*.5;
+        ctx.beginPath(); ctx.arc(sx,sy,r,0,6.28); ctx.fill();
+      }
+    }
+  }
+  function drawGround(night) {
+    var r=124-70*night|0, g=212-120*night|0, b=124-70*night|0;
+    var grad=ctx.createLinearGradient(0,HORIZON,0,H);
+    grad.addColorStop(0,"rgb("+r+","+g+","+b+")");
+    grad.addColorStop(1,"rgb("+(r-25)+","+(g-30)+","+(b-25)+")");
+    ctx.fillStyle=grad; ctx.fillRect(0,HORIZON,W,H-HORIZON);
+  }
+  function drawTracks() {
+    TRACK_X.forEach(function (cx) {
+      // 路基
+      poly([P(cx-1.3,.02,NEAR),P(cx+1.3,.02,NEAR),P(cx+1.3,.02,FAR),P(cx-1.3,.02,FAR)], "#6b5a3e");
+      // 两根钢轨
+      [-.55,.55].forEach(function (o) {
+        var a=P(cx+o,.14,NEAR), b=P(cx+o,.14,FAR);
+        ctx.strokeStyle="#c2c7cd"; ctx.lineWidth=Math.max(1,.05*a.s);
+        ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+      });
+    });
+    // 枕木（滚动）
+    var startD = NEAR + (SLEEPER - (offset % SLEEPER));
+    for (var d=startD; d<FAR; d+=SLEEPER) {
+      TRACK_X.forEach(function (cx) {
+        var a=P(cx-1.1,.05,d), b=P(cx+1.1,.05,d);
+        ctx.strokeStyle="#8a5a2b"; ctx.lineWidth=Math.max(1,.2*a.s);
+        ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+      });
+    }
+  }
+  function drawTunnel() {
+    if (!tunnel) return;
+    var d=tunnel.d, w=5.2, h=4.4, col=0x2a2a33;
+    // 顶 + 两侧墙（框住三条轨道）
+    box(0, h-.3, d, w*2, .7, 3.2, col);
+    box(-w, h/2, d, .7, h, 3.2, col);
+    box( w, h/2, d, .7, h, 3.2, col);
+    // 洞口拱圈
+    var a=P(-w,0,d-1.6), b=P(w,0,d-1.6), c=P(w,h,d-1.6), e=P(-w,h,d-1.6);
+    ctx.strokeStyle="#8a5a2b"; ctx.lineWidth=Math.max(2,.35*a.s);
+    poly([a,b,c,e], "rgba(0,0,0,0)", "#8a5a2b");
+  }
+  function drawTrain() {
+    // 车头（最远）-> 10 节车厢（越来越近），保证近处覆盖远处
+    var hx=trainX;
+    // 车头
+    var hd=HEAD_D;
+    box(hx, 1.0, hd, 1.5, 1.3, 2.6, 0xef476f);
+    box(hx, 2.05, hd+.5, 1.3, .9, 1.1, 0xd62828); // 驾驶室
+    var wf=hd-1.31;
+    poly([P(hx-.5,2.22,wf),P(hx+.5,2.22,wf),P(hx+.5,2.58,wf),P(hx-.5,2.58,wf)], "#bfe3ff"); // 窗
+    poly([P(hx-.16,2.35,hd-.7),P(hx+.16,2.35,hd-.7),P(hx+.12,2.85,hd-.7),P(hx-.12,2.85,hd-.7)], "#444"); // 烟囱
+    var lp=P(hx,1.0,hd-1.32); ctx.fillStyle="#ffe066";
+    ctx.beginPath(); ctx.arc(lp.x,lp.y,Math.max(2,.2*lp.s),0,6.28); ctx.fill(); // 大灯
+    drawWheels(hx, hd-1.3, .9);
+    // 10 节车厢
+    var colors=[0x4d96ff,0x6bcb77,0xffca3a,0xff9f1c,0xc77dff,0xff595e,0x26c6da,0xec407a,0x9ccc65,0xff7043];
+    for (var i=1;i<=10;i++) {
+      var d=HEAD_D-i*CAR_GAP, col=colors[(i-1)%colors.length];
+      box(hx, .85, d, 1.4, 1.1, 2.1, col);
+      var df=d-1.06;
+      poly([P(hx-.42,1.0,df),P(hx+.42,1.0,df),P(hx+.42,1.35,df),P(hx-.42,1.35,df)], "#cfefff"); // 窗
+      drawWheels(hx, df, .75);
+    }
+  }
+  function drawWheels(x, d, half) {
+    var p=P(x-half,.3,d), r=Math.max(1.5,.28*p.s);
+    ctx.fillStyle="#333";
+    ctx.beginPath(); ctx.arc(p.x,p.y,r,0,6.28); ctx.fill();
+    var q=P(x+half,.3,d), r2=Math.max(1.5,.28*q.s);
+    ctx.beginPath(); ctx.arc(q.x,q.y,r2,0,6.28); ctx.fill();
+  }
+  function drawSmoke() {
+    smoke.forEach(function (p) {
+      var q=P(p.x,p.y,p.d);
+      ctx.globalAlpha=Math.max(0,p.life)*.6; ctx.fillStyle="#fff";
+      ctx.beginPath(); ctx.arc(q.x,q.y,p.r*q.s,0,6.28); ctx.fill();
+    });
+    ctx.globalAlpha=1;
+  }
+  function drawPickup(p) {
+    var yOff = .12 + Math.sin(p.phase)*.12;
+    var q=P(TRACK_X[p.track], (p.type==="balloon"?2.0:1.05)+yOff, p.d);
+    if (q.s<1) return;
+    var r=Math.min(q.s*.55, H*.06);
+    if (p.type==="star") drawStar(q.x,q.y,r,"#ffd166","#ff9f1c");
+    else if (p.type==="heart") drawHeart(q.x,q.y,r,"#ff5d8f");
+    else drawBalloon(q.x,q.y,r,p.color);
+  }
+
+  /* ================= 烟花 / 特效（2D overlay） ================= */
+  var fwColors=["#ff595e","#ffca3a","#8ac926","#1982c4","#c77dff","#ff9f1c"];
+  function spawnFirework(px,py) {
+    var c=fwColors[Math.floor(Math.random()*fwColors.length)];
+    for (var i=0;i<26;i++) {
+      var a=i/26*Math.PI*2, sp=2+Math.random()*3.5;
+      fireworks.push({x:px,y:py,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,color:c});
+    }
+  }
+  // 加速速度线：从画面中心向外飞的白线，营造往前冲的感觉
+  var speedLines=[];
+  function spawnSpeedLine() {
+    var a=Math.random()*Math.PI*2;
+    var r0=Math.min(W,H)*(.12+Math.random()*.10);
+    speedLines.push({ ang:a, r:r0, len:14+Math.random()*26, spd:9+Math.random()*12, life:1, w:2+Math.random()*2.5 });
+  }
+  // 镜头推近冲击 0..1
+  var boostPunch=0;
+  // 屏幕浮动提示文字
+  var toasts=[];
+  function toast(text, color) {
+    toasts.push({ text:text, x:W/2, y:H*.30, life:1, color:color||"#fff" });
+  }
+
+  /* ================= 主循环 ================= */
+  function animate() {
+    if (!running) return;
+    requestAnimationFrame(animate);
+    var realSpeed = fast ? speed*2.9 : speed;
+    offset += realSpeed;
+    distance += realSpeed*.5;
+    wheelAngle += realSpeed*.5;
+    var night = (1-Math.cos(distance*Math.PI/150))/2;
+    if (engine) engine.lfo.frequency.value = fast ? 10 : 6;
+
+    // 加速冲击衰减 + 速度线飞散
+    if (boostPunch>0) boostPunch=Math.max(0, boostPunch-.02);
+    if (fast) { for (var sl=0; sl<5; sl++) spawnSpeedLine(); }
+    speedLines.forEach(function (l) { l.r+=l.spd*(fast?1:.35); l.life-=.02; });
+    speedLines=speedLines.filter(function (l) { return l.life>0 && l.r<Math.max(W,H)*.78; });
+    // 浮动提示上飘淡出
+    toasts.forEach(function (t) { t.y-=1.1; t.life-=.018; });
+    toasts=toasts.filter(function (t) { return t.life>0; });
+
+    trainX += (TRACK_X[currentTrack]-trainX)*.12;
+
+    // 景物移动
+    trees.forEach(function (t) { t.d-=realSpeed; if (t.d<NEAR) { t.d=FAR; t.x=(Math.random()<.5?-1:1)*(5+Math.random()*15); } });
+    clouds.forEach(function (c) { c.d-=realSpeed*.35; if (c.d<12) { c.d=FAR; c.x=(Math.random()-.5)*40; } });
+
+    // 生成
+    if (offset-lastPick>13) { spawnPickup(); lastPick=offset; }
+    if (!tunnel && offset-lastTunnel>230) { spawnTunnel(); lastTunnel=offset; }
+
+    var m=Math.floor(distance/100);
+    if (m>lastMilestone) { lastMilestone=m; flash=.4; playBell(); }
+
+    // 收集物
+    pickups.forEach(function (p) {
+      p.d-=realSpeed; p.phase+=.08;
+      if (!p.got && p.track===currentTrack && Math.abs(p.d-HEAD_D)<1.5) {
+        p.got=true;
+        if (p.type==="star") { score+=1; playDing(); }
+        else if (p.type==="heart") { score+=2; playChime(); }
+        else { score+=3; playPop(); }
+        document.getElementById("score").textContent=score;
+      }
+      if (p.d<NEAR-1) p.got=true;
+    });
+    pickups=pickups.filter(function (p) { return !p.got; });
+
+    // 隧道
+    if (tunnel) {
+      tunnel.d-=realSpeed;
+      var dist=tunnel.d-HEAD_D;
+      if (Math.abs(dist)<9) {
+        if (!tunnel.entered) { tunnel.entered=true; playWhoosh(); }
+        tunnel.dim=(1-Math.abs(dist)/9)*.75;
+      } else {
+        tunnel.dim=0;
+        if (tunnel.entered && dist<-9 && !tunnel.exited) {
+          tunnel.exited=true; score+=5; document.getElementById("score").textContent=score;
+          playDing(); flash=.5;
+          spawnFirework(W*.5,H*.4); spawnFirework(W*.3,H*.3); spawnFirework(W*.7,H*.35);
+        }
+        if (tunnel.d<NEAR-4) { tunnel=null; lastTunnel=offset; }
+      }
+    }
+
+    // 烟雾（车头烟囱处）
+    if (Math.random()< (fast?.5:.3)) {
+      smoke.push({ x:trainX, y:2.9, d:HEAD_D-.7, r:.28, life:1, vy:.02+Math.random()*.02, vd:-.03 });
+    }
+    smoke.forEach(function (p) { p.y+=p.vy; p.d+=p.vd; p.r+=.012; p.life-=.012; });
+    smoke=smoke.filter(function (p) { return p.life>0; });
+
+    document.getElementById("dist").textContent=Math.floor(distance);
+
+    /* ---- 绘制 ---- */
+    drawSky(night);
+    drawGround(night);
+    drawTracks();
+    // 远处到近处
+    var layer=[];
+    trees.forEach(function (o) { layer.push({d:o.d, f:function(){drawTree(o);}}); });
+    clouds.forEach(function (o) { layer.push({d:o.d, f:function(){drawCloud(o);}}); });
+    pickups.forEach(function (o) { layer.push({d:o.d, f:function(){drawPickup(o);}}); });
+    layer.sort(function (a,b) { return b.d-a.d; });
+    layer.forEach(function (o) { o.f(); });
+    drawTunnel();
+    drawTrain();
+    drawSmoke();
+
+    // 夜晚暗幕
+    if (night>0) { ctx.fillStyle="rgba(10,14,40,"+(night*.28)+")"; ctx.fillRect(0,0,W,H); }
+    // 隧道变暗
+    if (tunnel && tunnel.dim>0) { ctx.fillStyle="rgba(15,15,25,"+tunnel.dim+")"; ctx.fillRect(0,0,W,H); }
+
+    fx.clearRect(0,0,W,H);
+    fireworks.forEach(function (p) {
+      p.x+=p.vx; p.y+=p.vy; p.vy+=.06; p.life-=.02;
+      fx.globalAlpha=Math.max(0,p.life); fx.fillStyle=p.color;
+      fx.beginPath(); fx.arc(p.x,p.y,3,0,6.28); fx.fill();
+    });
+    fx.globalAlpha=1;
+    fireworks=fireworks.filter(function (p) { return p.life>0; });
+    // 加速速度线（屏幕中心向外，深色描边+白芯，亮背景下也清晰）
+    var scx=W/2, scy=H*.5;
+    fx.lineCap="round";
+    speedLines.forEach(function (l) {
+      var c=Math.cos(l.ang), s=Math.sin(l.ang), r1=l.r, r2=l.r+l.len;
+      var a=Math.max(0,l.life);
+      fx.globalAlpha=a*.55;
+      fx.strokeStyle="rgba(20,40,60,.9)"; fx.lineWidth=l.w+3;
+      fx.beginPath(); fx.moveTo(scx+c*r1,scy+s*r1); fx.lineTo(scx+c*r2,scy+s*r2); fx.stroke();
+      fx.globalAlpha=a;
+      fx.strokeStyle="#ffffff"; fx.lineWidth=l.w;
+      fx.beginPath(); fx.moveTo(scx+c*r1,scy+s*r1); fx.lineTo(scx+c*r2,scy+s*r2); fx.stroke();
+    });
+    fx.globalAlpha=1;
+    // 加速瞬间画面边缘发白（推背冲击）
+    if (boostPunch>0) {
+      var grd=fx.createRadialGradient(W/2,H/2,Math.min(W,H)*.2, W/2,H/2,Math.max(W,H)*.62);
+      grd.addColorStop(0,"rgba(255,255,255,0)");
+      grd.addColorStop(1,"rgba(255,255,255,"+(boostPunch*.55)+")");
+      fx.fillStyle=grd; fx.fillRect(0,0,W,H);
+    }
+    // 浮动提示文字
+    fx.textAlign="center"; fx.textBaseline="middle";
+    toasts.forEach(function (t) {
+      fx.globalAlpha=Math.max(0,Math.min(1,t.life*1.6));
+      fx.font="900 "+Math.round(Math.min(W,H)*.085)+"px system-ui,sans-serif";
+      fx.lineWidth=7; fx.strokeStyle="rgba(0,0,0,.35)";
+      fx.strokeText(t.text,t.x,t.y);
+      fx.fillStyle=t.color; fx.fillText(t.text,t.x,t.y);
+    });
+    fx.globalAlpha=1; fx.textAlign="start"; fx.textBaseline="alphabetic";
+    if (flash>0) {
+      flash-=.015; fx.fillStyle="rgba(255,255,255,"+Math.min(flash,.6)+")"; fx.fillRect(0,0,W,H);
+    }
+  }
+
+  /* ================= 交互 ================= */
+  function honk() {
+    playWhistle();
+    for (var i=0;i<6;i++) smoke.push({x:trainX,y:2.9,d:HEAD_D-.7,r:.28,life:1,vy:.03+Math.random()*.04,vd:-.03});
+    if (running) toast("呜—— 🚂", "#fff");
+  }
+  document.getElementById("btnWhistle").addEventListener("click", honk);
+  document.getElementById("btnBell").addEventListener("click", function () {
+    playBell(); if (running) toast("叮咚 🔔", "#ffe066");
+  });
+  document.getElementById("btnSteam").addEventListener("click", function () {
+    playSteam();
+    for (var i=0;i<10;i++) smoke.push({x:trainX+(Math.random()-.5)*.5,y:2.6,d:HEAD_D-.6,r:.3,life:1,vy:.04+Math.random()*.05,vd:-.05});
+    if (running) toast("噗—— 💨", "#e8f8ff");
+  });
+  var speedBtn=document.getElementById("btnSpeed");
+  speedBtn.addEventListener("click", function () {
+    fast=!fast;
+    speedBtn.style.background=fast?"#06d6a0":"#ffa62b";
+    speedBtn.querySelector("small").textContent=fast?"常速":"加速";
+    if (fast) {
+      boostPunch=1;
+      playBoost();
+      for (var i=0;i<14;i++) smoke.push({x:trainX+(Math.random()-.5)*.8,y:2.2,d:HEAD_D-.6,r:.32,life:1,vy:.05+Math.random()*.06,vd:-.08});
+      if (running) toast("⚡ 冲啊！", "#06d6a0");
+    } else if (running) toast("慢下来 🚂", "#ffa62b");
+  });
+  document.getElementById("btnParty").addEventListener("click", function () {
+    ensureAudio(); playFirework();
+    spawnFirework(W*.3,H*.35); spawnFirework(W*.6,H*.3); spawnFirework(W*.45,H*.5);
+    if (running) toast("🎉 好耶！", "#c77dff");
+  });
+  document.getElementById("btnLeft").addEventListener("click", function () { currentTrack=Math.max(0,currentTrack-1); });
+  document.getElementById("btnRight").addEventListener("click", function () { currentTrack=Math.min(2,currentTrack+1); });
+  cv.addEventListener("pointerdown", function () { ensureAudio(); honk(); });
+
+  var startEl=document.getElementById("start");
+  document.getElementById("startBtn").addEventListener("click", function () {
+    ensureAudio(); startEngine();
+    startEl.classList.add("hidden");
+    document.getElementById("hint").classList.add("hidden");
+    if (!running) { running=true; initScene(); animate(); }
+  });
+
+  window.addEventListener("resize", resize);
+  resize();
+  // 先画一帧静态背景，避免开始前白屏
+  drawSky(0); drawGround(0); drawTracks();
+})();
+</script>
+</body>
+</html>
