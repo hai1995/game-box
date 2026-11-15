@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>✈️ 3D飞行视角大冒险</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; height: 100%; overflow: hidden; font-family: "Comic Sans MS", "PingFang SC", "Microsoft YaHei", sans-serif; }
+  body { background: #87CEEB; touch-action: none; user-select: none; }
+  #game { position: relative; width: 100%; height: 100%; }
+  canvas { display: block; width: 100%; height: 100%; }
+  #score {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    font-size: 28px; font-weight: bold; color: #fff;
+    text-shadow: 0 2px 0 #4a90d9, 0 0 8px rgba(0,0,0,.2);
+    background: rgba(255,255,255,.25); padding: 6px 22px; border-radius: 30px;
+    pointer-events: none;
+  }
+  #hint {
+    position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
+    font-size: 17px; color: #fff; background: rgba(0,0,0,.28);
+    padding: 8px 18px; border-radius: 20px; pointer-events: none; text-align: center;
+  }
+  .overlay {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    background: rgba(255,255,255,.55); backdrop-filter: blur(2px);
+    color: #3a6ea5;
+  }
+  .overlay.hidden { display: none; }
+  #quizScreen {
+    z-index: 999;   /* 做题弹窗层级最高，盖住所有界面元素 */
+    background: rgba(18,28,48,.62);   /* 空白区域半透明深色遮罩 */
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+  }
+  #quizScreen .quiz-card {
+    background: #fff; border-radius: 28px; padding: 22px 34px 26px;
+    box-shadow: 0 12px 36px rgba(0,0,0,.4);
+    display: flex; flex-direction: column; align-items: center;
+    max-width: 90vw;
+  }
+  .overlay h1 { font-size: 40px; margin-bottom: 10px; text-shadow: 0 2px 0 #fff; }
+  .overlay p { font-size: 20px; margin: 6px 20px; line-height: 1.6; color: #4a7ab0; }
+  .btn {
+    margin-top: 22px; font-size: 26px; font-weight: bold; color: #fff;
+    background: linear-gradient(180deg,#FF9800,#FB8C00);
+    border: none; border-radius: 40px; padding: 14px 44px; cursor: pointer;
+    box-shadow: 0 6px 0 #E65100, 0 8px 14px rgba(0,0,0,.2);
+    transition: transform .08s;
+  }
+  .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #E65100; }
+  .emoji-row { font-size: 40px; margin: 14px 0; }
+  .tip { font-size: 16px; color: #6f9bc9; margin-top: 14px; }
+  #popLayer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .pop { position: absolute; font-size: 28px; font-weight: bold; text-shadow: 0 2px 4px rgba(255,255,255,.8); transform: translate(-50%,-50%); transition: all .9s ease-out; }
+  #quizOpts { display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; max-width: 440px; margin-top: 8px; }
+  .qbtn { width: 120px; height: 120px; font-size: 46px; font-weight: bold; color: #fff; border: none; border-radius: 26px; cursor: pointer; box-shadow: 0 7px 0 rgba(0,0,0,.18); transition: transform .08s; }
+  .qbtn:active { transform: translateY(4px); box-shadow: 0 3px 0 rgba(0,0,0,.18); }
+  .qbtn.c0 { background: linear-gradient(180deg,#4FC3F7,#29B6F6); }
+  .qbtn.c1 { background: linear-gradient(180deg,#81C784,#66BB6A); }
+  .qbtn.c2 { background: linear-gradient(180deg,#FFB74D,#FFA726); }
+  .qbtn.c3 { background: linear-gradient(180deg,#BA68C8,#AB47BC); }
+  .qbtn.shake { animation: shake .4s; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+  #quizMsg { font-size: 26px; margin-top: 20px; font-weight: bold; min-height: 32px; }
+  .skill-btn {
+    position: absolute; right: 18px; z-index: 5;
+    width: 92px; height: 92px; border-radius: 50%; border: none;
+    background: linear-gradient(180deg,#5C6BC0,#3949AB); color: #fff;
+    font-size: 42px; font-weight: bold; cursor: pointer; line-height: 1.1;
+    box-shadow: 0 5px 0 #283593, 0 6px 14px rgba(0,0,0,.25);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    transition: transform .08s;
+  }
+  #stealthBtn { bottom: 70px; }
+  #missileBtn { bottom: 175px; background: linear-gradient(180deg,#FF7043,#E64A19); box-shadow: 0 5px 0 #BF360C, 0 6px 14px rgba(0,0,0,.25); }
+  #boostBtn { bottom: 280px; background: linear-gradient(180deg,#FFD54F,#FFA000); box-shadow: 0 5px 0 #F57F17, 0 6px 14px rgba(0,0,0,.25); }
+  .skill-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #283593; }
+  #missileBtn:active { transform: translateY(3px); box-shadow: 0 2px 0 #BF360C; }
+  #boostBtn:active { transform: translateY(3px); box-shadow: 0 2px 0 #F57F17; }
+  #boostBtn.active { background: linear-gradient(180deg,#FFF176,#FFC107); box-shadow: 0 5px 0 #F9A825, 0 0 22px #FFD54F; }
+  .skill-btn.cooling { background: linear-gradient(180deg,#90A4AE,#607D8B); box-shadow: 0 5px 0 #455A64; opacity: .8; }
+  .mini-btn {
+    position: absolute; left: 16px; top: 16px; z-index: 5;
+    width: 56px; height: 56px; border-radius: 50%; border: none; cursor: pointer;
+    background: linear-gradient(180deg,#9575CD,#7E57C2); color: #fff;
+    font-size: 30px; line-height: 1;
+    box-shadow: 0 4px 0 #5E35B1, 0 4px 10px rgba(0,0,0,.2);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .mini-btn.active { background: linear-gradient(180deg,#B39DDB,#9575CD); box-shadow: 0 4px 0 #5E35B1, 0 0 16px #B39DDB; }
+  /* 功能按钮只显示 emoji，隐藏文字 */
+  .skill-btn span, .mini-btn span { display: none; }
+  .skill-btn.active { background: linear-gradient(180deg,#4DD0E1,#00ACC1); box-shadow: 0 5px 0 #00838F, 0 0 18px #4DD0E1; }
+  /* 帮助按钮 + 面板 */
+  .help-btn {
+    position: absolute; right: 16px; top: 16px; z-index: 6;
+    width: 50px; height: 50px; border-radius: 50%; border: none; cursor: pointer;
+    background: rgba(255,255,255,.85); color: #3949AB; font-size: 26px; font-weight: bold;
+    box-shadow: 0 3px 8px rgba(0,0,0,.25);
+  }
+  .help-panel {
+    position: absolute; inset: 0; z-index: 20; display: none;
+    align-items: center; justify-content: center; background: rgba(0,0,0,.45);
+  }
+  .help-panel.show { display: flex; }
+  .help-card {
+    width: min(86%, 460px); max-height: 82%; overflow-y: auto;
+    background: #fff; border-radius: 22px; padding: 22px 24px; text-align: left;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  .help-card h2 { margin: 0 0 10px; color: #3949AB; text-align: center; }
+  .help-card p { font-size: 16px; line-height: 1.5; margin: 8px 0; color: #333; }
+  .help-card .close-btn {
+    display: block; margin: 14px auto 0; padding: 10px 30px; border: none; border-radius: 22px;
+    background: #3949AB; color: #fff; font-size: 18px; font-weight: bold; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<div id="game">
+  <canvas id="cv"></canvas>
+  <div id="score">⭐ 0</div>
+  <button id="gyroBtn" class="mini-btn">📱<span id="gyroState">关</span></button>
+  <button id="helpBtn" class="help-btn">?</button>
+  <button id="boostBtn" class="skill-btn boost">⚡<span id="boostState">就绪</span></button>
+  <button id="missileBtn" class="skill-btn missile">🚀<span id="missileState">就绪</span></button>
+  <button id="stealthBtn" class="skill-btn">🛡️<span id="stealthState">就绪</span></button>
+
+  <div id="endScreen" class="overlay hidden">
+    <div class="emoji-row">🏆</div>
+    <h1 id="endTitle">太棒啦！</h1>
+    <p>你收集了 <b id="finalScore" style="color:#FB8C00;font-size:32px">0</b> 分！</p>
+    <p id="endMsg"></p>
+    <button class="btn" id="againBtn">再飞一次！</button>
+  </div>
+
+  <div id="helpScreen" class="help-panel">
+    <div class="help-card">
+      <h2>✈️ 怎么玩</h2>
+      <p>👆 滑动屏幕（或倾斜手机 📱）转向，去接 ⭐ 星星(+1) 和 🍎 水果(+2~5)。</p>
+      <p>☁️ 躲开灰色乌云，⚡ 黑色闪电乌云会扣分，被闪电劈到扣更多。</p>
+      <p>🚀 导弹(或按 J 键)：朝前发射，炸乌云 +2/+3 分；<br>低头俯冲再发射，还能 💥 击败地面小怪物 +5 分！</p>
+      <p>⚡ 加速(或 B 键)：喷筒爆发冲刺 3 秒。</p>
+      <p>🛡️ 隐身(或空格)：短暂穿障 2.5 秒。</p>
+      <p>🐲 地面上会有彩色小怪物一蹦一蹦地冒出来，用导弹打它们得分。</p>
+      <p>💡 加速 / 导弹 / 隐身都要 <b>消耗积分</b>，积分不够会提示。</p>
+      <p>📝 每 5 分钟弹出十以内加法题，做对 +5，做错继续做到对。</p>
+      <p>🎈 没有时间限制，360° 随便飞，慢慢玩！</p>
+      <button class="close-btn" id="helpClose">知道啦</button>
+    </div>
+  </div>
+
+  <div id="popLayer"></div>
+
+  <div id="quizScreen" class="overlay hidden">
+    <div class="quiz-card">
+      <div class="emoji-row">📝 ➕ 🧠</div>
+      <h1 id="quizTitle">来做一道算术题吧！</h1>
+      <p id="quizQ" style="font-size:54px;font-weight:bold;color:#FB8C00;letter-spacing:4px;">3 + 4 = ?</p>
+      <div id="quizOpts"></div>
+      <p id="quizMsg"></p>
+    </div>
+  </div>
+</div>
+
+<script src="./three.min.js"></script>
+<script>
+(function () {
+  const cv = document.getElementById('cv');
+  const scoreEl = document.getElementById('score');
+  const endScreen = document.getElementById('endScreen');
+  const againBtn = document.getElementById('againBtn');
+  const finalScore = document.getElementById('finalScore');
+  const endMsg = document.getElementById('endMsg');
+  const endTitle = document.getElementById('endTitle');
+  const popLayer = document.getElementById('popLayer');
+
+  let W = window.innerWidth, H = window.innerHeight;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x87CEEB);
+  scene.fog = new THREE.Fog(0x9fd6f2, 55, 230);
+
+  const camera = new THREE.PerspectiveCamera(62, W / H, 0.1, 300);
+  const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(W, H, false);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.6);
+  dir.position.set(5, 12, 8);
+  scene.add(dir);
+
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(800, 800), new THREE.MeshBasicMaterial({ color: 0x9CCC65 }));
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -40; scene.add(ground);
+  const sun = new THREE.Mesh(new THREE.SphereGeometry(8, 24, 24), new THREE.MeshBasicMaterial({ color: 0xFFF176 }));
+  sun.position.set(60, 80, -200); scene.add(sun);
+
+  // ---- 地面景观：可穿梭的跑道、城市、森林（动态流动）----
+  let groundItems = [], groundInited = false, runwayMesh = null, dashesMesh = null, groundGroup = null, highClouds = [], GY = -39.5, monsters = [];
+  (function buildLandscape() {
+    GY = -39.5;
+    groundGroup = new THREE.Group();
+    scene.add(groundGroup);
+
+    // 脚下向远方延伸、随飞行滚动的跑道
+    const runway = new THREE.Group();
+    const top = new THREE.Mesh(new THREE.BoxGeometry(18, 0.6, 600),
+      new THREE.MeshStandardMaterial({ color: 0x607D8B, roughness: 0.95 }));
+    top.position.y = GY + 0.3; runway.add(top);
+    const dashes = new THREE.Group();
+    const dashMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    for (let z = -560; z < 40; z += 20) {
+      const d = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.66, 10), dashMat);
+      d.position.set(0, GY + 0.36, z); dashes.add(d);
+    }
+    runway.add(dashes);
+    groundGroup.add(runway);
+    runwayMesh = runway; dashesMesh = dashes;
+
+    // 城市块（随机彩色楼群）
+    function city() {
+      const g = new THREE.Group();
+      const cols = [0xEF5350, 0x42A5F5, 0x66BB6A, 0xFFA726, 0xAB47BC, 0x26C6DA, 0xEC407A];
+      for (let i = 0; i < 12; i++) {
+        const h = 16 + Math.random() * 48, w = 7 + Math.random() * 8;
+        const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, w),
+          new THREE.MeshStandardMaterial({ color: cols[(Math.random() * cols.length) | 0], roughness: 0.6, metalness: 0.1 }));
+        b.position.set((Math.random() - 0.5) * 54, GY + h / 2, (Math.random() - 0.5) * 54);
+        g.add(b);
+      }
+      return g;
+    }
+    // 树（树干 + 双层树冠）
+    function tree() {
+      const g = new THREE.Group();
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.2, 5, 8),
+        new THREE.MeshStandardMaterial({ color: 0x795548, roughness: 0.9 }));
+      trunk.position.y = GY + 2.5; g.add(trunk);
+      const crown = new THREE.Mesh(new THREE.ConeGeometry(3.6, 10, 9),
+        new THREE.MeshStandardMaterial({ color: 0x2E7D32, roughness: 0.9 }));
+      crown.position.y = GY + 9.5; g.add(crown);
+      const crown2 = new THREE.Mesh(new THREE.ConeGeometry(2.6, 7, 9),
+        new THREE.MeshStandardMaterial({ color: 0x388E3C, roughness: 0.9 }));
+      crown2.position.y = GY + 13; g.add(crown2);
+      return g;
+    }
+    for (let i = 0; i < 7; i++) { const c = city(); groundGroup.add(c); groundItems.push({ mesh: c }); }
+    for (let i = 0; i < 70; i++) { const t = tree(); groundGroup.add(t); groundItems.push({ mesh: t }); }
+
+    // 远处山脉环：360° 环绕，无论转向哪个方向，地平线都有山峦剪影
+    const mtn = new THREE.Group();
+    const mtnMat = new THREE.MeshStandardMaterial({ color: 0x7C8AA0, roughness: 1.0, fog: true });
+    const snowMat = new THREE.MeshStandardMaterial({ color: 0xEAF2FA, roughness: 1.0 });
+    for (let i = 0; i < 30; i++) {
+      const a = (i / 30) * Math.PI * 2 + Math.random() * 0.1;
+      const r = 165 + Math.random() * 35;
+      const h = 55 + Math.random() * 70, w = 55 + Math.random() * 45;
+      const m = new THREE.Mesh(new THREE.ConeGeometry(w, h, 7), mtnMat);
+      m.position.set(Math.cos(a) * r, GY + h / 2 - 8, Math.sin(a) * r);
+      mtn.add(m);
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(w * 0.38, h * 0.32, 7), snowMat);
+      cap.position.set(Math.cos(a) * r, GY + h - 8 - h * 0.16, Math.sin(a) * r);
+      mtn.add(cap);
+    }
+    scene.add(mtn);
+
+    // 高空与低空漂浮云带：丰富不同高度时的视觉
+    const airMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0, transparent: true, opacity: 0.9 });
+    for (let i = 0; i < 18; i++) {
+      const a = Math.random() * Math.PI * 2, r = 90 + Math.random() * 90;
+      const y = 30 + Math.random() * 80;   // 高空云（爬升时可见）
+      const g = new THREE.Group();
+      for (let k = 0; k < 4; k++) {
+        const s = new THREE.Mesh(new THREE.SphereGeometry(6 + Math.random() * 5, 12, 12), airMat);
+        s.position.set((Math.random() - 0.5) * 22, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 22);
+        g.add(s);
+      }
+      g.position.set(Math.cos(a) * r, y, Math.sin(a) * r);
+      scene.add(g); highClouds.push({ mesh: g });
+    }
+  })();
+
+  const GROUND_FAR = 135, GROUND_SPREAD = 130, GROUND_RECYCLE = -35;
+  const _gdir = new THREE.Vector3(), _gright = new THREE.Vector3();
+  function groundHorizDir() {
+    _gdir.set(flyDir.x, 0, flyDir.z);
+    if (_gdir.lengthSq() < 1e-6) _gdir.set(0, 0, -1);
+    _gdir.normalize();
+    _gright.crossVectors(_gdir, WORLD_UP);
+    if (_gright.lengthSq() < 1e-6) _gright.set(1, 0, 0);
+    _gright.normalize();
+    return { dir: _gdir, right: _gright };
+  }
+  function scatterGround() {
+    const { dir, right } = groundHorizDir();
+    groundItems.forEach(it => {
+      const f = 55 + Math.random() * GROUND_FAR;
+      const s = (Math.random() - 0.5) * GROUND_SPREAD;
+      it.mesh.position.set(dir.x * f + right.x * s, 0, dir.z * f + right.z * s);
+    });
+    groundInited = true;
+  }
+  function updateGround(dt) {
+    if (!groundInited) scatterGround();
+    const spd = 22 * speedScale() * (boostActive ? BOOST_MULT : 1);
+    const { dir, right } = groundHorizDir();
+    // 跑道：始终在脚下，指向飞行方向；虚线滚动表现飞行
+    runwayMesh.rotation.y = Math.atan2(dir.x, dir.z);
+    runwayMesh.position.set(0, 0, 0);
+    dashesMesh.position.z = (dashesMesh.position.z + spd * dt) % 20;
+    // 城市 / 森林沿飞行方向迎面掠过，落到身后就循环回前方
+    groundItems.forEach(it => {
+      it.mesh.position.addScaledVector(dir, -spd * dt);
+      const along = it.mesh.position.x * dir.x + it.mesh.position.z * dir.z;
+      if (along < GROUND_RECYCLE) {
+        const f = GROUND_FAR + Math.random() * 40;
+        const s = (Math.random() - 0.5) * GROUND_SPREAD;
+        it.mesh.position.set(dir.x * f + right.x * s, 0, dir.z * f + right.z * s);
+      }
+    });
+  }
+
+  // ---- 炫酷隐形战斗机（缩小，固定在中心）----
+  function makePlane() {
+    const g = new THREE.Group();
+    const darkMat = new THREE.MeshStandardMaterial({ color: 0x121218, roughness: 0.25, metalness: 0.9 });
+    const panelMat = new THREE.MeshStandardMaterial({ color: 0x26262e, roughness: 0.3, metalness: 0.85 });
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0x00e5ff, roughness: 0.08, metalness: 0.5, emissive: 0x00b8d4, emissiveIntensity: 1.0, transparent: true, opacity: 0.92 });
+    const neonCyan = new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x00e5ff, emissiveIntensity: 2.0, roughness: 0.4 });
+    const neonMag = new THREE.MeshStandardMaterial({ color: 0xff2d95, emissive: 0xff2d95, emissiveIntensity: 1.8, roughness: 0.4 });
+    const glows = [];
+
+    // 机身（流线型 fuselage）
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.1, 4.8, 20), darkMat);
+    body.rotation.x = Math.PI / 2; g.add(body);
+    // 尖锐机头
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.5, 2.8, 20), darkMat);
+    nose.rotation.x = -Math.PI / 2; nose.position.z = -3.8; g.add(nose);
+    // 机头霓虹灯条（前缘辉光）
+    const noseGlow = new THREE.Mesh(new THREE.ConeGeometry(0.52, 1.0, 20, 1, true), neonCyan);
+    noseGlow.rotation.x = -Math.PI / 2; noseGlow.position.z = -3.4; noseGlow.material.side = THREE.DoubleSide;
+    g.add(noseGlow); glows.push(noseGlow.material);
+
+    // 主翼（后掠，带霓虹灯带）
+    const wingShape = (mirror) => {
+      const w = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.12, 1.6), panelMat);
+      w.position.set(mirror * 1.85, 0, 0.5); w.rotation.y = mirror * 0.55; g.add(w);
+      const strip = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.04, 0.12), neonCyan);
+      strip.position.set(mirror * 1.85, 0.07, -0.2); strip.rotation.y = mirror * 0.55; g.add(strip);
+      glows.push(strip.material);
+    };
+    wingShape(-1); wingShape(1);
+
+    // 鸭翼（机头前侧小翼）
+    const canard = (mirror) => {
+      const c = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.1, 0.9), panelMat);
+      c.position.set(mirror * 1.0, 0, -2.4); c.rotation.y = mirror * 0.4; g.add(c);
+    };
+    canard(-1); canard(1);
+
+    // 双垂尾（外倾）
+    const tailFin = (mirror) => {
+      const t = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.1, 0.9), panelMat);
+      t.position.set(mirror * 0.55, 0.55, 2.3); t.rotation.z = mirror * 0.35; g.add(t);
+      const tstrip = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.9, 0.1), neonMag);
+      tstrip.position.set(mirror * 0.55, 0.55, 2.3); tstrip.rotation.z = mirror * 0.35; g.add(tstrip);
+      glows.push(tstrip.material);
+    };
+    tailFin(-1); tailFin(1);
+
+    // 水平尾翼
+    const htail = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.1, 0.7), panelMat);
+    htail.position.set(0, 0, 2.3); g.add(htail);
+
+    // 座舱（青色辉光罩）
+    const cockpit = new THREE.Mesh(new THREE.SphereGeometry(0.42, 18, 18), glassMat);
+    cockpit.position.set(0, 0.34, -0.9); cockpit.scale.set(1, 0.65, 1.7); g.add(cockpit);
+
+    // 机身霓虹腰线
+    const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.51, 0.51, 3.0, 20, 1, true), neonMag);
+    belt.rotation.x = Math.PI / 2; belt.material.side = THREE.DoubleSide; g.add(belt); glows.push(belt.material);
+
+    // 双发动机喷口 + 蓝色尾焰（保留亮度，隐身时也不熄灭）
+    const flames = [];
+    [-0.35, 0.35].forEach(x => {
+      const noz = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, 0.5, 14), darkMat);
+      noz.rotation.x = Math.PI / 2; noz.position.set(x, 0, 2.6); g.add(noz);
+      const core = new THREE.Mesh(new THREE.ConeGeometry(0.2, 1.1, 12), new THREE.MeshBasicMaterial({ color: 0x80f7ff }));
+      core.rotation.x = Math.PI / 2; core.position.set(x, 0, 3.2); g.add(core);
+      const out = new THREE.Mesh(new THREE.ConeGeometry(0.34, 1.6, 12), new THREE.MeshBasicMaterial({ color: 0x2979ff, transparent: true, opacity: 0.7 }));
+      out.rotation.x = Math.PI / 2; out.position.set(x, 0, 3.6); g.add(out);
+      core.userData.keepBright = true; out.userData.keepBright = true;
+      flames.push({ core, out });
+    });
+    g.userData.flames = flames;
+
+    g.scale.setScalar(0.5);
+    g.userData.glows = glows;
+    return g;
+  }
+  const plane = makePlane();
+  scene.add(plane);
+  // 隐身护盾（默认隐藏）
+  const shield = new THREE.Mesh(
+    new THREE.SphereGeometry(2.6, 24, 24),
+    new THREE.MeshBasicMaterial({ color: 0x4FC3F7, transparent: true, opacity: 0.28, depthWrite: false })
+  );
+  shield.visible = false; scene.add(shield);
+
+  // ---- 立体星星 ----
+  const starShape = new THREE.Shape();
+  const spikes = 5, outer = 0.9, inner = 0.4;
+  for (let i = 0; i < spikes * 2; i++) {
+    const r = i % 2 === 0 ? outer : inner;
+    const a = (i / (spikes * 2)) * Math.PI * 2 - Math.PI / 2;
+    const x = Math.cos(a) * r, y = Math.sin(a) * r;
+    if (i === 0) starShape.moveTo(x, y); else starShape.lineTo(x, y);
+  }
+  starShape.closePath();
+  const starGeo = new THREE.ExtrudeGeometry(starShape, { depth: 0.3, bevelEnabled: true, bevelSize: 0.08, bevelThickness: 0.08, bevelSegments: 2 });
+  starGeo.center();
+  const STAR_COLORS = [0xFFD54F, 0xFFB300, 0xFFF176, 0xFF8A65, 0x4FC3F7];
+  function makeStar() {
+    return new THREE.Mesh(starGeo, new THREE.MeshStandardMaterial({ color: STAR_COLORS[(Math.random()*STAR_COLORS.length)|0], emissive: 0x553300, emissiveIntensity: 0.5, roughness: 0.3 }));
+  }
+
+  // ---- 水果奖励 ----
+  function buildFruit(type) {
+    const g = new THREE.Group();
+    let color = 0xff0000, points = 3;
+    if (type === 0) { // 🍎 苹果
+      color = 0xE53935; points = 3;
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.8, 20, 20), new THREE.MeshStandardMaterial({ color, roughness: 0.35 }));
+      body.scale.y = 0.9; g.add(body);
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.5, 8), new THREE.MeshStandardMaterial({ color: 0x6D4C41 }));
+      stem.position.y = 0.8; g.add(stem);
+      const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 10), new THREE.MeshStandardMaterial({ color: 0x66BB6A }));
+      leaf.scale.set(1.6, 0.4, 0.8); leaf.position.set(0.25, 0.95, 0); g.add(leaf);
+    } else if (type === 1) { // 🍊 橙子
+      color = 0xFF9800; points = 2;
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.8, 20, 20), new THREE.MeshStandardMaterial({ color, roughness: 0.5 }));
+      body.scale.y = 0.85; g.add(body);
+      const top = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 10), new THREE.MeshStandardMaterial({ color: 0x2E7D32 }));
+      top.position.y = 0.7; g.add(top);
+    } else if (type === 2) { // 🍇 葡萄
+      color = 0x8E24AA; points = 5;
+      const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.4 });
+      const offs = [[0,0.5,0],[-0.35,0.2,0],[0.35,0.2,0],[-0.18,-0.15,0.1],[0.18,-0.15,-0.1],[0,-0.45,0]];
+      offs.forEach(o => { const s = new THREE.Mesh(new THREE.SphereGeometry(0.32, 14, 14), mat); s.position.set(o[0], o[1], o[2]); g.add(s); });
+    } else if (type === 3) { // 🍌 香蕉
+      color = 0xFDD835; points = 2;
+      const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.5 });
+      for (let i = 0; i < 7; i++) {
+        const seg = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 12), mat);
+        const t = i / 6;
+        seg.position.set((t - 0.5) * 1.5, Math.sin(t * Math.PI) * 0.5 - 0.1, 0);
+        seg.scale.set(1, 0.8, 0.8); g.add(seg);
+      }
+    } else { // 🍉 西瓜
+      color = 0x43A047; points = 4;
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.85, 20, 20), new THREE.MeshStandardMaterial({ color, roughness: 0.5 }));
+      g.add(body);
+      const stripeMat = new THREE.MeshStandardMaterial({ color: 0x1B5E20 });
+      for (let i = 0; i < 5; i++) {
+        const st = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.7, 0.06), stripeMat);
+        const a = (i / 5) * Math.PI * 2;
+        st.position.set(Math.cos(a) * 0.84, 0, Math.sin(a) * 0.84);
+        st.rotation.y = -a; g.add(st);
+      }
+    }
+    g.userData = { color, points };
+    return g;
+  }
+  function makeFruit() { return buildFruit((Math.random() * 5) | 0); }
+
+  // ---- 立体乌云 ----
+  function makeCloud() {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ color: 0x90A4AE, roughness: 0.95 });
+    const rs = [1.2, 0.9, 1.0, 0.7], offs = [[-0.9,0],[0.9,0],[0,-0.3],[0,0.5]];
+    rs.forEach((r, i) => { const s = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 16), mat); s.position.set(offs[i][0], offs[i][1], 0); g.add(s); });
+    return g;
+  }
+
+  // ---- 黑色闪电风暴云 ----
+  function makeStormCloud() {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ color: 0x37474F, roughness: 1.0 });
+    const rs = [1.5, 1.2, 1.3, 1.0], offs = [[-1.1,0],[1.1,0],[0,-0.3],[0,0.7]];
+    rs.forEach((r, i) => { const s = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 16), mat); s.position.set(offs[i][0], offs[i][1], 0); g.add(s); });
+    // 锯齿闪电（默认隐藏）
+    const bolt = new THREE.Group();
+    const boltMat = new THREE.MeshBasicMaterial({ color: 0xFFEB3B });
+    let xx = 0, yy = -1.4;
+    for (let i = 0; i < 6; i++) {
+      const nx = xx + (Math.random() - 0.5) * 0.9;
+      const seg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.0, 0.14), boltMat);
+      seg.position.set((xx + nx) / 2, yy - 0.5, 0);
+      seg.rotation.z = Math.atan2(nx - xx, -1.0);
+      bolt.add(seg);
+      xx = nx; yy -= 1.0;
+    }
+    bolt.visible = false;
+    g.add(bolt);
+    g.userData.bolt = bolt;
+    return g;
+  }
+
+  const bursts = [];
+  function makeBurst(x, y, z, color) {
+    for (let i = 0; i < 12; i++) {
+      const p = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), new THREE.MeshBasicMaterial({ color }));
+      p.position.set(x, y, z);
+      const v = new THREE.Vector3((Math.random()-0.5)*12, (Math.random()-0.5)*12, (Math.random()-0.5)*12);
+      scene.add(p); bursts.push({ mesh: p, vel: v, life: 0.6 });
+    }
+  }
+
+  // ---- 飞行朝向 ----
+  let yaw = 0, pitch = 0;
+  let altitude = 0;                       // 飞机高度（地面会随高度升降）
+  const ALT_RATE = 16, ALT_MIN = -10, ALT_MAX = 80;
+  const flyDir = new THREE.Vector3(0, 0, -1);
+  function updateFlyDir() {
+    const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    flyDir.set(cp * Math.sin(yaw), sp, -cp * Math.cos(yaw)).normalize();
+  }
+  updateFlyDir();
+
+  const rightV = new THREE.Vector3(), upV = new THREE.Vector3(), tmpV = new THREE.Vector3();
+  const WORLD_UP = new THREE.Vector3(0, 1, 0);
+
+  let stars = [], fruits = [], clouds = [], stormClouds = [], bgClouds = [];
+  const SPAWN_DIST = 80, RECYCLE = -14;
+
+  function spawnPos(n, dist, spread) {
+    rightV.crossVectors(n, WORLD_UP).normalize();
+    upV.crossVectors(rightV, n).normalize();
+    const p = n.clone().multiplyScalar(dist);
+    p.addScaledVector(rightV, (Math.random() - 0.5) * spread);
+    p.addScaledVector(upV, (Math.random() - 0.5) * spread);
+    return p;
+  }
+
+  function rand(a, b) { return Math.random() * (b - a) + a; }
+  function speedScale() { return 1 + Math.min(score / 60, 1.3); }
+
+  let running = false, score = 0, last = 0, spawnStar = 0, spawnCloud = 0, spawnFruit = 0, spawnStorm = 0;
+  let missiles = [], missileCooldown = 0;
+  let elapsed = 0, nextQuiz = 300, quizOpen = false, quizCorrect = 0;
+
+  // ---- 输入：往哪滑就往哪飞（顺向）----
+  let dragging = false, lastX = 0, lastY = 0;
+  function onDown(x, y) { dragging = true; lastX = x; lastY = y; }
+  function onMove(x, y) {
+    if (!dragging) return;
+    const dx = x - lastX, dy = y - lastY; lastX = x; lastY = y;
+    yaw += dx * 0.005;                 // 向右滑 → 向右转
+    pitch = Math.max(-1.35, Math.min(1.35, pitch - dy * 0.005)); // 向上滑(dy<0) → 抬头看天
+    updateFlyDir();
+  }
+  function onUp() { dragging = false; }
+
+  cv.addEventListener('mousedown', e => onDown(e.clientX, e.clientY));
+  cv.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
+  window.addEventListener('mouseup', onUp);
+  cv.addEventListener('touchstart', e => { e.preventDefault(); onDown(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+  cv.addEventListener('touchmove', e => { e.preventDefault(); onMove(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+  cv.addEventListener('touchend', onUp);
+
+  // ---- 陀螺仪控制（旋转/倾斜手机转向）----
+  let gyroOn = false, gyroBaseBeta = null, gyroBaseGamma = null, gyroBeta = 0, gyroGamma = 0;
+  const gyroBtn = document.getElementById('gyroBtn');
+  const gyroState = document.getElementById('gyroState');
+
+  function onOrient(e) {
+    let beta = e.beta || 0, gamma = e.gamma || 0;   // beta:前后倾斜, gamma:左右倾斜
+    const o = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+    if (o === 90) { const t = beta; beta = -gamma; gamma = t; }
+    else if (o === -90 || o === 270) { const t = beta; beta = gamma; gamma = -t; }
+    else if (o === 180) { beta = -beta; gamma = -gamma; }
+    gyroBeta = beta; gyroGamma = gamma;
+    if (gyroBaseBeta === null) { gyroBaseBeta = beta; gyroBaseGamma = gamma; }  // 以开启瞬间为中性位
+  }
+  function applyGyro() {
+    const dy = (gyroGamma - gyroBaseGamma) * 0.02;   // 左右倾斜 → 左右转
+    const dx = (gyroBaseBeta - gyroBeta) * 0.02;     // 前后倾斜 → 抬头/低头
+    yaw = dy;
+    pitch = Math.max(-1.35, Math.min(1.35, dx));
+    updateFlyDir();
+  }
+  async function enableGyro() {
+    try {
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        const r = await DeviceOrientationEvent.requestPermission();
+        if (r !== 'granted') { popText(W/2, H/2, '未允许陀螺仪', '#FF7043'); return; }
+      }
+      if (!('DeviceOrientationEvent' in window)) { popText(W/2, H/2, '此设备不支持', '#FF7043'); return; }
+      gyroBaseBeta = null; gyroBaseGamma = null;
+      window.addEventListener('deviceorientation', onOrient);
+      gyroOn = true; gyroBtn.classList.add('active'); gyroState.textContent = '开';
+      popText(W/2, H/2, '陀螺仪开！转手机转向 📱', '#7E57C2');
+    } catch (e) { popText(W/2, H/2, '陀螺仪打开失败', '#FF7043'); }
+  }
+  function disableGyro() {
+    gyroOn = false; window.removeEventListener('deviceorientation', onOrient);
+    gyroBtn.classList.remove('active'); gyroState.textContent = '关';
+  }
+  gyroBtn.addEventListener('click', () => {
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    gyroOn ? disableGyro() : enableGyro();
+  });
+
+  const keys = {};
+  window.addEventListener('keydown', e => { if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault(); keys[e.key.toLowerCase()] = true; });
+  window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+  const _v = new THREE.Vector3();
+  function toScreen(x, y, z) { _v.set(x, y, z).project(camera); return { x: (_v.x*0.5+0.5)*W, y: (-_v.y*0.5+0.5)*H }; }
+  function popText(x, y, txt, color) {
+    const el = document.createElement('div');
+    el.className = 'pop'; el.textContent = txt; el.style.color = color;
+    el.style.left = x + 'px'; el.style.top = y + 'px'; popLayer.appendChild(el);
+    requestAnimationFrame(() => { el.style.top = (y - 70) + 'px'; el.style.opacity = '0'; });
+    setTimeout(() => el.remove(), 950);
+  }
+
+  let audioCtx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = type || 'sine'; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.18, audioCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(); o.stop(audioCtx.currentTime + dur);
+    } catch (e) {}
+  }
+  // 真实导弹发射音效：点火低频轰鸣 + 呼啸飞出的气流声
+  let _noiseBuf = null;
+  function noiseBuffer() {
+    if (_noiseBuf) return _noiseBuf;
+    const len = Math.floor(audioCtx.sampleRate * 1.2);
+    const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    _noiseBuf = buf; return buf;
+  }
+  function rocketLaunch() {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const t = audioCtx.currentTime;
+      // 1) 点火低频轰鸣（thump）
+      const o = audioCtx.createOscillator(), og = audioCtx.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(120, t);
+      o.frequency.exponentialRampToValueAtTime(45, t + 0.18);
+      og.gain.setValueAtTime(0.0001, t);
+      og.gain.exponentialRampToValueAtTime(0.5, t + 0.02);
+      og.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+      o.connect(og); og.connect(audioCtx.destination);
+      o.start(t); o.stop(t + 0.3);
+      // 2) 呼啸气流声（带通滤波白噪声，频率上扬后远去）
+      const src = audioCtx.createBufferSource(); src.buffer = noiseBuffer();
+      const bp = audioCtx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.1;
+      bp.frequency.setValueAtTime(450, t);
+      bp.frequency.exponentialRampToValueAtTime(2200, t + 0.35);
+      bp.frequency.exponentialRampToValueAtTime(650, t + 0.9);
+      const ng = audioCtx.createGain();
+      ng.gain.setValueAtTime(0.0001, t);
+      ng.gain.exponentialRampToValueAtTime(0.4, t + 0.06);
+      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.95);
+      src.connect(bp); bp.connect(ng); ng.connect(audioCtx.destination);
+      src.start(t); src.stop(t + 1.0);
+    } catch (e) {}
+  }
+  // 技能消耗积分：积分不足返回 false 并提示
+  function spend(cost, label) {
+    if (score < cost) {
+      popText(W/2, H/2, '积分不够啦~', '#FF7043');
+      beep(160, 0.18, 'sawtooth');
+      return false;
+    }
+    score -= cost; scoreEl.textContent = '⭐ ' + score;
+    return true;
+  }
+
+  function reset() {
+    score = 0; scoreEl.textContent = '⭐ 0';
+    yaw = 0; pitch = 0; updateFlyDir();
+    [stars, fruits, clouds, stormClouds, bgClouds, missiles].forEach(arr => arr.forEach(o => scene.remove(o.mesh)));
+    stars = []; fruits = []; clouds = []; stormClouds = []; bgClouds = []; missiles = []; spawnStar = 0; spawnCloud = 0; spawnFruit = 0; spawnStorm = 0; missileCooldown = 0;
+    elapsed = 0; nextQuiz = 300; quizOpen = false; quizScreen.classList.add('hidden');
+    stealthActive = false; stealthTimer = 0; stealthCooldown = 0;
+    shield.visible = false; setPlaneOpacity(1);
+    stealthBtn.classList.remove('active', 'cooling'); stealthState.textContent = '就绪';
+    boostActive = false; boostTimer = 0; boostCooldown = 0; boostBtn.classList.remove('active', 'cooling'); boostState.textContent = '就绪';
+    groundInited = false; altitude = 0; if (groundGroup) groundGroup.position.y = 0;
+    monsters.forEach(mo => groundGroup && groundGroup.remove(mo.mesh)); monsters = [];
+    for (let i = 0; i < 8; i++) spawnMonsterAhead();   // 重新布置地面小怪物
+    missileCooldown = 0; missileBtn.classList.remove('active'); missileState.textContent = '就绪';
+    gyroBaseBeta = null; gyroBaseGamma = null;   // 重新开始时以当前手机姿态重新校准
+    // 背景云分布到整个 360° 球面，上下左右任何方向都有云朵
+    for (let i = 0; i < 48; i++) { bgAdd(randDir(rand(70, 195))); }
+  }
+
+  // 随机方向（球面均匀分布）单位向量 × 半径
+  function randDir(r) {
+    const u = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2, s = Math.sqrt(1 - u * u);
+    return new THREE.Vector3(s * Math.cos(th), u * 0.8, s * Math.sin(th)).multiplyScalar(r);
+  }
+
+  function bgAdd(p) {
+    const s = makeCloud(); s.scale.setScalar(2 + Math.random()*2);
+    s.position.copy(p); scene.add(s); bgClouds.push({ mesh: s, n: flyDir.clone() });
+  }
+
+  // ---- 隐身技能 ----
+  const STEALTH_DUR = 2.5, STEALTH_CD = 0.6, STEALTH_COST = 2;
+  let stealthActive = false, stealthTimer = 0, stealthCooldown = 0;
+  const stealthBtn = document.getElementById('stealthBtn');
+  const stealthState = document.getElementById('stealthState');
+
+  function setPlaneOpacity(o) {
+    plane.traverse(c => {
+      if (c.isMesh && c.material && !c.userData.keepBright) {
+        c.material.transparent = o < 1;
+        c.material.opacity = o;
+      }
+    });
+  }
+  function activateStealth() {
+    if (stealthActive || stealthCooldown > 0) return;
+    if (!spend(STEALTH_COST, '隐身')) return;
+    stealthActive = true; stealthTimer = STEALTH_DUR; stealthCooldown = STEALTH_DUR + STEALTH_CD;
+    shield.visible = true; setPlaneOpacity(0.32);
+    stealthBtn.classList.add('active');
+    beep(520, 0.12, 'sine'); setTimeout(() => beep(780, 0.14, 'sine'), 110);
+    speak('隐身启动');
+  }
+  function updateStealth(dt) {
+    if (stealthActive) {
+      stealthTimer -= dt;
+      stealthState.textContent = '中 ' + stealthTimer.toFixed(1) + 's';
+      if (stealthTimer <= 0) {
+        stealthActive = false; shield.visible = false; setPlaneOpacity(1);
+        stealthBtn.classList.remove('active'); stealthBtn.classList.add('cooling');
+      }
+    } else if (stealthCooldown > 0) {
+      stealthCooldown -= dt;
+      stealthState.textContent = '冷却 ' + Math.max(0, stealthCooldown).toFixed(1) + 's';
+      if (stealthCooldown <= 0) {
+        stealthCooldown = 0; stealthBtn.classList.remove('cooling');
+        stealthState.textContent = '就绪';
+      }
+    }
+  }
+  stealthBtn.addEventListener('click', () => { if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); activateStealth(); });
+  // 空格键也可触发
+  window.addEventListener('keydown', e => { if (e.key === ' ') { e.preventDefault(); activateStealth(); } });
+
+  // ---- 加速功能 ----
+  const BOOST_DUR = 3, BOOST_CD = 0.6, BOOST_COST = 2, BOOST_MULT = 2.0;
+  let boostActive = false, boostTimer = 0, boostCooldown = 0;
+  const boostBtn = document.getElementById('boostBtn');
+  const boostState = document.getElementById('boostState');
+
+  function activateBoost() {
+    if (boostActive || boostCooldown > 0) return;
+    if (!spend(BOOST_COST, '加速')) return;
+    boostActive = true; boostTimer = BOOST_DUR;
+    boostBtn.classList.add('active'); boostBtn.classList.remove('cooling'); boostState.textContent = '加速中';
+    beep(300, 0.1, 'sawtooth'); setTimeout(() => beep(700, 0.12, 'sawtooth'), 80);
+    speak('加速');
+  }
+  function updateBoost(dt) {
+    if (boostActive) {
+      boostTimer -= dt;
+      boostState.textContent = '中 ' + boostTimer.toFixed(1) + 's';
+      if (boostTimer <= 0) {
+        boostActive = false; boostCooldown = BOOST_CD;
+        boostBtn.classList.remove('active'); boostBtn.classList.add('cooling');
+        boostState.textContent = '冷却 ' + boostCooldown.toFixed(1) + 's';
+      }
+    } else if (boostCooldown > 0) {
+      boostCooldown -= dt;
+      if (boostCooldown <= 0) { boostCooldown = 0; boostBtn.classList.remove('cooling'); boostState.textContent = '就绪'; }
+      else boostState.textContent = '冷却 ' + boostCooldown.toFixed(1) + 's';
+    }
+  }
+  boostBtn.addEventListener('click', () => { if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); activateBoost(); });
+  // B 键也可加速
+  window.addEventListener('keydown', e => { if (e.key === 'b' || e.key === 'B') activateBoost(); });
+
+  // ---- 发射导弹 ----
+  const MISSILE_CD = 1.0;      // 冷却时间（秒）
+  const MISSILE_COST = 1;      // 发射消耗积分
+  const missileBtn = document.getElementById('missileBtn');
+  const missileState = document.getElementById('missileState');
+
+  function makeMissile() {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 1.2, 12), new THREE.MeshStandardMaterial({ color: 0xECEFF1, metalness: 0.8, roughness: 0.3 }));
+    body.rotation.x = Math.PI / 2; g.add(body);
+    const head = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.5, 12), new THREE.MeshStandardMaterial({ color: 0xFF5252, emissive: 0xB71C1C, emissiveIntensity: 0.6 }));
+    head.rotation.x = -Math.PI / 2; head.position.z = -0.85; g.add(head);
+    const tail = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.7, 12), new THREE.MeshBasicMaterial({ color: 0xFFB300 }));
+    tail.rotation.x = Math.PI / 2; tail.position.z = 0.85; g.add(tail);
+    tail.userData.keepBright = true;
+    return g;
+  }
+  function fireMissile() {
+    if (!running || missileCooldown > 0) return;
+    if (!spend(MISSILE_COST, '导弹')) return;
+    missileCooldown = MISSILE_CD;
+    missileBtn.classList.add('active');
+    const dir = flyDir.clone().normalize();
+    const m = makeMissile();
+    m.position.copy(dir).multiplyScalar(4);   // 从机头前方一点射出
+    m.lookAt(m.position.clone().add(dir));     // 机头朝飞行方向
+    scene.add(m);
+    missiles.push({ mesh: m, dir: dir, dist: 0 });
+    // 发射音效：真实导弹发射声（点火轰鸣 + 呼啸）
+    rocketLaunch();
+  }
+  function updateMissiles(dt) {
+    if (missileCooldown > 0) {
+      missileCooldown -= dt;
+      missileState.textContent = '装填 ' + missileCooldown.toFixed(1) + 's';
+      if (missileCooldown <= 0) { missileBtn.classList.remove('active'); missileState.textContent = '就绪'; }
+    }
+    const SPD = 90;
+    for (let i = missiles.length - 1; i >= 0; i--) {
+      const m = missiles[i];
+      const step = SPD * dt;
+      m.mesh.position.addScaledVector(m.dir, step);
+      m.dist += step;
+      // 与乌云 / 闪电乌云碰撞 → 摧毁并加分
+      let hit = false;
+      const check = (arr, pts) => {
+        for (let j = arr.length - 1; j >= 0; j--) {
+          if (arr[j].p.distanceTo(m.mesh.position) < 3.0) {
+            boom(arr[j].p.clone()); scene.remove(arr[j].mesh); arr.splice(j, 1);
+            score += pts; scoreEl.textContent = '⭐ ' + score;
+            popText(W/2, H/2, '击中! +' + pts, '#FF7043'); hit = true;
+          }
+        }
+      };
+      check(clouds, 2); check(stormClouds, 3);
+      // 与地面怪物碰撞（怪物在 groundGroup 内，世界 Y 需叠加 -altitude，且取身体中心）
+      const MON_Y = GY + 3.4;
+      for (let j = monsters.length - 1; j >= 0; j--) {
+        const mo = monsters[j];
+        const wx = mo.mesh.position.x;
+        const wy = MON_Y + mo.mesh.position.y - altitude;
+        const wz = mo.mesh.position.z;
+        const dx = m.mesh.position.x - wx, dy = m.mesh.position.y - wy, dz = m.mesh.position.z - wz;
+        if (dx * dx + dy * dy + dz * dz < 64) {
+          boom(new THREE.Vector3(wx, wy, wz)); groundGroup.remove(mo.mesh); monsters.splice(j, 1);
+          score += 5; scoreEl.textContent = '⭐ ' + score;
+          popText(W / 2, H / 2, '击败怪物! +5 💥', '#AB47BC');
+          beep(160, 0.3, 'sawtooth'); beep(520, 0.14, 'square');
+          makeBurst(wx, wy, wz, 0xAB47BC);
+          hit = true;
+        }
+      }
+      if (hit) { scene.remove(m.mesh); missiles.splice(i, 1); continue; }
+      if (m.dist > 120) { scene.remove(m.mesh); missiles.splice(i, 1); }
+    }
+  }
+  function boom(pos) {
+    const ex = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 16), new THREE.MeshBasicMaterial({ color: 0xFFCA28, transparent: true, opacity: 0.9 }));
+    ex.position.copy(pos); scene.add(ex);
+    let r = 0.6;
+    const anim = () => {
+      r += 6 * 0.05; ex.scale.setScalar(r); ex.material.opacity -= 0.06;
+      if (ex.material.opacity <= 0) { scene.remove(ex); return; }
+      requestAnimationFrame(anim);
+    };
+    anim();
+    beep(120, 0.25, 'sawtooth'); beep(400, 0.12, 'square');
+  }
+
+  // ---- 地面小怪物（可用导弹击败得分）----
+  function makeMonster() {
+    const g = new THREE.Group();
+    const cols = [0x66BB6A, 0xAB47BC, 0xFF7043, 0x42A5F5, 0xFFEE58, 0xEC407A];
+    const col = cols[(Math.random() * cols.length) | 0];
+    const bodyMat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.55 });
+    const body = new THREE.Mesh(new THREE.SphereGeometry(3.2, 18, 18), bodyMat);
+    body.scale.set(1, 1.12, 1); body.position.y = GY + 3.4; g.add(body);
+    // 脚
+    const legMat = new THREE.MeshStandardMaterial({ color: 0x37474F });
+    [-1.3, 1.3].forEach(x => {
+      const l = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 2, 10), legMat); l.position.set(x, GY + 1.0, 0); g.add(l);
+      const f = new THREE.Mesh(new THREE.SphereGeometry(0.9, 10, 10), legMat); f.position.set(x, GY + 0.2, 0); g.add(f);
+    });
+    // 眼睛（朝 +z 面向玩家）
+    const eyeW = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    const eyeB = new THREE.MeshStandardMaterial({ color: 0x212121 });
+    [-1.2, 1.2].forEach(x => {
+      const e = new THREE.Mesh(new THREE.SphereGeometry(0.9, 14, 14), eyeW); e.position.set(x, GY + 4.3, 2.6); g.add(e);
+      const p = new THREE.Mesh(new THREE.SphereGeometry(0.44, 12, 12), eyeB); p.position.set(x, GY + 4.3, 3.3); g.add(p);
+    });
+    // 微笑的嘴
+    const mouth = new THREE.Mesh(new THREE.TorusGeometry(1.0, 0.22, 8, 16, Math.PI), new THREE.MeshStandardMaterial({ color: 0x5D4037 }));
+    mouth.position.set(0, GY + 2.6, 2.7); mouth.rotation.set(Math.PI, 0, 0); g.add(mouth);
+    // 头顶小角
+    const hornMat = new THREE.MeshStandardMaterial({ color: 0xFFF176 });
+    [-0.9, 0.9].forEach(x => { const h = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.4, 10), hornMat); h.position.set(x, GY + 6.2, 0); g.add(h); });
+    g.userData.bob = Math.random() * Math.PI * 2;
+    return g;
+  }
+  function spawnMonsterAhead() {
+    if (!groundGroup) return;
+    const { dir, right } = groundHorizDir();
+    const f = 65 + Math.random() * 65, s = (Math.random() - 0.5) * GROUND_SPREAD;
+    const g = makeMonster();
+    g.position.set(dir.x * f + right.x * s, 0, dir.z * f + right.z * s);
+    groundGroup.add(g);
+    monsters.push({ mesh: g });
+  }
+  function updateMonsters(dt) {
+    const spd = 22 * speedScale() * (boostActive ? BOOST_MULT : 1);
+    const { dir, right } = groundHorizDir();
+    for (let i = monsters.length - 1; i >= 0; i--) {
+      const mo = monsters[i];
+      mo.mesh.position.addScaledVector(dir, -spd * dt);
+      mo.mesh.rotation.y += dt * 0.4;
+      mo.mesh.userData.bob += dt * 4;
+      mo.mesh.position.y = Math.abs(Math.sin(mo.mesh.userData.bob)) * 1.6;   // 一蹦一蹦
+      const along = mo.mesh.position.x * dir.x + mo.mesh.position.z * dir.z;
+      if (along < GROUND_RECYCLE) {
+        const f = 70 + Math.random() * 60, s = (Math.random() - 0.5) * GROUND_SPREAD;
+        mo.mesh.position.set(dir.x * f + right.x * s, 0, dir.z * f + right.z * s);
+      }
+    }
+  }
+  missileBtn.addEventListener('click', () => { if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); fireMissile(); });
+  // J 键也可发射
+  window.addEventListener('keydown', e => { if (e.key === 'j' || e.key === 'J') fireMissile(); });
+
+  // ---- 算术题弹窗 ----
+  const quizScreen = document.getElementById('quizScreen');
+  const quizQ = document.getElementById('quizQ');
+  const quizOpts = document.getElementById('quizOpts');
+  const quizMsg = document.getElementById('quizMsg');
+
+  function speak(text) {
+    try {
+      if (!window.speechSynthesis) return;
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'zh-CN'; u.rate = 0.95; u.pitch = 1.2;
+      window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+  function happyChime() {
+    beep(660, 0.14, 'sine'); setTimeout(() => beep(880, 0.14, 'sine'), 130);
+    setTimeout(() => beep(1320, 0.22, 'triangle'), 260);
+  }
+  function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+  function openQuiz() {
+    quizOpen = true;
+    // 十以内的加法：a,b 在 1..9 且 a+b<=10
+    let a, b;
+    do { a = 1 + ((Math.random() * 9) | 0); b = 1 + ((Math.random() * 9) | 0); } while (a + b > 10);
+    quizCorrect = a + b;
+    quizQ.textContent = a + ' + ' + b + ' = ?';
+    quizMsg.textContent = ''; quizMsg.style.color = '#4a7ab0';
+    // 选项：正确答案 + 3 个干扰项
+    const opts = [quizCorrect];
+    while (opts.length < 4) {
+      const w = (Math.random() * 11) | 0;
+      if (w !== quizCorrect && !opts.includes(w)) opts.push(w);
+    }
+    shuffle(opts);
+    quizOpts.innerHTML = '';
+    opts.forEach((v, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'qbtn c' + i;
+      btn.textContent = v;
+      btn.addEventListener('click', () => checkAnswer(v, btn));
+      quizOpts.appendChild(btn);
+    });
+    quizScreen.classList.remove('hidden');
+    speak('来做一道加法题吧，' + a + '加' + b + '等于多少');
+  }
+
+  function checkAnswer(val, btn) {
+    if (val === quizCorrect) {
+      score += 5; scoreEl.textContent = '⭐ ' + score;
+      quizMsg.style.color = '#2E7D32';
+      quizMsg.textContent = '✅ 正确！太棒啦，奖励 +5 分 🎉';
+      happyChime(); speak('你真棒，加五分！');
+      Array.from(quizOpts.children).forEach(b => b.disabled = true);
+      setTimeout(closeQuiz, 1400);
+    } else {
+      score = Math.max(0, score - 1); scoreEl.textContent = '⭐ ' + score;
+      quizMsg.style.color = '#EF6C00';
+      quizMsg.textContent = '❌ 不对哦，再想想，加油！';
+      btn.classList.remove('shake'); void btn.offsetWidth; btn.classList.add('shake');
+      beep(240, 0.18, 'sine'); speak('加油，再试一次');
+    }
+  }
+
+  function closeQuiz() {
+    quizOpen = false;
+    quizScreen.classList.add('hidden');
+  }
+
+  function start() {
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    reset();
+    endScreen.classList.add('hidden');
+    running = true; last = performance.now(); requestAnimationFrame(loop);
+  }
+
+  function loop(now) {
+    if (!running) return;
+    const dt = Math.min((now - last) / 1000, 0.05); last = now;
+    if (!quizOpen && !helpOpen) {
+      elapsed += dt;
+      if (elapsed >= nextQuiz) { nextQuiz += 300; openQuiz(); }
+    }
+    if (!quizOpen && !helpOpen) { update(dt); updateStealth(dt); updateBoost(dt); updateMissiles(dt); updateGround(dt); updateMonsters(dt); }
+    renderer.render(scene, camera); requestAnimationFrame(loop);
+  }
+
+  function update(dt) {
+    if (gyroOn) applyGyro();   // 陀螺仪开启时由手机姿态控制方向
+    const kt = 1.6 * dt;
+    if (!gyroOn) {
+      if (keys['arrowleft'] || keys['a']) yaw -= kt;
+      if (keys['arrowright'] || keys['d']) yaw += kt;
+      if (keys['arrowup'] || keys['w']) pitch = Math.min(1.35, pitch + kt);
+      if (keys['arrowdown'] || keys['s']) pitch = Math.max(-1.35, pitch - kt);
+      if (keys['arrowleft']||keys['arrowright']||keys['arrowup']||keys['arrowdown']||keys['a']||keys['d']||keys['w']||keys['s']) updateFlyDir();
+    }
+
+    plane.lookAt(tmpV.copy(flyDir).multiplyScalar(-10));
+    camera.position.copy(flyDir).multiplyScalar(-10); camera.position.y += 3.5;
+    camera.lookAt(0, 0, 0);
+
+    // 高度变化：机头朝上就爬升、朝下就俯冲，松手保持当前高度
+    // 地面景观随之整体升降，于是往上飞看得到辽阔大地、往下俯冲能贴近城市森林
+    altitude += pitch * ALT_RATE * dt;
+    altitude = Math.max(ALT_MIN, Math.min(ALT_MAX, altitude));
+    if (groundGroup) groundGroup.position.y = -altitude;
+
+    // 天空云 / 高空云缓慢环绕漂移，让画面始终在变化
+    const skyRot = dt * 0.04;
+    bgClouds.forEach(b => { b.mesh.position.applyAxisAngle(WORLD_UP, skyRot); b.mesh.rotation.y += dt * 0.1; });
+    highClouds.forEach(h => { h.mesh.position.applyAxisAngle(WORLD_UP, -skyRot * 0.6); h.mesh.rotation.y += dt * 0.05; });
+
+    // 霓虹辉光脉动 + 尾焰闪烁
+    const t = performance.now() / 1000;
+    if (plane.userData.glows) plane.userData.glows.forEach((m, i) => { m.emissiveIntensity = 1.4 + Math.sin(t * 3 + i) * 0.7; });
+    if (plane.userData.flames) plane.userData.flames.forEach(f => {
+      const fl = 0.8 + Math.sin(t * 18) * 0.25 + Math.random() * 0.1;
+      const burst = boostActive ? 2.6 : 1;           // 加速时喷筒爆发拉长
+      f.core.scale.set(boostActive ? 1.3 : 1, fl * burst, boostActive ? 1.3 : 1);
+      f.out.scale.set(boostActive ? 1.4 : 1, fl * burst * 1.1, boostActive ? 1.4 : 1);
+      f.out.material.opacity = (boostActive ? 0.9 : 0.55) + Math.random() * 0.2;
+      if (boostActive) f.out.material.color.setHex(0x80F7FF);
+    });
+
+    const sc = speedScale();
+    const spd = 22 * sc * (boostActive ? BOOST_MULT : 1);
+
+    spawnStar -= dt;
+    if (spawnStar <= 0) {
+      spawnStar = rand(0.35, 0.6) / sc;
+      const m = makeStar(); const p = spawnPos(flyDir, 55, 13);
+      m.position.copy(p); scene.add(m);
+      stars.push({ mesh: m, p: p, n: flyDir.clone() });
+    }
+    spawnFruit -= dt;
+    if (spawnFruit <= 0) {
+      spawnFruit = rand(0.7, 1.1) / sc;
+      const m = makeFruit(); const p = spawnPos(flyDir, 60, 15);
+      m.position.copy(p); scene.add(m);
+      fruits.push({ mesh: m, p: p, n: flyDir.clone() });
+    }
+    spawnCloud -= dt;
+    if (spawnCloud <= 0) {
+      spawnCloud = rand(1.2, 2.2) / sc;
+      const m = makeCloud(); const p = spawnPos(flyDir, SPAWN_DIST, 30);
+      m.position.copy(p); scene.add(m);
+      clouds.push({ mesh: m, p: p, n: flyDir.clone(), hit: false });
+    }
+    spawnStorm -= dt;
+    if (spawnStorm <= 0) {
+      spawnStorm = rand(3.0, 5.0) / sc;
+      const m = makeStormCloud(); const p = spawnPos(flyDir, SPAWN_DIST, 30);
+      m.position.copy(p); scene.add(m);
+      stormClouds.push({ mesh: m, p: p, n: flyDir.clone(), hit: false, charge: rand(1.6, 2.6), lightning: false, lTimer: 0, zapped: false });
+    }
+
+    for (let i = stars.length - 1; i >= 0; i--) {
+      const s = stars[i];
+      s.p.addScaledVector(s.n, -spd * dt); s.mesh.position.copy(s.p);
+      s.mesh.rotation.y += dt * 2.5; s.mesh.rotation.z += dt * 1.5;
+      if (s.p.dot(s.n) < RECYCLE) { scene.remove(s.mesh); stars.splice(i, 1); continue; }
+      if (s.p.length() < 4.5) {
+        const along = s.p.dot(s.n);
+        tmpV.copy(s.n).multiplyScalar(along); const perp = tmpV.copy(s.p).sub(tmpV).length();
+        if (perp < 2.2) {
+          score += 1; scoreEl.textContent = '⭐ ' + score;
+          beep(880 + Math.min(score, 12) * 30, 0.12, 'triangle');
+          makeBurst(s.p.x, s.p.y, s.p.z, s.mesh.material.color.getHex());
+          const sc2 = toScreen(s.p.x, s.p.y, s.p.z);
+          if (score % 5 === 0) { popText(sc2.x, sc2.y, '好棒!', '#FB8C00'); beep(1320, 0.18, 'sine'); }
+          scene.remove(s.mesh); stars.splice(i, 1);
+        }
+      }
+    }
+
+    for (let i = fruits.length - 1; i >= 0; i--) {
+      const f = fruits[i];
+      f.p.addScaledVector(f.n, -spd * dt); f.mesh.position.copy(f.p);
+      f.mesh.rotation.y += dt * 1.5; f.mesh.rotation.x += dt * 0.8;
+      if (f.p.dot(f.n) < RECYCLE) { scene.remove(f.mesh); fruits.splice(i, 1); continue; }
+      if (f.p.length() < 4.6) {
+        const along = f.p.dot(f.n);
+        tmpV.copy(f.n).multiplyScalar(along); const perp = tmpV.copy(f.p).sub(tmpV).length();
+        if (perp < 2.5) {
+          const pts = f.mesh.userData.points;
+          score += pts; scoreEl.textContent = '⭐ ' + score;
+          beep(1040, 0.14, 'triangle');
+          makeBurst(f.p.x, f.p.y, f.p.z, f.mesh.userData.color);
+          const sc2 = toScreen(f.p.x, f.p.y, f.p.z);
+          popText(sc2.x, sc2.y, '+' + pts + ' 🍎', '#E53935'); beep(1560, 0.16, 'sine');
+          scene.remove(f.mesh); fruits.splice(i, 1);
+        }
+      }
+    }
+
+    for (let i = clouds.length - 1; i >= 0; i--) {
+      const c = clouds[i];
+      c.p.addScaledVector(c.n, -spd * 0.8 * dt); c.mesh.position.copy(c.p); c.mesh.rotation.z += dt * 0.2;
+      if (c.p.dot(c.n) < RECYCLE) { scene.remove(c.mesh); clouds.splice(i, 1); continue; }
+      if (!c.hit && c.p.length() < 4.5) {
+        const along = c.p.dot(c.n);
+        tmpV.copy(c.n).multiplyScalar(along); const perp = tmpV.copy(c.p).sub(tmpV).length();
+        if (perp < 2.4) {
+          c.hit = true;
+          const sc2 = toScreen(0, 0, 0);
+          if (stealthActive) { popText(sc2.x, sc2.y, '穿过去!', '#00ACC1'); }
+          else { score = Math.max(0, score - 1); scoreEl.textContent = '⭐ ' + score; popText(sc2.x, sc2.y, '哎呀~', '#78909C'); beep(200, 0.2, 'sawtooth'); }
+        }
+      }
+    }
+
+    for (let i = stormClouds.length - 1; i >= 0; i--) {
+      const c = stormClouds[i];
+      c.p.addScaledVector(c.n, -spd * 0.7 * dt); c.mesh.position.copy(c.p); c.mesh.rotation.z += dt * 0.2;
+      if (c.p.dot(c.n) < RECYCLE) { scene.remove(c.mesh); stormClouds.splice(i, 1); continue; }
+      const dist = c.p.length();
+      // 接近时开始蓄电、放电
+      if (dist < 12) {
+        if (!c.lightning) {
+          c.charge -= dt;
+          if (c.charge <= 0) { c.lightning = true; c.lTimer = 0.5; c.zapped = false; c.charge = rand(1.6, 2.8); c.mesh.userData.bolt.visible = true; }
+        } else {
+          c.lTimer -= dt;
+          c.mesh.userData.bolt.visible = Math.random() > 0.18; // 噼啪闪烁
+          if (c.lTimer <= 0) { c.lightning = false; c.mesh.userData.bolt.visible = false; }
+          if (c.lightning && !c.zapped && dist < 5.2) {
+            tmpV.copy(c.n).multiplyScalar(c.p.dot(c.n)); const perp = tmpV.copy(c.p).sub(tmpV).length();
+            if (perp < 2.8) {
+              c.zapped = true;
+              const sc2 = toScreen(0, 0, 0);
+              if (stealthActive) { popText(sc2.x, sc2.y, '挡住啦!', '#00ACC1'); }
+              else { score = Math.max(0, score - 2); scoreEl.textContent = '⭐ ' + score; popText(sc2.x, sc2.y, '⚡闪电!', '#F44336'); beep(130, 0.18, 'sawtooth'); beep(900, 0.08, 'square'); }
+            }
+          }
+        }
+      }
+      // 撞到乌云本体也扣分（隐身时免疫）
+      if (!c.hit && dist < 4.5) {
+        tmpV.copy(c.n).multiplyScalar(c.p.dot(c.n)); const perp = tmpV.copy(c.p).sub(tmpV).length();
+        if (perp < 2.4) {
+          c.hit = true; const sc2 = toScreen(0, 0, 0);
+          if (stealthActive) { popText(sc2.x, sc2.y, '穿过去!', '#00ACC1'); }
+          else { score = Math.max(0, score - 1); scoreEl.textContent = '⭐ ' + score; popText(sc2.x, sc2.y, '哎呀~', '#607D8B'); beep(200, 0.2, 'sawtooth'); }
+        }
+      }
+    }
+
+    for (let i = bgClouds.length - 1; i >= 0; i--) {
+      const b = bgClouds[i];
+      b.mesh.position.addScaledVector(b.n, -10 * dt);
+      if (b.mesh.position.dot(b.n) < RECYCLE) { scene.remove(b.mesh); bgClouds.splice(i, 1); bgAdd(spawnPos(flyDir, SPAWN_DIST + 40, 110)); }
+    }
+    for (let i = bursts.length - 1; i >= 0; i--) {
+      const b = bursts[i];
+      b.mesh.position.addScaledVector(b.vel, dt); b.life -= dt;
+      b.mesh.scale.setScalar(Math.max(0.01, b.life / 0.6));
+      if (b.life <= 0) { scene.remove(b.mesh); bursts.splice(i, 1); }
+    }
+  }
+
+  function onResize() {
+    W = window.innerWidth; H = window.innerHeight;
+    camera.aspect = W / H; camera.updateProjectionMatrix();
+    renderer.setSize(W, H, false);
+  }
+  window.addEventListener('resize', onResize);
+
+  // ---- 帮助面板（? 按钮）----
+  const helpBtn = document.getElementById('helpBtn');
+  const helpScreen = document.getElementById('helpScreen');
+  const helpClose = document.getElementById('helpClose');
+  let helpOpen = false;
+  function openHelp() { helpOpen = true; helpScreen.classList.add('show'); }
+  function closeHelp() { helpOpen = false; helpScreen.classList.remove('show'); }
+  helpBtn.addEventListener('click', () => { if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); helpOpen ? closeHelp() : openHelp(); });
+  helpClose.addEventListener('click', closeHelp);
+
+  // 默认进入直接开始游戏
+  againBtn.addEventListener('click', start);
+  start();
+  plane.lookAt(0, 0, 10); camera.position.set(0, 3.5, 10); camera.lookAt(0, 0, 0);
+  renderer.render(scene, camera);
+})();
+</script>
+</body>
+</html>
