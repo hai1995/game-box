@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#fff6e5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="游戏盒子">
+<meta name="description" content="小朋友的游戏盒子，点开就能玩！">
+<title>🎮 游戏盒子</title>
+<style>
+  :root {
+    --ink: #3b2f2f;
+    --sub: #8b7d7d;
+    --card: #ffffff;
+    --radius: 28px;
+    --shadow: 0 12px 30px rgba(120, 90, 90, .14);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    color: var(--ink);
+    background: linear-gradient(160deg, #fff6e5 0%, #ffeaf1 55%, #e9f4ff 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* 背景漂浮装饰 */
+  .floaties { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+  .floaties span { position: absolute; font-size: 30px; opacity: .35; animation: drift 9s ease-in-out infinite; }
+  .floaties .f1 { top: 12%; left: 8%;  animation-delay: 0s; }
+  .floaties .f2 { top: 22%; right: 10%; animation-delay: 1.5s; font-size: 24px; }
+  .floaties .f3 { top: 62%; left: 5%;  animation-delay: 3s;   font-size: 22px; }
+  .floaties .f4 { top: 78%; right: 8%; animation-delay: 2.2s; }
+  @keyframes drift {
+    0%, 100% { transform: translateY(0) rotate(-6deg); }
+    50%      { transform: translateY(-16px) rotate(8deg); }
+  }
+
+  .page {
+    position: relative; z-index: 1;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: calc(env(safe-area-inset-top) + 30px) 20px calc(env(safe-area-inset-bottom) + 40px);
+  }
+
+  /* 顶部标题 */
+  .hero { text-align: center; margin-bottom: 30px; animation: rise .6s ease both; }
+  .hero .logo {
+    font-size: 64px; line-height: 1;
+    filter: drop-shadow(0 8px 12px rgba(255, 150, 80, .35));
+    animation: bob 3s ease-in-out infinite;
+  }
+  @keyframes bob {
+    0%, 100% { transform: translateY(0) rotate(-4deg); }
+    50%      { transform: translateY(-8px) rotate(4deg); }
+  }
+  .hero h1 {
+    margin: 12px 0 6px;
+    font-size: clamp(30px, 8vw, 44px);
+    letter-spacing: 2px;
+    background: linear-gradient(90deg, #ff7a59, #ffb03a, #38c6a0);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero p { margin: 0; color: var(--sub); font-size: clamp(14px, 4vw, 17px); }
+
+  /* 游戏网格 */
+  .games {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+  @media (min-width: 700px) {
+    .games { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  }
+
+  /* 游戏卡片 */
+  .card {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    transition: transform .18s ease, box-shadow .18s ease;
+    animation: rise .6s ease both;
+  }
+  .card:nth-child(1) { animation-delay: .08s; }
+  .card:nth-child(2) { animation-delay: .18s; }
+  .card:nth-child(3) { animation-delay: .28s; }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .card:active { transform: scale(.975); }
+  @media (hover: hover) {
+    .card:hover { transform: translateY(-6px); box-shadow: 0 18px 38px rgba(120, 90, 90, .22); }
+  }
+
+  /* 卡片封面 */
+  .cover {
+    position: relative;
+    height: 150px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 72px;
+    overflow: hidden;
+  }
+  .cover::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(120deg, rgba(255,255,255,.35), transparent 45%);
+  }
+  .cover .em { animation: floatEm 3.5s ease-in-out infinite; filter: drop-shadow(0 6px 8px rgba(0,0,0,.18)); }
+  @keyframes floatEm {
+    0%, 100% { transform: translateY(0) rotate(-5deg); }
+    50%      { transform: translateY(-10px) rotate(5deg); }
+  }
+  .cover .mini { position: absolute; font-size: 26px; opacity: .9; }
+  .cover .m1 { top: 22px; left: 26px;  animation: floatEm 4s ease-in-out infinite .4s; }
+  .cover .m2 { bottom: 24px; right: 30px; animation: floatEm 4.5s ease-in-out infinite .9s; }
+
+  .c-flight { background: linear-gradient(135deg, #4facfe 0%, #00c6ff 100%); }
+  .c-hero   { background: linear-gradient(135deg, #ff8a5b 0%, #ffca5b 100%); }
+  .c-train  { background: linear-gradient(135deg, #43c97b 0%, #38d8c0 100%); }
+
+  /* 卡片正文 */
+  .body { padding: 18px 20px 22px; }
+  .title { font-size: 21px; font-weight: 800; margin: 0 0 10px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .tag {
+    font-size: 12px; font-weight: 600;
+    padding: 5px 11px; border-radius: 999px;
+    background: #f2f4f8; color: #6b7a90;
+  }
+  .tag.age { background: #fff1e6; color: #e8863c; }
+  .desc { font-size: 14px; line-height: 1.65; color: #6d6262; margin: 0 0 18px; min-height: 68px; }
+  .play {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    height: 50px; border-radius: 16px;
+    font-size: 17px; font-weight: 800; color: #fff;
+    box-shadow: 0 8px 18px rgba(0,0,0,.12);
+  }
+  .play .arrow { font-size: 20px; transition: transform .18s ease; }
+  @media (hover: hover) {
+    .card:hover .play .arrow { transform: translateX(5px); }
+  }
+  .p-flight { background: linear-gradient(90deg, #38bdf8, #0ea5e9); }
+  .p-hero   { background: linear-gradient(90deg, #fb8b5b, #f97316); }
+  .p-train  { background: linear-gradient(90deg, #34c77b, #1fb894); }
+
+  /* 底部 */
+  footer { text-align: center; margin-top: 34px; color: var(--sub); font-size: 13px; }
+  footer .heart { color: #ff6b81; }
+</style>
+</head>
+<body>
+
+<div class="floaties" aria-hidden="true">
+  <span class="f1">⭐</span>
+  <span class="f2">☁️</span>
+  <span class="f3">🍓</span>
+  <span class="f4">🌟</span>
+</div>
+
+<div class="page">
+  <header class="hero">
+    <div class="logo">🎮</div>
+    <h1>游戏盒子</h1>
+    <p>选一个喜欢的游戏，点开就能玩啦！</p>
+  </header>
+
+  <main class="games">
+
+    <a class="card" href="games/flight-adventure/index.html" aria-label="打开 3D 飞行大冒险">
+      <div class="cover c-flight">
+        <span class="mini m1">⭐</span>
+        <span class="mini m2">🍎</span>
+        <span class="em">✈️</span>
+      </div>
+      <div class="body">
+        <h2 class="title">3D 飞行大冒险</h2>
+        <div class="tags">
+          <span class="tag">3D 飞行</span>
+          <span class="tag">休闲</span>
+          <span class="tag age">6 岁+</span>
+        </div>
+        <p class="desc">驾驶炫酷战机 360° 飞行，滑动或倾斜手机转向，接星星和水果、发射导弹打乌云，还有有趣的算术闯关！</p>
+        <div class="play p-flight">开始飞行 <span class="arrow">→</span></div>
+      </div>
+    </a>
+
+    <a class="card" href="games/little-hero/index.html" aria-label="打开 小英雄打怪兽">
+      <div class="cover c-hero">
+        <span class="mini m1">⚔️</span>
+        <span class="mini m2">👾</span>
+        <span class="em">👑</span>
+      </div>
+      <div class="body">
+        <h2 class="title">小英雄打怪兽</h2>
+        <div class="tags">
+          <span class="tag">动作</span>
+          <span class="tag">冒险</span>
+          <span class="tag age">6 岁+</span>
+        </div>
+        <p class="desc">戴王冠、拿宝剑、长翅膀的小英雄，滑动操控、自动挥剑，在无尽森林里打怪兽，还能点按钮起飞！</p>
+        <div class="play p-hero">开始打怪 <span class="arrow">→</span></div>
+      </div>
+    </a>
+
+    <a class="card" href="games/little-train/index.html" aria-label="打开 小火车呜呜开">
+      <div class="cover c-train">
+        <span class="mini m1">🎈</span>
+        <span class="mini m2">❤️</span>
+        <span class="em">🚂</span>
+      </div>
+      <div class="body">
+        <h2 class="title">小火车呜呜开</h2>
+        <div class="tags">
+          <span class="tag">休闲</span>
+          <span class="tag">音乐</span>
+          <span class="tag age">6 岁+</span>
+        </div>
+        <p class="desc">开着小火车收集星星、爱心和气球，切换三条轨道，鸣笛、加速、放烟花，音效超好玩！</p>
+        <div class="play p-train">开始开车 <span class="arrow">→</span></div>
+      </div>
+    </a>
+
+  </main>
+
+  <footer>
+    用满满的爱制作 <span class="heart">❤</span> · 祝小朋友玩得开心
+  </footer>
+</div>
+
+</body>
+</html>
