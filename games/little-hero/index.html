@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>小英雄打怪兽 👑⚔️</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; height: 100%; overflow: hidden; font-family: "Comic Sans MS", "PingFang SC", "Microsoft YaHei", sans-serif; background: #87ceeb; }
+  #game { position: fixed; inset: 0; }
+  canvas { display: block; }
+
+  /* 顶部计分板 */
+  #hud {
+    position: fixed; top: 14px; left: 14px; right: 14px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    pointer-events: none; z-index: 5;
+  }
+  .pill {
+    background: rgba(255,255,255,0.85); border: 3px solid #ffd23f; border-radius: 999px;
+    padding: 8px 18px; font-size: 22px; font-weight: bold; color: #ff5e5b;
+    box-shadow: 0 4px 0 #e0a800; white-space: nowrap;
+  }
+  #score-pill { color: #ff5e5b; }
+  #level-pill { color: #2bb673; }
+
+  /* 弹出的鼓励文字 */
+  #cheer {
+    position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%);
+    font-size: 64px; font-weight: bold; color: #fff;
+    text-shadow: 0 4px 0 #ff5e5b, 0 0 18px #ffd23f;
+    pointer-events: none; z-index: 6; opacity: 0;
+    transition: opacity .2s; white-space: nowrap;
+  }
+
+  /* 开始 / 结束遮罩 */
+  .overlay {
+    position: fixed; inset: 0; z-index: 10;
+    background: linear-gradient(160deg, #7ec8ff 0%, #b8f0c0 100%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; color: #ff5e5b;
+  }
+  .overlay h1 { font-size: 44px; margin-bottom: 10px; text-shadow: 0 3px 0 #fff; }
+  .overlay p { font-size: 22px; color: #4a4a4a; margin: 8px 20px; max-width: 520px; line-height: 1.5; }
+  .btn {
+    margin-top: 26px; background: #ffd23f; border: 5px solid #ffb703; border-radius: 999px;
+    color: #d64500; font-size: 30px; font-weight: bold; padding: 16px 44px; cursor: pointer;
+    box-shadow: 0 8px 0 #e0a800; user-select: none; transition: transform .08s;
+  }
+  .btn:active { transform: translateY(4px); box-shadow: 0 4px 0 #e0a800; }
+  .hidden { display: none !important; }
+  .emoji { font-size: 80px; margin-bottom: 6px; }
+
+  /* 底部飞行按钮（点一下起飞 / 再点降落，便于小朋友单手操作） */
+  .fly-btn {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    width: 96px; height: 96px; border-radius: 50%;
+    background: rgba(255,255,255,0.9); border: 5px solid #4da6ff;
+    color: #1e6fd0; font-size: 30px; font-weight: bold; line-height: 1.15;
+    box-shadow: 0 6px 0 #2a7fd0; cursor: pointer; z-index: 7;
+    -webkit-user-select: none; user-select: none; touch-action: none;
+    display: flex; align-items: center; justify-content: center; flex-direction: column;
+  }
+  .fly-btn:active { transform: translateX(-50%) translateY(4px); box-shadow: 0 2px 0 #2a7fd0; }
+  .fly-btn.flying { background: #ffd23f; border-color: #ffb703; color: #d64500; box-shadow: 0 6px 0 #e0a800; }
+  .fly-btn .ic { font-size: 34px; }
+  .fly-btn .tx { font-size: 20px; }
+  #loading { position: fixed; inset:0; display:flex; align-items:center; justify-content:center; font-size:28px; color:#fff; background:#87ceeb; z-index:20;}
+</style>
+</head>
+<body>
+<div id="game"></div>
+
+<div id="hud" class="hidden">
+  <div class="pill" id="score-pill">⭐ 打败 0 只</div>
+  <div class="pill" id="level-pill">第 1 关</div>
+  <div class="pill" id="sound-pill" style="cursor:pointer;pointer-events:auto;">🔊 音乐</div>
+</div>
+
+<div id="cheer"></div>
+
+<button id="fly-btn" class="fly-btn" aria-label="飞"><span class="ic">✈️</span><span class="tx">飞</span></button>
+
+<div id="loading">正在召唤小英雄… 🛡️</div>
+
+<div id="start" class="overlay hidden">
+  <div class="emoji">👑⚔️</div>
+  <h1>小英雄打怪兽</h1>
+  <p>用手指<strong>往一个方向滑动</strong>，小英雄就往那个方向走 🚶<br/>靠近怪兽时，它会自己挥动大宝剑攻击！⚔️</p>
+  <p style="color:#ff8c42;font-size:18px;">想飞起来？点屏幕下方的<strong>「飞」按钮</strong>（电脑按<strong>空格键</strong>），飞行时照样能滑动走位 ✈️</p>
+  <p style="color:#ff8c42;font-size:18px;">（电脑上也能用鼠标拖动，或方向键 / WASD 控制）</p>
+  <div class="btn" id="start-btn">开始游戏 ▶</div>
+</div>
+
+<div id="win" class="overlay hidden">
+  <div class="emoji">🏆🎉</div>
+  <h1>太厉害啦！</h1>
+  <p id="win-text">你打败了好多好多怪兽！</p>
+  <div class="btn" id="again-btn">再玩一次 🔄</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  // ====== 基础场景 ======
+  const container = document.getElementById('game');
+  const scene = new THREE.Scene();
+  // 渐变天空
+  function makeSkyTexture() {
+    const c = document.createElement('canvas'); c.width = 2; c.height = 256;
+    const g = c.getContext('2d');
+    const grd = g.createLinearGradient(0, 0, 0, 256);
+    grd.addColorStop(0.0, '#3f9bdc');
+    grd.addColorStop(0.45, '#8fcdf0');
+    grd.addColorStop(1.0, '#e8f6ff');
+    g.fillStyle = grd; g.fillRect(0, 0, 2, 256);
+    const t = new THREE.CanvasTexture(c); t.needsUpdate = true; return t;
+  }
+  scene.background = makeSkyTexture();
+  scene.fog = new THREE.Fog(0xdcefff, 90, 230);
+
+  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 300);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  container.appendChild(renderer.domElement);
+
+  // ====== 灯光 ======
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x9fce8a, 0.95);
+  scene.add(hemi);
+  const sun = new THREE.DirectionalLight(0xfff4d6, 1.0);
+  sun.position.set(30, 60, 20);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.left = -45; sun.shadow.camera.right = 45;
+  sun.shadow.camera.top = 45; sun.shadow.camera.bottom = -45;
+  sun.shadow.camera.near = 1; sun.shadow.camera.far = 180;
+  sun.shadow.bias = -0.0004;
+  scene.add(sun);
+  const sunTarget = new THREE.Object3D(); // 让阴影始终跟着主角
+  scene.add(sunTarget);
+  sun.target = sunTarget;
+
+  // ====== 地面（超大，可无限奔跑）======
+  const AREA = 2000; // 仅作参考半径，不再限制主角移动
+  const groundGeo = new THREE.CircleGeometry(AREA, 64);
+  const groundMat = new THREE.MeshStandardMaterial({ color: 0x7cb94e, roughness: 1.0 });
+  const ground = new THREE.Mesh(groundGeo, groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // ====== 森林：树木 + 花草，近距离环绕并循环复用 ======
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x7a4f29, roughness: 0.9 });
+  const leafMats = [0x3c9d4a, 0x4fb85c, 0x67c96a].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85 }));
+  const pineMats = [0x2f8f46, 0x3aa055].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85 }));
+
+  function makeTree() {
+    const g = new THREE.Group();
+    const h = 3.5 + Math.random() * 3.5;
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.55, h, 10), trunkMat);
+    trunk.position.y = h / 2;
+    trunk.castShadow = true;
+    g.add(trunk);
+    if (Math.random() < 0.5) {
+      // 圆冠卡通树
+      const lm = leafMats[(Math.random() * leafMats.length) | 0];
+      const blobs = [[0, h + 1.4, 0, 2.0], [1.1, h + 1.0, 0.3, 1.4], [-1.0, h + 1.1, -0.3, 1.5], [0.2, h + 2.3, -0.2, 1.3]];
+      blobs.forEach(b => {
+        const s = new THREE.Mesh(new THREE.SphereGeometry(b[3], 16, 16), lm);
+        s.position.set(b[0], b[1], b[2]);
+        s.castShadow = true; g.add(s);
+      });
+    } else {
+      // 松树
+      const pm = pineMats[(Math.random() * pineMats.length) | 0];
+      for (let i = 0; i < 3; i++) {
+        const r = 2.4 - i * 0.55;
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(r, 2.6, 12), pm);
+        cone.position.y = h + 0.6 + i * 1.5;
+        cone.castShadow = true; g.add(cone);
+      }
+    }
+    scene.add(g);
+    return g;
+  }
+  const trees = [];
+  function placeTreeFar(t, cx, cz) {
+    const ang = Math.random() * Math.PI * 2;
+    const dist = 55 + Math.random() * 100; // 主角周围 55~155
+    t.position.set(cx + Math.cos(ang) * dist, 0, cz + Math.sin(ang) * dist);
+    t.rotation.y = Math.random() * Math.PI * 2;
+    const s = 0.8 + Math.random() * 0.6; t.scale.setScalar(s);
+  }
+  for (let i = 0; i < 150; i++) { const t = makeTree(); placeTreeFar(t, 0, 0); trees.push(t); }
+
+  // 花草灌木等小装饰
+  const flowerColors = [0xff6b9d, 0xffd23f, 0xff7b39, 0xb06bff, 0xffffff, 0xff5252];
+  function makeBush() {
+    const g = new THREE.Group();
+    const lm = leafMats[(Math.random() * leafMats.length) | 0];
+    [[0, 0.5, 0, 0.8], [0.6, 0.4, 0.2, 0.55], [-0.5, 0.45, -0.2, 0.6]].forEach(b => {
+      const s = new THREE.Mesh(new THREE.SphereGeometry(b[3], 12, 12), lm);
+      s.position.set(b[0], b[1], b[2]); s.castShadow = true; g.add(s);
+    });
+    return g;
+  }
+  function makeFlower() {
+    const g = new THREE.Group();
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.7, 6), new THREE.MeshStandardMaterial({ color: 0x4caf50 }));
+    stem.position.y = 0.35; g.add(stem);
+    const col = flowerColors[(Math.random() * flowerColors.length) | 0];
+    const petalMat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.6 });
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2;
+      const p = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 8), petalMat);
+      p.position.set(Math.cos(a) * 0.22, 0.75, Math.sin(a) * 0.22);
+      p.scale.set(1, 0.6, 1); g.add(p);
+    }
+    const center = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 8), new THREE.MeshStandardMaterial({ color: 0xffe082 }));
+    center.position.y = 0.75; g.add(center);
+    return g;
+  }
+  function makeGrass() {
+    const g = new THREE.Group();
+    const gm = new THREE.MeshStandardMaterial({ color: 0x6fae3f });
+    for (let i = 0; i < 5; i++) {
+      const b = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.6 + Math.random() * 0.4, 5), gm);
+      b.position.set((Math.random() - 0.5) * 0.5, 0.3, (Math.random() - 0.5) * 0.5);
+      b.rotation.z = (Math.random() - 0.5) * 0.5; g.add(b);
+    }
+    return g;
+  }
+  function makeRock() {
+    const g = new THREE.Group();
+    const r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.4 + Math.random() * 0.3, 0), new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 1 }));
+    r.position.y = 0.3; r.castShadow = true; r.rotation.set(Math.random(), Math.random(), Math.random());
+    g.add(r); return g;
+  }
+  const props = [];
+  function makeProp() {
+    const r = Math.random();
+    let g = r < 0.4 ? makeBush() : r < 0.75 ? makeFlower() : r < 0.9 ? makeGrass() : makeRock();
+    scene.add(g); return g;
+  }
+  function placeProp(p, cx, cz) {
+    const ang = Math.random() * Math.PI * 2;
+    const dist = 8 + Math.random() * 85;
+    p.position.set(cx + Math.cos(ang) * dist, 0, cz + Math.sin(ang) * dist);
+    p.rotation.y = Math.random() * Math.PI * 2;
+  }
+  for (let i = 0; i < 280; i++) { const p = makeProp(); placeProp(p, 0, 0); props.push(p); }
+
+  // 云朵（跟随主角，天空始终有云）
+  const sky = new THREE.Group();
+  function makeCloud(x, y, z) {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 });
+    [[0,0,0,2],[1.6,-0.3,0,1.5],[-1.6,-0.3,0,1.5],[0.8,0.6,0,1.3],[-0.8,0.5,0,1.3]].forEach(c => {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(c[3], 16, 16), mat);
+      m.position.set(c[0], c[1], c[2]);
+      g.add(m);
+    });
+    g.position.set(x, y, z);
+    return g;
+  }
+  sky.add(makeCloud(-25, 26, -25));
+  sky.add(makeCloud(30, 30, -10));
+  sky.add(makeCloud(0, 32, 30));
+  scene.add(sky);
+
+  // ====== 主角：戴王冠拿宝剑的球形小英雄 ======
+  const hero = new THREE.Group();
+  scene.add(hero);
+
+  // 身体（球）
+  const body = new THREE.Mesh(
+    new THREE.SphereGeometry(1.4, 32, 32),
+    new THREE.MeshStandardMaterial({ color: 0x3aa0ff, roughness: 0.35, metalness: 0.05 })
+  );
+  body.castShadow = true;
+  hero.add(body);
+  // 浅色肚皮
+  const belly = new THREE.Mesh(
+    new THREE.SphereGeometry(1.05, 24, 24),
+    new THREE.MeshStandardMaterial({ color: 0xbfe3ff, roughness: 0.4 })
+  );
+  belly.position.set(0, -0.25, 0.45);
+  belly.scale.set(1, 0.9, 0.6);
+  hero.add(belly);
+
+  // 眼睛（朝 +Z 方向，带高光，更可爱）
+  const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+  const blackMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.3 });
+  function makeEye(x) {
+    const g = new THREE.Group();
+    const white = new THREE.Mesh(new THREE.SphereGeometry(0.38, 16, 16), whiteMat);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 16), blackMat);
+    pupil.position.z = 0.26;
+    const glint = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), whiteMat);
+    glint.position.set(0.07, 0.09, 0.42);
+    g.add(white); g.add(pupil); g.add(glint);
+    g.position.set(x, 0.4, 1.15);
+    return g;
+  }
+  hero.add(makeEye(-0.45));
+  hero.add(makeEye(0.45));
+  // 微笑
+  const smile = new THREE.Mesh(
+    new THREE.TorusGeometry(0.42, 0.1, 10, 24, Math.PI),
+    new THREE.MeshStandardMaterial({ color: 0x222222 })
+  );
+  smile.position.set(0, -0.18, 1.22);
+  smile.rotation.z = Math.PI;
+  hero.add(smile);
+  // 红脸蛋
+  [-0.85, 0.85].forEach(x => {
+    const cheek = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12), new THREE.MeshStandardMaterial({ color: 0xff9aa2 }));
+    cheek.position.set(x, -0.05, 1.0);
+    cheek.scale.z = 0.5;
+    hero.add(cheek);
+  });
+
+  // 王冠（精致，带彩色宝石）
+  const crown = new THREE.Group();
+  const goldMat = new THREE.MeshStandardMaterial({ color: 0xffd23f, metalness: 0.7, roughness: 0.25 });
+  const band = new THREE.Mesh(new THREE.TorusGeometry(0.82, 0.16, 10, 28), goldMat);
+  band.rotation.x = Math.PI / 2;
+  crown.add(band);
+  const spikeMat = goldMat;
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    const spike = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.55, 8), spikeMat);
+    spike.position.set(Math.cos(a) * 0.68, 0.32, Math.sin(a) * 0.68);
+    crown.add(spike);
+    // 尖顶小宝石
+    const gc = [0xff4d4d, 0x4dd2ff, 0x7CFC00][i % 3];
+    const sg = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), new THREE.MeshStandardMaterial({ color: gc, metalness: 0.3, roughness: 0.3 }));
+    sg.position.set(Math.cos(a) * 0.68, 0.62, Math.sin(a) * 0.68);
+    crown.add(sg);
+  }
+  // 王冠中央红宝石
+  const gem = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 16), new THREE.MeshStandardMaterial({ color: 0xff4d4d, metalness: 0.3, roughness: 0.2 }));
+  gem.position.set(0, 0.32, 0);
+  crown.add(gem);
+  crown.position.y = 1.35;
+  hero.add(crown);
+
+  // 大宝剑（英雄剑：钢刃 + 尖 + 宝石护手）
+  const sword = new THREE.Group();
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.8, 12), new THREE.MeshStandardMaterial({ color: 0x6b3f1d, roughness: 0.6 }));
+  handle.position.y = -0.4;
+  const guard = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.18, 0.2), goldMat);
+  guard.position.y = 0;
+  const bladeMat = new THREE.MeshStandardMaterial({ color: 0xd6e4f0, metalness: 0.85, roughness: 0.2 });
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.32, 2.7, 0.1), bladeMat);
+  blade.position.y = 1.55;
+  const bladeTip = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.5, 4), bladeMat);
+  bladeTip.position.y = 3.1;
+  const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 12), goldMat);
+  pommel.position.y = -0.8;
+  const hiltGem = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 12), new THREE.MeshStandardMaterial({ color: 0x4dd2ff, metalness: 0.4, roughness: 0.2 }));
+  hiltGem.position.y = 0;
+  blade.castShadow = true;
+  sword.add(handle); sword.add(guard); sword.add(blade); sword.add(bladeTip); sword.add(pommel); sword.add(hiltGem);
+  sword.position.set(1.35, 0.5, 0.5);
+  sword.rotation.z = -0.25;
+  hero.add(sword);
+
+  // 红色翅膀（一对，水平展开、向后弯、有羽毛层次、会扇动）
+  function makeWing(side) {
+    const g = new THREE.Group();
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0);
+    shape.bezierCurveTo(0.3, 1.4, 1.6, 1.8, 2.8, 1.3);
+    shape.bezierCurveTo(3.2, 1.0, 3.1, 0.4, 2.6, 0.1);
+    shape.bezierCurveTo(2.2, 0.3, 1.9, -0.1, 1.5, -0.2);
+    shape.bezierCurveTo(1.1, -0.3, 0.8, -0.5, 0.5, -0.3);
+    shape.bezierCurveTo(0.3, -0.2, 0.2, -0.1, 0, 0);
+    const geo = new THREE.ShapeGeometry(shape, 14);
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.array[i * 3];
+      pos.array[i * 3 + 2] = -x * 0.35; // 向后弯成弧
+    }
+    pos.needsUpdate = true;
+    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xff4d4d, side: THREE.DoubleSide, roughness: 0.5 }));
+    mesh.rotation.x = -Math.PI / 2; // 放平，向两侧展开
+    g.add(mesh);
+    const inner = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xff8a8a, side: THREE.DoubleSide, roughness: 0.5 }));
+    inner.rotation.x = -Math.PI / 2;
+    inner.scale.setScalar(0.75);
+    inner.position.y = 0.06;
+    g.add(inner);
+    const sc = side < 0 ? -0.7 : 0.7;
+    g.scale.set(sc, 0.7, 0.7);
+    g.position.set(side * 0.55, 0.95, -0.35);
+    return g;
+  }
+  const wingL = makeWing(-1);
+  const wingR = makeWing(1);
+  hero.add(wingL);
+  hero.add(wingR);
+
+  // 斩击特效（一道月牙光弧，攻击时出现）
+  const slash = new THREE.Mesh(
+    new THREE.TorusGeometry(3.0, 0.32, 8, 32, Math.PI * 0.12, Math.PI * 1.25),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, side: THREE.DoubleSide })
+  );
+  slash.visible = false;
+  scene.add(slash);
+
+  // ====== 怪兽 ======
+  const monsterColors = [0xff6b6b, 0xffa552, 0xc56cf0, 0x32d3a6, 0xf368e0, 0xfeca57];
+  const monsters = [];
+  function makeMonster() {
+    const g = new THREE.Group();
+    const color = monsterColors[(Math.random() * monsterColors.length) | 0];
+    const bodyR = 1.0 + Math.random() * 0.5;
+    const mbody = new THREE.Mesh(
+      new THREE.SphereGeometry(bodyR, 24, 24),
+      new THREE.MeshStandardMaterial({ color: color, roughness: 0.6 })
+    );
+    mbody.castShadow = true;
+    g.add(mbody);
+    // 小角
+    [-0.4, 0.4].forEach(x => {
+      const horn = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.5, 8), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+      horn.position.set(x, bodyR * 0.9, 0);
+      g.add(horn);
+    });
+    // 眼睛
+    [-0.35, 0.35].forEach(x => {
+      const w = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+      const p = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 12), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+      p.position.z = 0.16;
+      const eg = new THREE.Group(); eg.add(w); eg.add(p);
+      eg.position.set(x, 0.2, bodyR * 0.85);
+      g.add(eg);
+    });
+    // 小脚
+    [-0.4, 0.4].forEach(x => {
+      const foot = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 12), new THREE.MeshStandardMaterial({ color: color }));
+      foot.position.set(x, -bodyR * 0.8, 0.2);
+      foot.scale.y = 0.6;
+      g.add(foot);
+    });
+
+    // 在主角周围一定距离出生（配合无限地图）
+    const ang = Math.random() * Math.PI * 2;
+    const dist = 45 + Math.random() * 35;
+    g.position.set(hero.position.x + Math.cos(ang) * dist, bodyR, hero.position.z + Math.sin(ang) * dist);
+    g.userData = {
+      bodyR: bodyR,
+      speed: 2.2 + Math.random() * 1.5,
+      color: color,
+      wobble: Math.random() * Math.PI * 2,
+      alive: true
+    };
+    scene.add(g);
+    monsters.push(g);
+  }
+
+  // ====== 粒子（击败特效）======
+  const particles = [];
+  function burst(pos, color) {
+    for (let i = 0; i < 18; i++) {
+      const p = new THREE.Mesh(
+        new THREE.SphereGeometry(0.18, 8, 8),
+        new THREE.MeshBasicMaterial({ color: color })
+      );
+      p.position.copy(pos);
+      const dir = new THREE.Vector3((Math.random() - 0.5), Math.random() * 0.8 + 0.2, (Math.random() - 0.5)).normalize();
+      p.userData = { vel: dir.multiplyScalar(6 + Math.random() * 4), life: 0.7 };
+      scene.add(p);
+      particles.push(p);
+    }
+  }
+
+  // ====== 声音（简单合成）======
+  let audioCtx = null;
+  function initAudio() { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  function beep(freq, dur, type) {
+    if (!audioCtx) return;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type || 'square';
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + dur);
+  }
+  function swingSound() { beep(520, 0.12, 'sawtooth'); }
+  function hitSound() { beep(180, 0.18, 'square'); setTimeout(() => beep(360, 0.12, 'square'), 60); }
+  function cheerSound() { [523, 659, 784].forEach((f, i) => setTimeout(() => beep(f, 0.18, 'triangle'), i * 90)); }
+
+  // ====== 背景音乐（欢快循环旋律，纯合成无需外部文件）======
+  let bgmOn = true;
+  let bgmStep = 0;
+  let bgmTimer = null;
+  // 简单儿歌风旋律（C 大调），0 表示休止
+  const melody = [
+    523, 659, 784, 659, 523, 587, 659, 0,
+    659, 784, 880, 784, 659, 587, 523, 0,
+    587, 698, 784, 698, 587, 523, 659, 0,
+    523, 659, 784, 1047, 880, 784, 659, 0
+  ];
+  const bass = [131, 0, 196, 0, 131, 0, 196, 0, 147, 0, 165, 0, 147, 0, 165, 0];
+  function playTone(freq, dur, type, vol) {
+    if (!audioCtx || !bgmOn) return;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type;
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(vol, audioCtx.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + dur + 0.02);
+  }
+  function scheduleBGM() {
+    const note = melody[bgmStep % melody.length];
+    const b = bass[bgmStep % bass.length];
+    if (note > 0) playTone(note, 0.22, 'triangle', 0.06);
+    if (b > 0) playTone(b, 0.34, 'sine', 0.07);
+    bgmStep++;
+    bgmTimer = setTimeout(scheduleBGM, 250);
+  }
+  function startBGM() { if (bgmOn && !bgmTimer) scheduleBGM(); }
+  function stopBGM() { if (bgmTimer) { clearTimeout(bgmTimer); bgmTimer = null; } }
+  function toggleSound() {
+    bgmOn = !bgmOn;
+    document.getElementById('sound-pill').textContent = bgmOn ? '🔊 音乐' : '🔇 静音';
+    if (bgmOn) startBGM(); else stopBGM();
+  }
+  document.getElementById('sound-pill').addEventListener('click', toggleSound);
+
+  // ====== 游戏状态 ======
+  const state = {
+    running: false,
+    score: 0,
+    level: 1,
+    moveDir: null,        // 当前移动方向（世界坐标，单位向量）
+    attackTarget: null,   // 本次攻击锁定的怪兽
+    attackCD: 0,
+    attackAnim: 0,       // 挥剑动画计时
+    spawnTimer: 0,
+    maxMonsters: 10,
+    flying: false,    // 是否处于飞行模式（点按钮切换）
+    flyY: 0           // 离地高度偏移
+  };
+  const heroSpeed = 11;
+  const ATTACK_RANGE = 4.8; // 攻击距离（约等于宝剑挥砍范围）
+
+  function resetGame() {
+    state.score = 0; state.level = 1; state.moveDir = null; state.attackTarget = null;
+    state.attackCD = 0; state.attackAnim = 0; state.spawnTimer = 0;
+    state.maxMonsters = 15;
+    hero.position.set(0, 1.4, 0);
+    state.flyY = 0; setFlying(false);
+    monsters.forEach(m => scene.remove(m));
+    monsters.length = 0;
+    particles.forEach(p => scene.remove(p));
+    particles.length = 0;
+    for (let i = 0; i < 12; i++) makeMonster();
+    updateHUD();
+  }
+
+  function updateHUD() {
+    document.getElementById('score-pill').textContent = '⭐ 打败 ' + state.score + ' 只';
+    document.getElementById('level-pill').textContent = '第 ' + state.level + ' 关';
+  }
+
+  const cheers = ['好棒！', '太厉害！', '嗷呜～', '打败它！', '继续！', '哇！'];
+  function showCheer(text) {
+    const el = document.getElementById('cheer');
+    el.textContent = text;
+    el.style.opacity = '1';
+    el.style.transition = 'none';
+    el.style.transform = 'translate(-50%,-50%) scale(1.4)';
+    requestAnimationFrame(() => {
+      el.style.transition = 'opacity .8s, transform .8s';
+      el.style.opacity = '0';
+      el.style.transform = 'translate(-50%,-50%) scale(1)';
+    });
+  }
+
+  // ====== 输入：方向滑动控制 ======
+  // 手指按下后往某个方向滑，角色就往那个方向走（屏幕右=世界+X，屏幕上=世界-Z 前进）
+  let pointerActive = false;
+  let dragStart = { x: 0, y: 0 };
+  const keys = {};
+  const DRAG_DEAD = 14; // 死区（像素），轻点不移动
+
+  function getXY(e) {
+    if (e.clientX !== undefined) return { x: e.clientX, y: e.clientY };
+    const t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+    return { x: t.clientX, y: t.clientY };
+  }
+
+  function onDown(e) {
+    if (!state.running) return;
+    pointerActive = true;
+    dragStart = getXY(e);
+    state.moveDir = null;
+  }
+  function onMove(e) {
+    if (!state.running || !pointerActive) return;
+    const p = getXY(e);
+    let dx = p.x - dragStart.x;
+    let dy = p.y - dragStart.y;
+    const len = Math.hypot(dx, dy);
+    if (len < DRAG_DEAD) { state.moveDir = null; return; }
+    // 归一化为方向（只取方向，不取距离）
+    state.moveDir = new THREE.Vector3(dx / len, 0, dy / len);
+  }
+  function onUp() { pointerActive = false; state.moveDir = null; }
+
+  renderer.domElement.addEventListener('pointerdown', onDown);
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
+  window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+  window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+  // 飞行输入：底部「飞」按钮点一下起飞 / 再点降落（电脑空格也可切换）
+  function setFlying(v) {
+    state.flying = v;
+    const fb = document.getElementById('fly-btn');
+    if (fb) fb.classList.toggle('flying', v);
+  }
+  document.getElementById('fly-btn').addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!state.running) return;
+    setFlying(!state.flying);
+  });
+  window.addEventListener('keydown', e => { if (e.key === ' ') { e.preventDefault(); if (state.running) setFlying(!state.flying); } });
+  window.addEventListener('keyup', e => { if (e.key === ' ') e.preventDefault(); });
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  // ====== 主循环 ======
+  const clock = new THREE.Clock();
+
+  function update(dt) {
+    if (!state.running) return;
+
+    // 键盘补充控制（方向键 / WASD 直接给方向）
+    let kx = 0, kz = 0;
+    if (keys['arrowleft'] || keys['a']) kx -= 1;
+    if (keys['arrowright'] || keys['d']) kx += 1;
+    if (keys['arrowup'] || keys['w']) kz -= 1;
+    if (keys['arrowdown'] || keys['s']) kz += 1;
+    if (kx !== 0 || kz !== 0) {
+      state.moveDir = new THREE.Vector3(kx, 0, kz).normalize();
+    }
+
+    // 主角移动：沿当前方向持续前进
+    const moveDir = state.moveDir;
+    if (moveDir) {
+      // 朝向移动方向
+      const targetRot = Math.atan2(moveDir.x, moveDir.z);
+      hero.rotation.y = lerpAngle(hero.rotation.y, targetRot, 0.25);
+      // 前进（攻击瞬间减速，避免穿过怪兽）
+      const spd = state.attackAnim > 0 ? heroSpeed * 0.3 : heroSpeed;
+      hero.position.addScaledVector(moveDir, spd * dt);
+      // 走路小弹跳
+      body.position.y = Math.abs(Math.sin(clock.elapsedTime * 12)) * 0.15;
+    } else {
+      body.position.y = 0;
+    }
+    // 飞行（点按钮 / 空格切换）：起飞后保持，可同时滑动走位，飞得更高
+    if (state.flying || keys[' ']) state.flyY = Math.min(state.flyY + 24 * dt, 20);
+    else state.flyY = Math.max(state.flyY - 14 * dt, 0);
+    // 身体总高度 = 基础 + 走路弹跳 + 飞行高度
+    hero.position.y = 1.4 + body.position.y + state.flyY;
+
+    // 王冠轻微浮动
+    crown.position.y = 1.35 + Math.sin(clock.elapsedTime * 3) * 0.05;
+
+    // 怪兽行为：缓慢靠近主角 + 抖动
+    for (const m of monsters) {
+      if (!m.userData.alive) continue;
+      const toHero = new THREE.Vector3().subVectors(hero.position, m.position);
+      toHero.y = 0;
+      const d = toHero.length();
+      if (d > 1) {
+        toHero.normalize();
+        m.position.addScaledVector(toHero, m.userData.speed * dt);
+      }
+      m.userData.wobble += dt * 4;
+      m.position.y = m.userData.bodyR + Math.abs(Math.sin(m.userData.wobble)) * 0.2;
+      m.rotation.y += dt * 1.5;
+    }
+
+    // 持续出怪：每隔一小段时间在四周生成一只，直到达到上限（怪兽越出越快、无限刷）
+    state.spawnTimer -= dt;
+    if (state.spawnTimer <= 0 && monsters.length < state.maxMonsters) {
+      makeMonster();
+      state.spawnTimer = 0.5;
+    }
+
+    // 自动攻击：找最近的怪兽
+    state.attackCD -= dt;
+    let nearest = null, nearestDist = Infinity;
+    for (const m of monsters) {
+      if (!m.userData.alive) continue;
+      const dx = hero.position.x - m.position.x;
+      const dz = hero.position.z - m.position.z;
+      const d = Math.hypot(dx, dz); // 用水平距离，飞起来也能砍到地面怪兽
+      if (d < nearestDist) { nearestDist = d; nearest = m; }
+    }
+    if (nearest && nearestDist < ATTACK_RANGE && state.attackCD <= 0) {
+      // 触发挥剑
+      state.attackAnim = 0.4;
+      state.attackCD = 0.5;
+      state.attackTarget = nearest;
+      swingSound();
+      // 斩击光弧出现在角色前方
+      slash.visible = true;
+      slash.userData.t = 0;
+      const fwd = new THREE.Vector3(Math.sin(hero.rotation.y), 0, Math.cos(hero.rotation.y));
+      slash.position.copy(hero.position).addScaledVector(fwd, 2.3);
+      slash.position.y = hero.position.y;
+      slash.rotation.y = hero.rotation.y;
+      // 命中判定：在挥剑峰值附近击杀
+      const target = nearest;
+      setTimeout(() => {
+        if (state.running && target.userData.alive) {
+          const d = Math.hypot(hero.position.x - target.position.x, hero.position.z - target.position.z);
+          if (d < ATTACK_RANGE + 0.8) {
+            target.userData.alive = false;
+            burst(target.position, target.userData.color);
+            scene.remove(target);
+            const di = monsters.indexOf(target); // 从数组移除，避免无限累积
+            if (di >= 0) monsters.splice(di, 1);
+            state.score++;
+            hitSound();
+            showCheer(cheers[(Math.random() * cheers.length) | 0]);
+            updateHUD();
+            // 升级（无限闯关：每 5 只升一级，怪兽上限快速提高）
+            if (state.score >= state.level * 5 && state.maxMonsters < 70) {
+              state.level++;
+              state.maxMonsters += 3;
+              updateHUD();
+              showCheer('升级啦！🎉');
+              cheerSound();
+            }
+            makeMonster(); // 补充怪兽，无限打下去
+          }
+        }
+      }, 180);
+    }
+
+    // 挥剑动画 + 前冲 + 身体前倾 + 斩击光弧
+    if (state.attackAnim > 0) {
+      state.attackAnim -= dt;
+      const t = 1 - Math.max(state.attackAnim, 0) / 0.4; // 0->1
+      const swing = Math.sin(t * Math.PI); // 0->1->0
+      sword.rotation.x = -swing * 2.6;
+      sword.rotation.z = -0.3 - swing * 0.6;
+      // 身体前倾
+      hero.rotation.x = swing * 0.5;
+      // 朝锁定的怪兽小前冲
+      if (state.attackTarget && state.attackTarget.userData.alive) {
+        const toT = new THREE.Vector3().subVectors(state.attackTarget.position, hero.position);
+        toT.y = 0;
+        if (toT.length() > 0.2) hero.position.addScaledVector(toT.normalize(), 5 * dt);
+      }
+      // 斩击光弧：放大并淡出
+      if (slash.visible) {
+        slash.userData.t += dt;
+        const st = Math.min(slash.userData.t / 0.35, 1);
+        slash.material.opacity = Math.sin(st * Math.PI) * 0.9;
+        const sc = 0.7 + st * 0.7;
+        slash.scale.set(sc, sc, sc);
+        if (st >= 1) slash.visible = false;
+      }
+    } else {
+      sword.rotation.x *= 0.8;
+      sword.rotation.z += (-0.3 - sword.rotation.z) * 0.2;
+      hero.rotation.x *= 0.7;
+      if (slash.visible) slash.visible = false;
+    }
+
+    // 粒子更新
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.userData.life -= dt;
+      p.position.addScaledVector(p.userData.vel, dt);
+      p.userData.vel.y -= 14 * dt;
+      const s = Math.max(p.userData.life / 0.7, 0);
+      p.scale.setScalar(s);
+      if (p.userData.life <= 0) { scene.remove(p); particles.splice(i, 1); }
+    }
+
+    // 翅膀扇动（走动 / 攻击 / 飞行时扇得更快）
+    const moving = !!state.moveDir || state.attackAnim > 0 || state.flyY > 0.2;
+    const wf = Math.sin(clock.elapsedTime * (moving ? 16 : 6));
+    wingL.rotation.x = wf * 0.6;
+    wingR.rotation.x = wf * 0.6;
+
+    // 树木循环复用：离主角太远的树重新放到前方，形成无限森林
+    for (const t of trees) {
+      const dx = t.position.x - hero.position.x;
+      const dz = t.position.z - hero.position.z;
+      if (dx * dx + dz * dz > 165 * 165) placeTreeFar(t, hero.position.x, hero.position.z);
+    }
+    // 花草灌木循环复用（更近，填满近景）
+    for (const p of props) {
+      const dx = p.position.x - hero.position.x;
+      const dz = p.position.z - hero.position.z;
+      if (dx * dx + dz * dz > 110 * 110) placeProp(p, hero.position.x, hero.position.z);
+    }
+    // 云朵跟随主角
+    sky.position.set(hero.position.x, 0, hero.position.z);
+    // 阳光与阴影跟随主角
+    sun.position.set(hero.position.x + 30, 60, hero.position.z + 20);
+    sunTarget.position.copy(hero.position);
+
+    // 相机跟随（更广的俯视斜角，飞行时随之抬升）
+    const camTarget = new THREE.Vector3(hero.position.x, hero.position.y, hero.position.z);
+    const camH = 23 + state.flyY * 0.7;
+    camera.position.lerp(new THREE.Vector3(camTarget.x, camH, camTarget.z + 19), 0.08);
+    camera.lookAt(camTarget.x, camTarget.y, camTarget.z);
+  }
+
+  function lerpAngle(a, b, t) {
+    let diff = b - a;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    return a + diff * t;
+  }
+
+  function winGame() {
+    state.running = false;
+    cheerSound();
+    document.getElementById('win-text').textContent =
+      '你打败了 ' + state.score + ' 只怪兽，是第 ' + state.level + ' 关的小英雄！👑';
+    document.getElementById('win').classList.remove('hidden');
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+    const dt = Math.min(clock.getDelta(), 0.05);
+    update(dt);
+    renderer.render(scene, camera);
+  }
+
+  // ====== UI 控制 ======
+  document.getElementById('start-btn').addEventListener('click', () => {
+    initAudio();
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    document.getElementById('start').classList.add('hidden');
+    resetGame();
+    state.running = true;
+    startBGM();
+  });
+  document.getElementById('again-btn').addEventListener('click', () => {
+    document.getElementById('win').classList.add('hidden');
+    resetGame();
+    state.running = true;
+    startBGM();
+  });
+
+  // 启动：无需开始页，直接进入游戏
+  document.getElementById('loading').classList.add('hidden');
+  resetGame();
+  state.running = true;
+  animate();
+
+  // 浏览器要求用户手势后才能播放声音：首次触摸/按键时启动音乐
+  function ensureAudio() {
+    if (!audioCtx) initAudio();
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    startBGM();
+  }
+  document.addEventListener('pointerdown', ensureAudio, true);
+  document.addEventListener('keydown', ensureAudio, true);
+})();
+</script>
+</body>
+</html>
