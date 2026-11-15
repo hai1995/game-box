@@ -12,10 +12,11 @@
   #game,#fx { position:fixed; inset:0; width:100%; height:100%; display:block; }
   #fx { pointer-events:none; z-index:3; }
   #hud { position:fixed; top:0; left:0; right:0; display:flex; justify-content:space-between;
-    align-items:center; padding:14px 18px; pointer-events:none; z-index:5; }
-  .badge { background:rgba(255,255,255,.85); border:4px solid #ffb703; border-radius:22px;
-    padding:8px 16px; font-size:26px; font-weight:800; color:#d62828;
-    box-shadow:0 4px 0 rgba(0,0,0,.12); display:flex; align-items:center; gap:8px; }
+    align-items:center; gap:8px; padding:calc(10px + env(safe-area-inset-top)) 12px 10px; pointer-events:none; z-index:5; }
+  .badge { background:rgba(255,255,255,.85); border:3px solid #ffb703; border-radius:22px;
+    padding:6px 12px; font-size:clamp(17px,5vw,26px); font-weight:800; color:#d62828;
+    box-shadow:0 4px 0 rgba(0,0,0,.12); display:flex; align-items:center; gap:6px;
+    white-space:nowrap; max-width:48vw; }
   #controls { position:fixed; bottom:0; left:0; right:0; display:flex; gap:10px;
     justify-content:center; padding:16px 12px calc(16px + env(safe-area-inset-bottom)); z-index:6; }
   .btn { flex:1; max-width:130px; border:5px solid #fff; border-radius:26px; padding:14px 4px;
@@ -236,8 +237,8 @@
   var cv = document.getElementById("game"), ctx = cv.getContext("2d");
   var fxc = document.getElementById("fx"), fx = fxc.getContext("2d");
   var W, H, DPR, FOCAL, HORIZON;
-  var CAM_H = 2.6;
-  var FOV = 75; // 水平视野角度(度)：越大视角越广、看到越多场景
+  var CAM_H = 3.6; // 相机高度：抬高后俯视角更大，能看到更多轨道延伸和两侧场景
+  var FOV = 90; // 水平视野角度(度)：越大视角越广、看到越多场景
   function resize() {
     DPR = Math.min(window.devicePixelRatio || 1, 2);
     W = window.innerWidth; H = window.innerHeight;
@@ -249,7 +250,7 @@
     fx.setTransform(DPR,0,0,DPR,0,0);
     // 由水平 FOV 反推焦距：FOCAL = (W/2) / tan(FOV/2)，视角变广则焦距变小、看到更多
     FOCAL = (W / 2) / Math.tan((FOV / 2) * Math.PI / 180);
-    HORIZON = H * 0.34;
+    HORIZON = H * 0.32; // 地平线上移，给地面场景留出更多画面
   }
   // 世界坐标 -> 屏幕。x 横向, y 高度, d 深度(越大越远)
   function P(x, y, d) {
