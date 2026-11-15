@@ -24,6 +24,9 @@
 ```text
 games/
 ├── README.md
+├── little-train/    # 小火车呜呜开（3D 无限列车）
+│   ├── README.md
+│   └── index.html
 ├── tetris/          # 俄罗斯方块
 │   ├── README.md
 │   ├── index.html
