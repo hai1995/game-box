@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>⚫ 五子棋</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { width:100%; min-height:100%; overflow-x:hidden; font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
+  body { background:linear-gradient(160deg,#fff3e0 0%,#e8f5ff 55%,#f3e9ff 100%); background-attachment:fixed; color:#3b2f2f; padding-bottom:calc(26px + env(safe-area-inset-bottom)); }
+  .home-btn { position:fixed; left:12px; top:calc(12px + env(safe-area-inset-top)); z-index:30;
+    width:46px; height:46px; border-radius:50%; background:rgba(255,255,255,.92);
+    border:3px solid #ffb703; box-shadow:0 4px 0 rgba(0,0,0,.14); color:#d62828;
+    display:flex; align-items:center; justify-content:center; font-size:26px; text-decoration:none; }
+  .home-btn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,.14); }
+  .hero { text-align:center; padding:calc(20px + env(safe-area-inset-top)) 12px 4px; }
+  .hero .logo { font-size:46px; animation:bob 3s ease-in-out infinite; }
+  @keyframes bob { 0%,100%{transform:translateY(0) rotate(-5deg)} 50%{transform:translateY(-7px) rotate(5deg)} }
+  .hero h1 { font-size:clamp(22px,6vw,30px); margin:4px 0; color:#e07a00; }
+  .hero p { font-size:13px; color:#8b7d7d; max-width:420px; margin:0 auto; }
+  .bar { display:flex; justify-content:center; gap:12px; margin:12px 0; flex-wrap:wrap; }
+  .pill { background:#fff; border:3px solid #ffd23f; border-radius:999px; padding:7px 16px;
+    font-size:16px; font-weight:800; color:#e07a00; box-shadow:0 4px 0 #f0c000; white-space:nowrap; }
+  #turnPill.black { color:#333; border-color:#888; box-shadow:0 4px 0 #999; }
+  #turnPill.white { color:#6b4a2f; border-color:#ffb703; box-shadow:0 4px 0 #e08600; }
+  .wrap { max-width:500px; margin:0 auto; padding:0 16px; text-align:center; }
+  .boardbox { display:inline-block; padding:10px; border-radius:18px; background:linear-gradient(180deg,#d9a86c,#c98f4e);
+    box-shadow:0 8px 18px rgba(120,80,40,.35), inset 0 2px 4px rgba(255,255,255,.4); }
+  canvas { display:block; border-radius:10px; touch-action:manipulation; }
+  .tools { display:flex; justify-content:center; gap:14px; margin:16px 0 4px; flex-wrap:wrap; }
+  .btn { border:none; border-radius:999px; padding:12px 28px; font-size:18px; font-weight:900; color:#fff; cursor:pointer;
+    box-shadow:0 5px 0 rgba(0,0,0,.16); }
+  .btn:active { transform:translateY(3px); box-shadow:0 2px 0 rgba(0,0,0,.16); }
+  .btn.undo { background:linear-gradient(180deg,#64B5F6,#42A5F5); box-shadow:0 5px 0 #1976D2; }
+  .btn.restart { background:linear-gradient(180deg,#ff8fab,#ff6b81); box-shadow:0 5px 0 #e84d68; }
+  .overlay { position:fixed; inset:0; z-index:40; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:rgba(255,255,255,.92); backdrop-filter:blur(4px); text-align:center; padding:20px; }
+  .overlay.hidden { display:none; }
+  .overlay .big { font-size:76px; animation:pop .6s ease; }
+  @keyframes pop { 0%{transform:scale(.6)} 60%{transform:scale(1.15)} 100%{transform:scale(1)} }
+  .overlay h2 { font-size:30px; color:#e07a00; margin:8px 0; }
+  .overlay p { font-size:18px; color:#6d6262; margin:6px 0 20px; }
+  .overlay .btn { background:linear-gradient(180deg,#81C784,#4CAF50); box-shadow:0 5px 0 #388E3C; }
+</style>
+</head>
+<body>
+<a class="home-btn" href="../../" aria-label="返回主页" title="返回主页">🏠</a>
+
+<header class="hero">
+  <div class="logo">⚫</div>
+  <h1>五子棋</h1>
+  <p>黑棋先走，轮流落子，谁先把五个连成一条线谁就赢啦！可以和家长一起玩。</p>
+</header>
+
+<div class="bar">
+  <div class="pill" id="turnPill">⚫ 黑棋回合</div>
+  <div class="pill">步数 <span id="steps">0</span></div>
+</div>
+
+<div class="wrap">
+  <div class="boardbox"><canvas id="board"></canvas></div>
+  <div class="tools">
+    <button class="btn undo" id="undoBtn">↩️ 悔棋</button>
+    <button class="btn restart" id="restartBtn">🔄 重新开始</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="overlay">
+  <div class="big" id="ovIcon">🎉</div>
+  <h2 id="ovTitle">黑棋赢啦！</h2>
+  <p id="ovText">五个连成一线，太厉害了！</p>
+  <button class="btn" id="ovBtn">再来一局</button>
+</div>
+
+<script src="../../quiz.js"></script>
+<script>
+(function () {
+  "use strict";
+  var N = 15;
+  var canvas = document.getElementById("board"), ctx = canvas.getContext("2d");
+  var turnPill = document.getElementById("turnPill"), stepsEl = document.getElementById("steps");
+  var overlay = document.getElementById("overlay");
+  var board = [], moves = [], current = 1, finished = false, quizPaused = false, cell = 0, size = 0;
+
+  function setup() {
+    var cssSize = Math.min(500 - 20, window.innerWidth - 60, 460);
+    if (cssSize < 260) cssSize = 260;
+    var dpr = window.devicePixelRatio || 1;
+    size = cssSize; cell = size / 16;
+    canvas.style.width = size + "px"; canvas.style.height = size + "px";
+    canvas.width = Math.round(size * dpr); canvas.height = Math.round(size * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+  function draw() {
+    ctx.fillStyle = "#f0c987";
+    ctx.fillRect(0, 0, size, size);
+    ctx.strokeStyle = "#7a5230"; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (var i = 0; i < N; i++) {
+      var p = cell * (i + 1);
+      ctx.moveTo(cell, p); ctx.lineTo(size - cell, p);
+      ctx.moveTo(p, cell); ctx.lineTo(p, size - cell);
+    }
+    ctx.stroke();
+    var stars = [[3,3],[3,11],[11,3],[11,11],[7,7]];
+    ctx.fillStyle = "#7a5230";
+    for (var s = 0; s < stars.length; s++) {
+      ctx.beginPath();
+      ctx.arc(cell * (stars[s][0] + 1), cell * (stars[s][1] + 1), Math.max(2, cell * 0.09), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    for (var r = 0; r < N; r++) for (var c = 0; c < N; c++) {
+      if (board[r][c]) stone(cell * (c + 1), cell * (r + 1), board[r][c]);
+    }
+  }
+  function stone(x, y, color) {
+    var rad = cell * 0.42;
+    ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2);
+    ctx.fillStyle = color === 1 ? "#2a2a2a" : "#fdfdfd";
+    ctx.shadowColor = "rgba(0,0,0,.35)"; ctx.shadowBlur = 4; ctx.shadowOffsetY = 2;
+    ctx.fill();
+    ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+    ctx.strokeStyle = "rgba(0,0,0,.25)"; ctx.lineWidth = 1; ctx.stroke();
+    var g = ctx.createRadialGradient(x - rad * .35, y - rad * .35, rad * .1, x, y, rad);
+    if (color === 1) { g.addColorStop(0, "rgba(255,255,255,.4)"); g.addColorStop(1, "rgba(255,255,255,0)"); }
+    else { g.addColorStop(0, "rgba(255,255,255,1)"); g.addColorStop(1, "rgba(190,190,190,.25)"); }
+    ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fillStyle = g; ctx.fill();
+  }
+  function countDir(r, c, dr, dc, color) {
+    var n = 0, rr = r + dr, cc = c + dc;
+    while (rr >= 0 && rr < N && cc >= 0 && cc < N && board[rr][cc] === color) { n++; rr += dr; cc += dc; }
+    return n;
+  }
+  function isWin(r, c, color) {
+    var dirs = [[0,1],[1,0],[1,1],[1,-1]];
+    for (var d = 0; d < dirs.length; d++) {
+      var dr = dirs[d][0], dc = dirs[d][1];
+      if (1 + countDir(r,c,dr,dc,color) + countDir(r,c,-dr,-dc,color) >= 5) return true;
+    }
+    return false;
+  }
+  function refreshTurn() {
+    if (current === 1) { turnPill.textContent = "⚫ 黑棋回合"; turnPill.className = "pill black"; }
+    else { turnPill.textContent = "⚪ 白棋回合"; turnPill.className = "pill white"; }
+  }
+  function place(r, c) {
+    if (finished || quizPaused || board[r][c]) return;
+    board[r][c] = current;
+    moves.push({ r: r, c: c, color: current });
+    stepsEl.textContent = moves.length;
+    draw();
+    if (isWin(r, c, current)) {
+      finished = true;
+      var name = current === 1 ? "黑棋" : "白棋";
+      document.getElementById("ovIcon").textContent = current === 1 ? "⚫" : "⚪";
+      document.getElementById("ovTitle").textContent = name + "赢啦！";
+      document.getElementById("ovText").textContent = "五个连成一线，太厉害了！共下了 " + moves.length + " 步。";
+      overlay.classList.remove("hidden");
+      return;
+    }
+    if (moves.length >= N * N) {
+      finished = true;
+      document.getElementById("ovIcon").textContent = "🤝";
+      document.getElementById("ovTitle").textContent = "平局！";
+      document.getElementById("ovText").textContent = "棋盘下满啦，你们都很棒！";
+      overlay.classList.remove("hidden");
+      return;
+    }
+    current = current === 1 ? 2 : 1;
+    refreshTurn();
+  }
+  function undo() {
+    if (quizPaused || !moves.length) return;
+    if (finished) { overlay.classList.add("hidden"); finished = false; }
+    var m = moves.pop();
+    board[m.r][m.c] = 0;
+    current = m.color;
+    stepsEl.textContent = moves.length;
+    refreshTurn(); draw();
+  }
+  function restart() {
+    board = []; moves = []; current = 1; finished = false;
+    for (var r = 0; r < N; r++) { board[r] = []; for (var c = 0; c < N; c++) board[r][c] = 0; }
+    stepsEl.textContent = "0"; refreshTurn();
+    overlay.classList.add("hidden"); draw();
+  }
+
+  document.getElementById("undoBtn").addEventListener("click", undo);
+  document.getElementById("restartBtn").addEventListener("click", restart);
+  document.getElementById("ovBtn").addEventListener("click", restart);
+  canvas.addEventListener("click", function (e) {
+    var rect = canvas.getBoundingClientRect();
+    var c = Math.round((e.clientX - rect.left) / cell) - 1;
+    var r = Math.round((e.clientY - rect.top) / cell) - 1;
+    if (r < 0 || r >= N || c < 0 || c >= N) return;
+    place(r, c);
+  });
+  window.addEventListener("resize", setup);
+
+  restart(); setup();
+
+  if (window.GameQuiz) {
+    GameQuiz.init({
+      isPlaying: function () { return !finished && overlay.classList.contains("hidden"); },
+      onOpen: function () { quizPaused = true; },
+      onClose: function () { quizPaused = false; }
+    });
+  }
+})();
+</script>
+</body>
+</html>

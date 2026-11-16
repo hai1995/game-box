@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>🔢 1024 数字合并</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { width:100%; min-height:100%; overflow-x:hidden; font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
+  body { background:linear-gradient(160deg,#fff7e6 0%,#ffe9f2 55%,#e9f6ff 100%); background-attachment:fixed; color:#3b2f2f; padding-bottom:calc(26px + env(safe-area-inset-bottom)); }
+  .home-btn { position:fixed; left:12px; top:calc(12px + env(safe-area-inset-top)); z-index:30;
+    width:46px; height:46px; border-radius:50%; background:rgba(255,255,255,.92);
+    border:3px solid #ffb703; box-shadow:0 4px 0 rgba(0,0,0,.14); color:#d62828;
+    display:flex; align-items:center; justify-content:center; font-size:26px; text-decoration:none; }
+  .home-btn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,.14); }
+  .hero { text-align:center; padding:calc(20px + env(safe-area-inset-top)) 12px 4px; }
+  .hero .logo { font-size:46px; animation:bob 3s ease-in-out infinite; }
+  @keyframes bob { 0%,100%{transform:translateY(0) rotate(-5deg)} 50%{transform:translateY(-7px) rotate(5deg)} }
+  .hero h1 { font-size:clamp(22px,6vw,30px); margin:4px 0; color:#ff8c42; }
+  .hero p { font-size:13px; color:#8b7d7d; }
+  .bar { display:flex; justify-content:center; gap:12px; margin:10px 0 14px; flex-wrap:wrap; }
+  .pill { background:#fff; border:3px solid #ffd23f; border-radius:999px; padding:7px 16px;
+    font-size:16px; font-weight:800; color:#e07a00; box-shadow:0 4px 0 #f0c000; white-space:nowrap; }
+  .wrap { max-width:460px; margin:0 auto; padding:0 16px; }
+  .board { position:relative; width:100%; aspect-ratio:1/1; background:rgba(255,255,255,.42);
+    border-radius:20px; box-shadow:inset 0 2px 8px rgba(0,0,0,.08); touch-action:none; overflow:hidden; }
+  .cells { position:absolute; top:10px; left:10px; right:10px; bottom:10px;
+    display:grid; grid-template-columns:repeat(4,1fr); grid-template-rows:repeat(4,1fr); gap:10px; }
+  .cell { border-radius:12px; background:rgba(255,255,255,.5); }
+  .tile { position:absolute; top:0; left:0; transition:transform .12s ease; }
+  .tile .face { width:100%; height:100%; border-radius:12px; display:flex; align-items:center; justify-content:center;
+    font-weight:900; color:#fff; box-shadow:0 4px 0 rgba(0,0,0,.12); font-size:clamp(22px,7vw,40px); }
+  .tile.merge .face { animation:pop .22s ease; }
+  @keyframes pop { 0%{transform:scale(.8)} 60%{transform:scale(1.1)} 100%{transform:scale(1)} }
+  .v2 .face    { background:#eee4da; color:#776e65; }
+  .v4 .face    { background:#f6d9b0; color:#776e65; }
+  .v8 .face    { background:#ffb067; }
+  .v16 .face   { background:#ff9261; }
+  .v32 .face   { background:#ff7256; }
+  .v64 .face   { background:#ff5342; }
+  .v128 .face  { background:#eedd64; font-size:clamp(20px,6vw,34px); }
+  .v256 .face  { background:#e8cf46; font-size:clamp(20px,6vw,34px); }
+  .v512 .face  { background:#e0c421; font-size:clamp(18px,5.5vw,30px); }
+  .v1024 .face { background:#f5b301; font-size:clamp(16px,5vw,26px); box-shadow:0 0 0 3px #fff3b0,0 4px 0 rgba(0,0,0,.12); }
+  .v2048 .face { background:#ffcf00; font-size:clamp(16px,5vw,26px); }
+  .pad { display:grid; grid-template-columns:repeat(3,64px); grid-template-rows:repeat(2,58px);
+    gap:10px; justify-content:center; margin:18px auto 0; }
+  .pad button { border:none; border-radius:16px; background:linear-gradient(180deg,#ffd166,#ffa62b);
+    box-shadow:0 5px 0 #e08600; color:#fff; font-size:26px; font-weight:900; cursor:pointer; }
+  .pad button:active { transform:translateY(3px); box-shadow:0 2px 0 #e08600; }
+  .pad .up { grid-column:2; grid-row:1; }
+  .pad .left { grid-column:1; grid-row:2; }
+  .pad .down { grid-column:2; grid-row:2; }
+  .pad .right { grid-column:3; grid-row:2; }
+  .newbtn { display:block; margin:16px auto 0; border:none; border-radius:999px;
+    padding:12px 34px; font-size:18px; font-weight:900; color:#fff;
+    background:linear-gradient(180deg,#ff8fab,#ff6b81); box-shadow:0 6px 0 #e84d68; cursor:pointer; }
+  .newbtn:active { transform:translateY(3px); box-shadow:0 3px 0 #e84d68; }
+  .overlay { position:fixed; inset:0; z-index:40; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:rgba(255,255,255,.92); backdrop-filter:blur(4px); text-align:center; padding:20px; }
+  .overlay.hidden { display:none; }
+  .overlay .big { font-size:76px; animation:pop .6s ease; }
+  .overlay h2 { font-size:30px; color:#ff8c42; margin:8px 0; }
+  .overlay p { font-size:18px; color:#6d6262; margin:6px 0 20px; }
+  .overlay .btn { border:none; border-radius:999px; padding:14px 40px; font-size:22px; font-weight:900; color:#fff;
+    background:linear-gradient(180deg,#ff8fab,#ff6b81); box-shadow:0 6px 0 #e84d68; cursor:pointer; }
+  .overlay .btn:active { transform:translateY(3px); box-shadow:0 3px 0 #e84d68; }
+</style>
+</head>
+<body>
+<a class="home-btn" href="../../" aria-label="返回主页" title="返回主页">🏠</a>
+
+<header class="hero">
+  <div class="logo">🔢</div>
+  <h1>1024 数字合并</h1>
+  <p>滑动方块，相同的数字碰在一起就会合并，合出 1024 就毕业啦！</p>
+</header>
+
+<div class="bar">
+  <div class="pill">🏆 得分 <span id="score">0</span></div>
+  <div class="pill">⭐ 最高 <span id="best">0</span></div>
+</div>
+
+<div class="wrap">
+  <div class="board" id="board">
+    <div class="cells">
+      <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+      <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+      <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+      <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+    </div>
+  </div>
+
+  <div class="pad">
+    <button class="up" data-dir="up" aria-label="向上">↑</button>
+    <button class="left" data-dir="left" aria-label="向左">←</button>
+    <button class="down" data-dir="down" aria-label="向下">↓</button>
+    <button class="right" data-dir="right" aria-label="向右">→</button>
+  </div>
+
+  <button class="newbtn" id="newBtn">🔄 重新开始</button>
+</div>
+
+<div class="overlay hidden" id="overlay">
+  <div class="big" id="ovIcon">🎉</div>
+  <h2 id="ovTitle">太棒啦！</h2>
+  <p id="ovText"></p>
+  <button class="btn" id="ovBtn">继续玩</button>
+</div>
+
+<script src="../../quiz.js"></script>
+<script>
+(function () {
+  "use strict";
+  var SIZE = 4, GAP = 10;
+  var boardEl = document.getElementById("board");
+  var scoreEl = document.getElementById("score"), bestEl = document.getElementById("best");
+  var overlay = document.getElementById("overlay");
+  var ovIcon = document.getElementById("ovIcon"), ovTitle = document.getElementById("ovTitle");
+  var ovText = document.getElementById("ovText"), ovBtn = document.getElementById("ovBtn");
+  var grid = [], tileSeq = 0, score = 0, best = 0;
+  var gameActive = true, quizPaused = false, won = false;
+  var ovAction = null;
+
+  try { best = parseInt(localStorage.getItem("gb1024best") || "0", 10) || 0; } catch (e) {}
+  bestEl.textContent = best;
+
+  function cellPx() { return (boardEl.clientWidth - GAP * (SIZE + 1)) / SIZE; }
+  function pos(r, c) {
+    var s = cellPx();
+    return "translate(" + (GAP + c * (s + GAP)) + "px," + (GAP + r * (s + GAP)) + "px)";
+  }
+  function resetGrid() {
+    grid = [];
+    for (var r = 0; r < SIZE; r++) { grid[r] = []; for (var c = 0; c < SIZE; c++) grid[r][c] = null; }
+  }
+  function makeTile(r, c, val) {
+    var el = document.createElement("div");
+    el.className = "tile v" + val;
+    el.style.width = el.style.height = cellPx() + "px";
+    el.style.transform = pos(r, c);
+    var face = document.createElement("div");
+    face.className = "face"; face.textContent = val;
+    el.appendChild(face);
+    boardEl.appendChild(el);
+    var t = { id: ++tileSeq, value: val, row: r, col: c, el: el };
+    grid[r][c] = t; return t;
+  }
+  function spawn() {
+    var empty = [];
+    for (var r = 0; r < SIZE; r++) for (var c = 0; c < SIZE; c++) if (!grid[r][c]) empty.push([r, c]);
+    if (!empty.length) return null;
+    var p = empty[Math.floor(Math.random() * empty.length)];
+    return makeTile(p[0], p[1], Math.random() < 0.9 ? 2 : 4);
+  }
+  function updateTile(t, val) {
+    t.value = val;
+    t.el.className = "tile v" + val;
+    var face = t.el.firstChild;
+    face.textContent = val;
+    face.classList.remove("pop"); void face.offsetWidth; face.classList.add("pop");
+    t.el.classList.add("merge");
+    setTimeout(function () { t.el.classList.remove("merge"); }, 240);
+  }
+  function updateScore() {
+    scoreEl.textContent = score;
+    if (score > best) {
+      best = score; bestEl.textContent = best;
+      try { localStorage.setItem("gb1024best", String(best)); } catch (e) {}
+    }
+  }
+  function lineCells(dir, idx) {
+    var arr = [];
+    for (var k = 0; k < SIZE; k++) {
+      if (dir === "left") arr.push([idx, k]);
+      else if (dir === "right") arr.push([idx, SIZE - 1 - k]);
+      else if (dir === "up") arr.push([k, idx]);
+      else arr.push([SIZE - 1 - k, idx]);
+    }
+    return arr;
+  }
+  function move(dir) {
+    if (quizPaused || !gameActive || !overlay.classList.contains("hidden")) return;
+    var moved = false, removed = [];
+    for (var idx = 0; idx < SIZE; idx++) {
+      var cells = lineCells(dir, idx);
+      var tiles = [];
+      for (var i = 0; i < SIZE; i++) {
+        var rc = cells[i], t = grid[rc[0]][rc[1]];
+        if (t) tiles.push(t);
+      }
+      var result = [];
+      for (var j = 0; j < tiles.length; j++) {
+        var tk = tiles[j], last = result[result.length - 1];
+        if (last && last.value === tk.value && !last.didMerge) {
+          last.value *= 2; last.didMerge = true; score += last.value;
+          removed.push(tk); moved = true;
+        } else {
+          result.push({ tile: tk, value: tk.value, didMerge: false });
+        }
+      }
+      for (var k2 = 0; k2 < SIZE; k2++) { var rc2 = cells[k2]; grid[rc2[0]][rc2[1]] = null; }
+      for (var m = 0; m < result.length; m++) {
+        var rc3 = cells[m], item = result[m], t3 = item.tile;
+        if (t3.row !== rc3[0] || t3.col !== rc3[1]) moved = true;
+        grid[rc3[0]][rc3[1]] = t3;
+        t3.row = rc3[0]; t3.col = rc3[1];
+        t3.el.style.transform = pos(t3.row, t3.col);
+        if (item.didMerge) updateTile(t3, item.value);
+      }
+    }
+    for (var d = 0; d < removed.length; d++) {
+      var el = removed[d].el; if (el.parentNode) el.parentNode.removeChild(el);
+    }
+    if (moved) {
+      updateScore();
+      spawn();
+      checkState();
+    }
+  }
+  function hasBig() {
+    for (var r = 0; r < SIZE; r++) for (var c = 0; c < SIZE; c++)
+      if (grid[r][c] && grid[r][c].value >= 1024) return true;
+    return false;
+  }
+  function canMove() {
+    for (var r = 0; r < SIZE; r++) for (var c = 0; c < SIZE; c++) {
+      var t = grid[r][c]; if (!t) return true;
+      if (c + 1 < SIZE && grid[r][c + 1] && grid[r][c + 1].value === t.value) return true;
+      if (r + 1 < SIZE && grid[r + 1][c] && grid[r + 1][c].value === t.value) return true;
+    }
+    return false;
+  }
+  function showOverlay(icon, title, text, btn, action) {
+    ovIcon.textContent = icon; ovTitle.textContent = title; ovText.textContent = text;
+    ovBtn.textContent = btn; ovAction = action;
+    overlay.classList.remove("hidden");
+    gameActive = false;
+  }
+  function checkState() {
+    if (!won && hasBig()) {
+      won = true;
+      showOverlay("🏆", "毕业啦！", "你合出了 1024！得分 " + score + "，太厉害啦！", "继续玩 🎮", function () {
+        overlay.classList.add("hidden"); gameActive = true;
+      });
+    } else if (!canMove()) {
+      showOverlay("😵", "没有位置啦", "最终得分 " + score + "，再挑战一次吧！", "再玩一次 🔄", reset);
+    }
+  }
+  function reset() {
+    var tiles = boardEl.querySelectorAll(".tile");
+    for (var i = 0; i < tiles.length; i++) tiles[i].parentNode.removeChild(tiles[i]);
+    resetGrid(); score = 0; won = false; scoreEl.textContent = "0";
+    overlay.classList.add("hidden"); gameActive = true;
+    spawn(); spawn();
+  }
+
+  ovBtn.addEventListener("click", function () {
+    overlay.classList.add("hidden");
+    gameActive = true;
+    if (typeof ovAction === "function") { var a = ovAction; ovAction = null; a(); }
+  });
+  document.getElementById("newBtn").addEventListener("click", reset);
+
+  var padBtns = document.querySelectorAll(".pad button");
+  for (var p = 0; p < padBtns.length; p++) {
+    (function (b) { b.addEventListener("click", function () { move(b.dataset.dir); }); })(padBtns[p]);
+  }
+  document.addEventListener("keydown", function (e) {
+    var map = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", ArrowDown: "down",
+                a: "left", d: "right", w: "up", s: "down" };
+    var d = map[e.key];
+    if (d) { e.preventDefault(); move(d); }
+  });
+  var ts = null;
+  boardEl.addEventListener("touchstart", function (e) {
+    var t = e.changedTouches[0]; ts = { x: t.clientX, y: t.clientY };
+  }, { passive: true });
+  boardEl.addEventListener("touchend", function (e) {
+    if (!ts) return;
+    var t = e.changedTouches[0], dx = t.clientX - ts.x, dy = t.clientY - ts.y;
+    ts = null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+    if (Math.abs(dx) > Math.abs(dy)) move(dx > 0 ? "right" : "left");
+    else move(dy > 0 ? "down" : "up");
+  }, { passive: true });
+  window.addEventListener("resize", function () {
+    var s = cellPx();
+    for (var r = 0; r < SIZE; r++) for (var c = 0; c < SIZE; c++) {
+      var t = grid[r][c];
+      if (t) { t.el.style.width = t.el.style.height = s + "px"; t.el.style.transform = pos(r, c); }
+    }
+  });
+
+  reset();
+
+  if (window.GameQuiz) {
+    GameQuiz.init({
+      isPlaying: function () { return gameActive && overlay.classList.contains("hidden"); },
+      onOpen: function () { quizPaused = true; },
+      onClose: function () { quizPaused = false; }
+    });
+  }
+})();
+</script>
+</body>
+</html>

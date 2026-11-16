@@ -27,11 +27,13 @@ games/
 ├── little-train/    # 小火车呜呜开（3D 无限列车）
 │   ├── README.md
 │   └── index.html
-├── tetris/          # 俄罗斯方块
+├── memory-match/    # 动物记忆翻翻乐
+├── 1024/            # 1024 数字合并
+├── gomoku/          # 五子棋
+├── link-game/       # 连连看
+├── match-three/     # 消消乐
+├── puzzle/          # 拼图游戏
 │   ├── README.md
-│   ├── index.html
-│   └── cover.png
-└── puzzle/          # 拼图游戏
-    ├── README.md
-    └── ...
+│   └── ...
+└── ...
 ```

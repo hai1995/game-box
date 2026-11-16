@@ -94,6 +94,10 @@
   .app:nth-child(6) { animation-delay: .30s; }
   .app:nth-child(7) { animation-delay: .35s; }
   .app:nth-child(8) { animation-delay: .40s; }
+  .app:nth-child(9)  { animation-delay: .45s; }
+  .app:nth-child(10) { animation-delay: .50s; }
+  .app:nth-child(11) { animation-delay: .55s; }
+  .app:nth-child(12) { animation-delay: .60s; }
   @keyframes rise {
     from { opacity: 0; transform: translateY(14px); }
     to   { opacity: 1; transform: translateY(0); }
@@ -136,6 +140,10 @@
   .c-number  { background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%); }
   .c-mole    { background: linear-gradient(135deg, #f59e0b 0%, #84cc16 100%); }
   .c-maze    { background: linear-gradient(135deg, #7c5cff 0%, #4a7ad9 100%); }
+  .c-1024    { background: linear-gradient(135deg, #ffb703 0%, #fb8500 100%); }
+  .c-gomoku  { background: linear-gradient(135deg, #8d6e63 0%, #4e342e 100%); }
+  .c-link    { background: linear-gradient(135deg, #7c5cff 0%, #e36fb3 100%); }
+  .c-match   { background: linear-gradient(135deg, #ff6b9d 0%, #ff8fab 100%); }
   .c-quiz    { background: linear-gradient(135deg, #ff6b9d 0%, #ff9f43 100%); }
   /* 题目练习入口：加个「练习」小角标，与其他游戏区分 */
   .app-icon.quiz-icon { position: relative; }
@@ -199,6 +207,26 @@
     <a class="app" href="games/maze-escape/index.html" aria-label="打开 小探险家走迷宫">
       <div class="app-icon c-maze"><span class="em">🗺️</span></div>
       <div class="app-name">走迷宫</div>
+    </a>
+
+    <a class="app" href="games/1024/index.html" aria-label="打开 1024 数字合并">
+      <div class="app-icon c-1024"><span class="em">🔢</span></div>
+      <div class="app-name">1024</div>
+    </a>
+
+    <a class="app" href="games/gomoku/index.html" aria-label="打开 五子棋">
+      <div class="app-icon c-gomoku"><span class="em">⚫</span></div>
+      <div class="app-name">五子棋</div>
+    </a>
+
+    <a class="app" href="games/link-game/index.html" aria-label="打开 连连看">
+      <div class="app-icon c-link"><span class="em">🔗</span></div>
+      <div class="app-name">连连看</div>
+    </a>
+
+    <a class="app" href="games/match-three/index.html" aria-label="打开 消消乐">
+      <div class="app-icon c-match"><span class="em">🍬</span></div>
+      <div class="app-name">消消乐</div>
     </a>
 
     <a class="app" href="practice/index.html" aria-label="打开 题目练习">

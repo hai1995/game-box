@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>🍬 消消乐</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { width:100%; min-height:100%; overflow-x:hidden; font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
+  body { background:linear-gradient(160deg,#fff0f3 0%,#e9f9ff 55%,#fff8e6 100%); background-attachment:fixed; color:#3b2f2f; padding-bottom:calc(26px + env(safe-area-inset-bottom)); }
+  .home-btn { position:fixed; left:12px; top:calc(12px + env(safe-area-inset-top)); z-index:30;
+    width:46px; height:46px; border-radius:50%; background:rgba(255,255,255,.92);
+    border:3px solid #ffb703; box-shadow:0 4px 0 rgba(0,0,0,.14); color:#d62828;
+    display:flex; align-items:center; justify-content:center; font-size:26px; text-decoration:none; }
+  .home-btn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,.14); }
+  .hero { text-align:center; padding:calc(20px + env(safe-area-inset-top)) 12px 4px; }
+  .hero .logo { font-size:46px; animation:bob 3s ease-in-out infinite; }
+  @keyframes bob { 0%,100%{transform:translateY(0) rotate(-5deg)} 50%{transform:translateY(-7px) rotate(5deg)} }
+  .hero h1 { font-size:clamp(22px,6vw,30px); margin:4px 0; color:#ff6b9d; }
+  .hero p { font-size:13px; color:#8b7d7d; }
+  .bar { display:flex; justify-content:center; gap:10px; margin:10px 0 12px; flex-wrap:wrap; }
+  .pill { background:#fff; border:3px solid #ffd23f; border-radius:999px; padding:7px 14px;
+    font-size:15px; font-weight:800; color:#e07a00; box-shadow:0 4px 0 #f0c000; white-space:nowrap; }
+  .pill.goal { color:#ff6b9d; border-color:#ffb3c8; box-shadow:0 4px 0 #ff8fab; }
+  .wrap { max-width:520px; margin:0 auto; padding:0 12px; text-align:center; }
+  .progress { height:16px; background:#ffe3ec; border-radius:999px; overflow:hidden; max-width:460px; margin:0 auto 12px; box-shadow:inset 0 2px 4px rgba(0,0,0,.08); }
+  .progress i { display:block; height:100%; width:0%; background:linear-gradient(90deg,#ff8fab,#ff6b9d,#ffb03a); border-radius:999px; transition:width .3s ease; }
+  .boardwrap { position:relative; display:inline-block; width:100%; max-width:460px; }
+  .board { display:grid; grid-template-columns:repeat(8,1fr); grid-template-rows:repeat(8,1fr);
+    gap:4px; width:100%; aspect-ratio:1/1; background:rgba(255,255,255,.4); padding:6px; border-radius:18px;
+    box-shadow:inset 0 2px 8px rgba(0,0,0,.06); }
+  .tile { border-radius:11px; display:flex; align-items:center; justify-content:center;
+    font-size:clamp(20px,6.5vw,34px); background:linear-gradient(180deg,#fff,#fff4f8);
+    box-shadow:0 3px 0 rgba(200,120,150,.22); cursor:pointer; user-select:none; }
+  .tile.sel { box-shadow:0 0 0 4px #ffb703,0 3px 0 rgba(200,120,150,.22); background:#fff8e1; transform:scale(.92); }
+  .tile.clear { animation:clearAnim .28s ease forwards; }
+  @keyframes clearAnim { 0%{transform:scale(1)} 50%{transform:scale(1.2)} 100%{transform:scale(0);opacity:0} }
+  .tile.new { animation:newAnim .28s ease; }
+  @keyframes newAnim { 0%{transform:scale(.4);opacity:.3} 100%{transform:scale(1);opacity:1} }
+  .tile.wrong { animation:shake .3s; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+  .combo { position:absolute; left:50%; top:38%; transform:translate(-50%,-50%);
+    font-size:34px; font-weight:900; color:#ff3d6e; text-shadow:0 2px 0 #fff,0 0 12px #fff;
+    pointer-events:none; opacity:0; z-index:6; white-space:nowrap; }
+  .combo.show { animation:comboPop .9s ease; }
+  @keyframes comboPop { 0%{opacity:0;transform:translate(-50%,-30%) scale(.6)} 30%{opacity:1;transform:translate(-50%,-50%) scale(1.15)} 100%{opacity:0;transform:translate(-50%,-90%) scale(1)} }
+  .tools { margin:14px 0 4px; }
+  .btn { border:none; border-radius:999px; padding:12px 34px; font-size:18px; font-weight:900; color:#fff; cursor:pointer;
+    background:linear-gradient(180deg,#ff8fab,#ff6b81); box-shadow:0 6px 0 #e84d68; }
+  .btn:active { transform:translateY(3px); box-shadow:0 3px 0 #e84d68; }
+  .overlay { position:fixed; inset:0; z-index:40; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:rgba(255,255,255,.92); backdrop-filter:blur(4px); text-align:center; padding:20px; }
+  .overlay.hidden { display:none; }
+  .overlay .big { font-size:76px; animation:pop .6s ease; }
+  @keyframes pop { 0%{transform:scale(.6)} 60%{transform:scale(1.15)} 100%{transform:scale(1)} }
+  .overlay h2 { font-size:30px; color:#ff6b9d; margin:8px 0; }
+  .overlay p { font-size:18px; color:#6d6262; margin:6px 0 20px; }
+</style>
+</head>
+<body>
+<a class="home-btn" href="../../" aria-label="返回主页" title="返回主页">🏠</a>
+
+<header class="hero">
+  <div class="logo">🍬</div>
+  <h1>消消乐</h1>
+  <p>点两个相邻的水果交换位置，三个一样的连成一线就能消除得分！</p>
+</header>
+
+<div class="bar">
+  <div class="pill">🏆 <span id="score">0</span> 分</div>
+  <div class="pill goal">🎯 目标 1200</div>
+  <div class="pill">👣 剩 <span id="steps">30</span> 步</div>
+</div>
+
+<div class="wrap">
+  <div class="progress"><i id="bar"></i></div>
+  <div class="boardwrap">
+    <div class="board" id="board"></div>
+    <div class="combo" id="combo"></div>
+  </div>
+  <div class="tools"><button class="btn" id="restartBtn">🔄 重新挑战</button></div>
+</div>
+
+<div class="overlay hidden" id="overlay">
+  <div class="big" id="ovIcon">🎉</div>
+  <h2 id="ovTitle">过关啦！</h2>
+  <p id="ovText"></p>
+  <button class="btn" id="ovBtn">再玩一次</button>
+</div>
+
+<script src="../../quiz.js"></script>
+<script>
+(function () {
+  "use strict";
+  var R = 8, C = 8, TARGET = 1200, STEPS = 30, PER = 20;
+  var EMOJI = ["🍎","🍊","🍋","🍉","🍇","🍓"];
+  var boardEl = document.getElementById("board"), comboEl = document.getElementById("combo");
+  var scoreEl = document.getElementById("score"), stepsEl = document.getElementById("steps"), barEl = document.getElementById("bar");
+  var overlay = document.getElementById("overlay");
+  var grid = [], cells = [], sel = null, score = 0, steps = STEPS;
+  var busy = false, finished = false, quizPaused = false;
+
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+  function wouldMatch(r, c, v) {
+    // 逐行自上而下构建，只需检查左侧与上方已生成的格子；
+    // 下方格子尚未生成，等它生成时会反过来检查上方，同样能避免三连。
+    if (c >= 2 && grid[r][c-1] === v && grid[r][c-2] === v) return true;
+    if (c >= 1 && c + 1 < C && grid[r][c-1] === v && grid[r][c+1] === v) return true;
+    if (c + 2 < C && grid[r][c+1] === v && grid[r][c+2] === v) return true;
+    if (r >= 2 && grid[r-1][c] === v && grid[r-2][c] === v) return true;
+    return false;
+  }
+  function buildGrid() {
+    grid = [];
+    for (var r = 0; r < R; r++) {
+      grid[r] = [];
+      for (var c = 0; c < C; c++) {
+        var v, tries = 0;
+        do { v = EMOJI[Math.floor(Math.random() * EMOJI.length)]; tries++; }
+        while (wouldMatch(r, c, v) && tries < 40);
+        grid[r][c] = v;
+      }
+    }
+    if (!hasPossible()) buildGrid();
+  }
+  function renderAll(fresh) {
+    for (var r = 0; r < R; r++) for (var c = 0; c < C; c++) {
+      var el = cells[r][c];
+      el.className = "tile";
+      el.textContent = grid[r][c];
+      if (fresh && fresh[r + "," + c]) el.classList.add("new");
+    }
+  }
+  function findMatches() {
+    var marks = {};
+    function add(r, c) { marks[r + "," + c] = true; }
+    for (var r = 0; r < R; r++) {
+      var s = 0;
+      for (var c = 1; c <= C; c++) {
+        if (c < C && grid[r][c] && grid[r][c] === grid[r][s]) continue;
+        if (grid[r][s] && c - s >= 3) for (var k = s; k < c; k++) add(r, k);
+        s = c;
+      }
+    }
+    for (var c2 = 0; c2 < C; c2++) {
+      var s2 = 0;
+      for (var r2 = 1; r2 <= R; r2++) {
+        if (r2 < R && grid[r2][c2] && grid[r2][c2] === grid[s2][c2]) continue;
+        if (grid[s2][c2] && r2 - s2 >= 3) for (var k2 = s2; k2 < r2; k2++) add(k2, c2);
+        s2 = r2;
+      }
+    }
+    return marks;
+  }
+  function swapValues(a, b) {
+    var t = grid[a.r][a.c]; grid[a.r][a.c] = grid[b.r][b.c]; grid[b.r][b.c] = t;
+  }
+  function makesMatch(a, b) {
+    swapValues(a, b);
+    var ok = Object.keys(findMatches()).length > 0;
+    swapValues(a, b);
+    return ok;
+  }
+  function hasPossible() {
+    for (var r = 0; r < R; r++) for (var c = 0; c < C; c++) {
+      if (c + 1 < C && makesMatch({r:r,c:c}, {r:r,c:c+1})) return true;
+      if (r + 1 < R && makesMatch({r:r,c:c}, {r:r+1,c:c})) return true;
+    }
+    return false;
+  }
+  function showCombo(n) {
+    if (n < 2) return;
+    comboEl.textContent = "连击 x" + n + "！";
+    comboEl.classList.remove("show"); void comboEl.offsetWidth; comboEl.classList.add("show");
+  }
+  function updateScore() {
+    scoreEl.textContent = score;
+    barEl.style.width = Math.min(100, score / TARGET * 100) + "%";
+  }
+  function collapse() {
+    var fresh = {};
+    for (var c = 0; c < C; c++) {
+      var vals = [];
+      for (var r = R - 1; r >= 0; r--) if (grid[r][c]) vals.push(grid[r][c]);
+      var vi = 0;
+      for (var r2 = R - 1; r2 >= 0; r2--) {
+        if (vi < vals.length) grid[r2][c] = vals[vi++];
+        else { grid[r2][c] = EMOJI[Math.floor(Math.random() * EMOJI.length)]; fresh[r2 + "," + c] = true; }
+      }
+    }
+    return fresh;
+  }
+  function resolve(marks, combo) {
+    var keys = Object.keys(marks);
+    if (!keys.length) { checkEnd(); return; }
+    combo++;
+    showCombo(combo);
+    score += keys.length * PER * combo; updateScore();
+    for (var i = 0; i < keys.length; i++) {
+      var pos = marks0(keys[i]);
+      cells[pos[0]][pos[1]].classList.add("clear");
+    }
+    setTimeout(function () {
+      for (var j = 0; j < keys.length; j++) {
+        var p = marks0(keys[j]); grid[p[0]][p[1]] = null;
+      }
+      var fresh = collapse();
+      renderAll(fresh);
+      setTimeout(function () {
+        resolve(findMatches(), combo);
+      }, 240);
+    }, 280);
+  }
+  function marks0(key) { var a = key.split(","); return [parseInt(a[0],10), parseInt(a[1],10)]; }
+  function checkEnd() {
+    busy = false;
+    if (score >= TARGET) {
+      finished = true;
+      document.getElementById("ovIcon").textContent = "🏆";
+      document.getElementById("ovTitle").textContent = "过关啦！";
+      document.getElementById("ovText").textContent = "你得了 " + score + " 分，还剩 " + steps + " 步，太棒了！";
+      overlay.classList.remove("hidden"); return;
+    }
+    if (steps <= 0) {
+      finished = true;
+      document.getElementById("ovIcon").textContent = "😵";
+      document.getElementById("ovTitle").textContent = "步数用完啦";
+      document.getElementById("ovText").textContent = "这次得了 " + score + " 分，再挑战一次吧！";
+      overlay.classList.remove("hidden"); return;
+    }
+    if (!hasPossible()) {
+      buildGrid(); renderAll({});
+      comboEl.textContent = "没有可消的啦，重新洗牌～";
+      comboEl.classList.remove("show"); void comboEl.offsetWidth; comboEl.classList.add("show");
+    }
+  }
+  function clearSel() {
+    if (sel) { cells[sel.r][sel.c].classList.remove("sel"); sel = null; }
+  }
+  function tapCell(r, c) {
+    if (busy || finished || quizPaused) return;
+    if (!sel) { sel = { r: r, c: c }; cells[r][c].classList.add("sel"); return; }
+    if (sel.r === r && sel.c === c) { clearSel(); return; }
+    var a = sel, b = { r: r, c: c };
+    var adjacent = Math.abs(a.r - b.r) + Math.abs(a.c - b.c) === 1;
+    if (!adjacent) { clearSel(); sel = b; cells[b.r][b.c].classList.add("sel"); return; }
+    clearSel();
+    if (makesMatch(a, b)) {
+      swapValues(a, b);              // 真正执行这次有效交换
+      busy = true; steps--; stepsEl.textContent = steps;
+      resolve(findMatches(), 0);
+    } else {
+      cells[a.r][a.c].classList.add("wrong");
+      cells[b.r][b.c].classList.add("wrong");
+      setTimeout(function () {
+        cells[a.r][a.c].classList.remove("wrong");
+        cells[b.r][b.c].classList.remove("wrong");
+      }, 320);
+    }
+  }
+  function reset() {
+    score = 0; steps = STEPS; busy = false; finished = false;
+    scoreEl.textContent = "0"; stepsEl.textContent = STEPS; barEl.style.width = "0%";
+    overlay.classList.add("hidden"); clearSel(); comboEl.classList.remove("show");
+    buildGrid(); renderAll({});
+  }
+
+  // 生成棋盘 DOM
+  boardEl.innerHTML = ""; cells = [];
+  for (var r = 0; r < R; r++) {
+    cells[r] = [];
+    for (var c = 0; c < C; c++) {
+      var d = document.createElement("div"); d.className = "tile";
+      (function (rr, cc) { d.addEventListener("click", function () { tapCell(rr, cc); }); })(r, c);
+      boardEl.appendChild(d); cells[r][c] = d;
+    }
+  }
+  document.getElementById("restartBtn").addEventListener("click", reset);
+  document.getElementById("ovBtn").addEventListener("click", reset);
+
+  reset();
+
+  if (window.GameQuiz) {
+    GameQuiz.init({
+      isPlaying: function () { return !finished && overlay.classList.contains("hidden"); },
+      onOpen: function () { quizPaused = true; },
+      onClose: function () { quizPaused = false; }
+    });
+  }
+})();
+</script>
+</body>
+</html>
