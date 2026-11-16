@@ -29,6 +29,7 @@ games/
 │   └── index.html
 ├── memory-match/    # 动物记忆翻翻乐
 ├── 1024/            # 1024 数字合并
+├── hex-2048/        # 六边形2048（数字联盟爱消除款型）
 ├── gomoku/          # 五子棋
 ├── link-game/       # 连连看
 ├── match-three/     # 消消乐
