@@ -83,20 +83,20 @@
     clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); }
   .hex.empty .in { background:#dcc9a3 !important; box-shadow:none; }
   .hex:not(.empty):active { transform:scale(.9); }
-  .hex.pop .in { animation:pop .3s ease forwards; }
+  .hex.pop .in { animation:pop var(--a-pop,.22s) ease forwards; }
   @keyframes pop { 0%{transform:scale(1)} 45%{transform:scale(1.25)} 100%{transform:scale(0);opacity:0} }
-  .hex.born .in { animation:born .26s ease; }
+  .hex.born .in { animation:born var(--a-born,.18s) ease; }
   @keyframes born { 0%{transform:scale(.3);opacity:.4} 70%{transform:scale(1.12)} 100%{transform:scale(1);opacity:1} }
-  .hex.hammer .in { animation:shake .3s; }
+  .hex.hammer .in { animation:shake var(--a-shake,.2s); }
   @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
   /* 合并时被吸收的块：朝锚点吸附汇聚 */
   .hex.pull { z-index:5; pointer-events:none;
-    transition:transform .3s cubic-bezier(.55,.02,.85,.4), opacity .3s ease;
+    transition:transform var(--a-pull,.2s) cubic-bezier(.55,.02,.85,.4), opacity var(--a-pull,.2s) ease;
     transform:translate(var(--dx,0),var(--dy,0)) scale(.3); opacity:0; }
   /* 锚点合并瞬间的果冻闪光 */
-  .hex.merging .in { animation:mergeGlow .3s ease; }
+  .hex.merging .in { animation:mergeGlow var(--a-glow,.2s) ease; }
   @keyframes mergeGlow { 0%{filter:brightness(1)} 50%{filter:brightness(1.45)} 100%{filter:brightness(1)} }
-  .hex.flash .in { animation:mergeFlash .44s ease; }
+  .hex.flash .in { animation:mergeFlash var(--a-flash,.3s) ease; }
   @keyframes mergeFlash { 0%{transform:scale(1)} 35%{transform:scale(1.28); filter:brightness(1.5)} 100%{transform:scale(1)} }
   /* 被选中准备移动的块 */
   .hex.moving { z-index:6; }
@@ -112,7 +112,7 @@
   /* 合并时的飘分反馈 */
   .float-score { position:fixed; z-index:60; pointer-events:none; font-weight:900;
     font-size:20px; color:#fff; text-shadow:0 2px 0 #e8384f, 0 3px 8px rgba(0,0,0,.25);
-    transform:translate(-50%,-50%); animation:floatUp .9s ease-out forwards; }
+    transform:translate(-50%,-50%); animation:floatUp var(--a-float,.62s) ease-out forwards; }
   @keyframes floatUp { 0%{opacity:0; transform:translate(-50%,-30%) scale(.6)}
     22%{opacity:1; transform:translate(-50%,-60%) scale(1.15)}
     100%{opacity:0; transform:translate(-50%,-170%) scale(1)} }
@@ -129,7 +129,7 @@
   /* 落点涟漪 */
   .ripple { position:fixed; z-index:49; border-radius:50%; pointer-events:none;
     border:4px solid rgba(255,255,255,.92); box-shadow:0 0 0 2px rgba(255,178,60,.45);
-    transform:translate(-50%,-50%) scale(.35); animation:ripple .5s ease-out forwards; }
+    transform:translate(-50%,-50%) scale(.35); animation:ripple var(--a-ripple,.36s) ease-out forwards; }
   @keyframes ripple { to { transform:translate(-50%,-50%) scale(1.45); opacity:0; } }
   .hint { text-align:center; font-size:12px; color:#a98a63; margin-top:8px; min-height:16px; }
 
@@ -190,6 +190,35 @@
   "use strict";
 
   var SAVE_KEY = "hex2048";
+
+  /* 动画时长统一配置（毫秒）—— 整体调快、消除拖沓感；同时同步到 CSS 变量，
+   * CSS 里以 var(--a-xxx, fallback) 消费，做到「一处修改、JS/CSS 同步」。 */
+  var ANIM = {
+    fly: 280,           // 数字球飞入（原 420）
+    ripple: 360,        // 落点涟漪
+    rippleRemove: 420,  // 涟漪节点移除（动画 + 缓冲）
+    slideSeg: 75,       // 滑行每段时长（原 120）
+    slideMin: 150,      // 滑行最短（原 220）
+    slideMax: 420,      // 滑行最长（原 640）
+    pull: 200,          // 合并吸附汇聚
+    pullDelay: 215,     // 吸附完成后清理（动画 + 缓冲，原 310）
+    flash: 300,         // 合并果冻闪光
+    flashRemove: 320,   // 闪光节点移除（原 460）
+    chain: 120,         // 连锁递归间隔（原 200）
+    born: 180, pop: 220, shake: 200, glow: 200, float: 620,
+    hammer: 220         // 锤子敲击清理（原 280）
+  };
+  (function () {
+    var st = document.documentElement.style;
+    st.setProperty("--a-pop", ANIM.pop + "ms");
+    st.setProperty("--a-born", ANIM.born + "ms");
+    st.setProperty("--a-shake", ANIM.shake + "ms");
+    st.setProperty("--a-pull", ANIM.pull + "ms");
+    st.setProperty("--a-glow", ANIM.glow + "ms");
+    st.setProperty("--a-flash", ANIM.flash + "ms");
+    st.setProperty("--a-float", ANIM.float + "ms");
+    st.setProperty("--a-ripple", ANIM.ripple + "ms");
+  })();
 
   // 数字 -> 主色（覆盖 1 起递增的 2 的幂，×4 合成后延伸到大数）
   var COLORS = {
@@ -312,7 +341,7 @@
     el.style.fontSize = Math.round(to.w * (String(val).length >= 3 ? .5 : .62)) + "px";
     el.style.background = "linear-gradient(160deg, rgba(255,255,255,.45), rgba(0,0,0,.08)), " + colorOf(val);
     document.body.appendChild(el);
-    var t0 = performance.now(), dur = 420;
+    var t0 = performance.now(), dur = ANIM.fly;
     var lift = -Math.max(46, Math.abs(to.y - from.y) * 0.26); // 向上拱起
     function frame(now) {
       if (myGen !== gen) { if (el.parentNode) el.parentNode.removeChild(el); return; }
@@ -340,7 +369,7 @@
     el.style.left = c.x + "px"; el.style.top = c.y + "px";
     el.style.width = el.style.height = Math.round(c.w * 1.25) + "px";
     document.body.appendChild(el);
-    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 520);
+    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, ANIM.rippleRemove);
   }
 
   /* ---------- 移动棋盘上已有块：选中 → 沿空白路径滑到目标空格 ---------- */
@@ -385,7 +414,7 @@
     el.style.fontSize = Math.round(pts[0].w * (String(val).length >= 3 ? .5 : .62)) + "px";
     el.style.background = "linear-gradient(160deg, rgba(255,255,255,.45), rgba(0,0,0,.08)), " + colorOf(val);
     document.body.appendChild(el);
-    var segs = pts.length - 1, dur = Math.max(220, Math.min(640, segs * 120)), t0 = performance.now();
+    var segs = pts.length - 1, dur = Math.max(ANIM.slideMin, Math.min(ANIM.slideMax, segs * ANIM.slideSeg)), t0 = performance.now();
     function frame(now) {
       if (myGen !== gen) { if (el.parentNode) el.parentNode.removeChild(el); return; }
       var p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 2);
@@ -455,10 +484,13 @@
       hintEl.textContent = "合并 " + group.length + " 个 " + anchor.val + " → " + nv +
         (chain > 1 ? "（连锁 ×" + chain + "）" : "") + "  +" + gained + " 分！";
       var ac = pixelCenter(anchor.el);
+      // 先集中读所有坐标，再集中写样式，避免读写交替触发强制同步布局（layout thrashing）
+      var gcs = [];
+      for (var i = 0; i < group.length; i++) gcs.push(group[i] === anchor ? null : pixelCenter(group[i].el));
       for (var i = 0; i < group.length; i++) {
         var g = group[i];
         if (g === anchor) { g.el.classList.add("merging"); continue; }
-        var gc = pixelCenter(g.el);
+        var gc = gcs[i];
         g.el.style.setProperty("--dx", (ac.x - gc.x) + "px");
         g.el.style.setProperty("--dy", (ac.y - gc.y) + "px");
         g.el.classList.add("pull");
@@ -473,12 +505,12 @@
         }
         anchor.val = nv; anchor.moved = false; paint(anchor);  // 合成的新块重新获得一次移动机会
         anchor.el.classList.add("flash");
-        setTimeout(function () { anchor.el.classList.remove("flash"); }, 460);
+        setTimeout(function () { anchor.el.classList.remove("flash"); }, ANIM.flashRemove);
         score += gained; updateScore();
         floatScore(ac.x, ac.y, gained);
         saveGame();
-        setTimeout(function () { if (myGen === gen) resolve(anchor, chain + 1); }, 200);
-      }, 310);
+        setTimeout(function () { if (myGen === gen) resolve(anchor, chain + 1); }, ANIM.chain);
+      }, ANIM.pullDelay);
     } else {
       busy = false;
       saveGame();
@@ -493,7 +525,7 @@
     el.textContent = "+" + amount;
     el.style.left = x + "px"; el.style.top = (y - 14) + "px";
     document.body.appendChild(el);
-    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 940);
+    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, ANIM.float + 40);
   }
 
   function anyEmpty() {
@@ -530,7 +562,7 @@
           hammerLeft--; hammerN.textContent = hammerLeft;
           hintEl.textContent = "敲掉一个数字，腾出空格啦！";
           if (hammerLeft <= 0) { hammerBtn.classList.add("dim"); hammerMode = false; hammerBtn.classList.remove("armed"); }
-        }, 280);
+        }, ANIM.hammer);
       }
       return;
     }
