@@ -30,8 +30,8 @@
   .pad button { border:none; border-radius:16px; background:linear-gradient(180deg,#81C784,#4CAF50);
     box-shadow:0 5px 0 #388E3C; color:#fff; font-size:26px; font-weight:900; cursor:pointer; }
   .pad button:active { transform:translateY(3px); box-shadow:0 2px 0 #388E3C; }
-  .pad .up { grid-column:2; grid-row:1; } .pad .left { grid-column:1; grid-row:2; }
-  .pad .down { grid-column:2; grid-row:2; } .pad .right { grid-column:3; grid-row:2; }
+  /* 移动端触摸适配：隐藏虚拟方向键显示，保留按钮及事件；操作用棋盘滑动手势 */
+  .pad { display:none !important; }
   .newbtn { display:block; margin:16px auto 0; border:none; border-radius:999px; padding:12px 34px;
     font-size:18px; font-weight:900; color:#fff; background:linear-gradient(180deg,#ff8fab,#ff6b81);
     box-shadow:0 6px 0 #e84d68; cursor:pointer; }
@@ -53,7 +53,7 @@
 <header class="hero">
   <div class="logo">🐍</div>
   <h1>贪吃蛇</h1>
-  <p>滑动屏幕或按方向键，带小蛇去吃苹果，越吃越长！别撞墙也别咬到自己哦。</p>
+  <p>在棋盘上滑动，带小蛇去吃苹果，越吃越长！别撞墙也别咬到自己哦。</p>
 </header>
 
 <div class="bar">
@@ -85,11 +85,13 @@
   <button class="btn" id="againBtn">再玩一次 🔄</button>
 </div>
 
+<script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
 <script>
 (function () {
   "use strict";
   var COLS = 16, ROWS = 16;
+  var appleImg = GameIcons.image("apple", function () { draw(); });
   var canvas = document.getElementById("board"), ctx = canvas.getContext("2d");
   var scoreEl = document.getElementById("score"), bestEl = document.getElementById("best");
   var startScreen = document.getElementById("startScreen"), endScreen = document.getElementById("endScreen");
@@ -127,8 +129,13 @@
     for (var i = 0; i <= COLS; i++) { ctx.moveTo(i * cell, 0); ctx.lineTo(i * cell, ROWS * cell); ctx.moveTo(0, i * cell); ctx.lineTo(COLS * cell, i * cell); }
     ctx.stroke();
     if (food) {
-      ctx.font = (cell * 0.8) + "px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText("🍎", food.x * cell + cell / 2, food.y * cell + cell / 2 + 1);
+      if (appleImg && appleImg.complete) {
+        var s = cell * 0.92;
+        ctx.drawImage(appleImg, food.x * cell + (cell - s) / 2, food.y * cell + (cell - s) / 2, s, s);
+      } else {
+        ctx.fillStyle = "#e53935"; ctx.beginPath();
+        ctx.arc(food.x * cell + cell / 2, food.y * cell + cell / 2, cell * 0.34, 0, Math.PI * 2); ctx.fill();
+      }
     }
     for (var s = snake.length - 1; s >= 0; s--) {
       var p = snake[s], head = s === 0;

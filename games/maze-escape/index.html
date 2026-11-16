@@ -23,10 +23,8 @@
   .dpad button { border:none; border-radius:18px; font-size:30px; font-weight:900; color:#fff;
     background:linear-gradient(180deg,#ff9f68,#ff7a45); box-shadow:0 5px 0 #d9541f; cursor:pointer; }
   .dpad button:active { transform:translateY(3px); box-shadow:0 2px 0 #d9541f; }
-  .dpad .up { grid-column:2; grid-row:1; }
-  .dpad .left { grid-column:1; grid-row:2; }
-  .dpad .down { grid-column:2; grid-row:2; }
-  .dpad .right { grid-column:3; grid-row:2; }
+  /* 移动端触摸适配：隐藏虚拟方向键显示，保留按钮及事件；操作用棋盘滑动手势 */
+  .dpad { display:none !important; }
   .overlay { position:fixed; inset:0; z-index:40; display:flex; flex-direction:column; align-items:center; justify-content:center;
     background:rgba(255,255,255,.92); backdrop-filter:blur(4px); text-align:center; }
   .overlay.hidden { display:none; }
@@ -61,10 +59,13 @@
   <button class="btn" id="nextBtn">下一关 ➡️</button>
 </div>
 
+<script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
 <script>
 (function () {
   "use strict";
+  var kidImg = GameIcons.image("kid", function () { draw(); });
+  var flagImg = GameIcons.image("flag", function () { draw(); });
   var cv = document.getElementById("cv");
   var ctx = cv.getContext("2d");
   var wrap = document.getElementById("wrap");
@@ -134,11 +135,13 @@
       }
     }
     // 终点
-    ctx.font = Math.floor(cell * .72) + "px sans-serif";
-    ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText("🏁", (cols - 2 + .5) * cell, (rows - 2 + .5) * cell);
+    var fs = cell * .86;
+    if (flagImg && flagImg.complete) ctx.drawImage(flagImg, (cols - 2 + .5) * cell - fs / 2, (rows - 2 + .5) * cell - fs / 2, fs, fs);
+    else { ctx.fillStyle = "#e53935"; ctx.fillRect((cols - 2 + .5) * cell - fs / 3, (rows - 2 + .5) * cell - fs / 3, fs * .66, fs * .66); }
     // 玩家
-    ctx.fillText("🧒", (px + .5) * cell, (py + .5) * cell);
+    var ps = cell * .92;
+    if (kidImg && kidImg.complete) ctx.drawImage(kidImg, (px + .5) * cell - ps / 2, (py + .5) * cell - ps / 2, ps, ps);
+    else { ctx.fillStyle = "#42a5f5"; ctx.beginPath(); ctx.arc((px + .5) * cell, (py + .5) * cell, ps * .34, 0, Math.PI * 2); ctx.fill(); }
   }
 
   function roundRect(x, y, w, h, r) {

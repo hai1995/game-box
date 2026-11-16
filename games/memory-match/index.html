@@ -32,6 +32,7 @@
   .front { background:linear-gradient(135deg,#ffb457,#ff8fab); color:#fff; font-weight:900; }
   .front::after { content:"❓"; }
   .back { background:#fff; border:3px solid #ffe08a; transform:rotateY(180deg); }
+  .back svg { width:82%; height:82%; display:block; filter:drop-shadow(0 1px 1px rgba(0,0,0,.15)); }
   .card.matched .back { border-color:#5fd38b; background:#eafff1; box-shadow:0 5px 0 #3fae6b; }
   .card.matched { animation:pop .4s ease; }
   @keyframes pop { 0%{transform:scale(1)} 50%{transform:scale(1.12)} 100%{transform:scale(1)} }
@@ -71,11 +72,12 @@
   <button class="btn" id="againBtn">再玩一次 🔄</button>
 </div>
 
+<script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
 <script>
 (function () {
   "use strict";
-  var animals = ["🐶","🐱","🦊","🐼","🦁","🐸","🐰","🐻"];
+  var animals = ["dog","cat","fox","panda","lion","frog","rabbit","bear"];
   var emojis = animals.slice(0, 6);
   var deck = emojis.concat(emojis);
   var board = document.getElementById("board");
@@ -100,7 +102,7 @@
       c.className = "card";
       c.dataset.emoji = em;
       c.dataset.index = i;
-      c.innerHTML = '<div class="inner"><div class="face front"></div><div class="face back">' + em + '</div></div>';
+      c.innerHTML = '<div class="inner"><div class="face front"></div><div class="face back">' + GameIcons.get(em) + '</div></div>';
       c.addEventListener("click", function () { flip(c); });
       board.appendChild(c);
     });

@@ -26,8 +26,9 @@
   .board { display:grid; gap:6px; width:100%; max-width:440px; aspect-ratio:1/1; margin:0 auto; padding:10px;
     background:#fff; border-radius:20px; box-shadow:0 8px 18px rgba(140,80,160,.25); }
   .cell { border-radius:12px; display:flex; align-items:center; justify-content:center; cursor:pointer;
-    font-size:clamp(22px,7vw,40px); background:linear-gradient(180deg,#f7f0ff,#efe3ff); box-shadow:0 3px 0 rgba(140,90,170,.15);
+    padding:12%; background:linear-gradient(180deg,#f7f0ff,#efe3ff); box-shadow:0 3px 0 rgba(140,90,170,.15);
     user-select:none; transition:transform .08s; }
+  .cell svg { width:100%; height:100%; display:block; filter:drop-shadow(0 1px 1px rgba(90,60,120,.25)); }
   .cell:active { transform:scale(.92); }
   .cell.right { animation:rightPop .4s ease; background:linear-gradient(180deg,#a5d6a7,#81c784); box-shadow:0 3px 0 #4caf50; }
   .cell.wrong { animation:wrongShake .35s; }
@@ -81,16 +82,17 @@
   <button class="btn" id="ovBtn">继续</button>
 </div>
 
+<script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
 <script>
 (function () {
   "use strict";
-  var EMOJI = ["🍎","🍊","🍋","🍉","🍇","🍓","🍒","🍑","🥝","🐶","🐱","🐼","🦊","🐸","⭐","🌸"];
+  var ICONS = ["apple","orange","lemon","watermelon","grapes","strawberry","cherry","peach","kiwi","dog","cat","panda","fox","frog","star","flower"];
   var boardEl = document.getElementById("board");
   var levelEl = document.getElementById("level"), scoreEl = document.getElementById("score"), timeEl = document.getElementById("time");
   var startScreen = document.getElementById("startScreen"), overlay = document.getElementById("overlay");
   var ovIcon = document.getElementById("ovIcon"), ovTitle = document.getElementById("ovTitle"), ovText = document.getElementById("ovText"), ovBtn = document.getElementById("ovBtn");
-  var level = 1, score = 0, timeLeft = 20, timer = null, diffIdx = -1, cells = [];
+  var level = 1, score = 0, timeLeft = 20, timer = null, diffIdx = -1, diffKey = "", cells = [];
   var playing = false, quizPaused = false, locked = false;
 
   function gridSize() { return Math.min(3 + level - 1, 6); }  // 3x3 起，每关+1，最多 6x6
@@ -100,15 +102,16 @@
     var n = gridSize(), total = n * n;
     boardEl.style.gridTemplateColumns = "repeat(" + n + ",1fr)";
     boardEl.style.gridTemplateRows = "repeat(" + n + ",1fr)";
-    var base = EMOJI[Math.floor(Math.random() * EMOJI.length)];
-    var other = EMOJI[Math.floor(Math.random() * EMOJI.length)];
-    while (other === base) other = EMOJI[Math.floor(Math.random() * EMOJI.length)];
+    var base = ICONS[Math.floor(Math.random() * ICONS.length)];
+    var other = ICONS[Math.floor(Math.random() * ICONS.length)];
+    while (other === base) other = ICONS[Math.floor(Math.random() * ICONS.length)];
     diffIdx = Math.floor(Math.random() * total);
+    diffKey = other;
     boardEl.innerHTML = ""; cells = [];
     for (var i = 0; i < total; i++) {
       var d = document.createElement("div");
       d.className = "cell";
-      d.textContent = (i === diffIdx) ? other : base;
+      d.innerHTML = GameIcons.get(i === diffIdx ? other : base);
       (function (idx, el) { el.addEventListener("click", function () { tap(idx, el); }); })(i, d);
       boardEl.appendChild(d); cells.push(d);
     }
@@ -138,7 +141,7 @@
       if (timeLeft <= 0) {
         playing = false; clearInterval(timer);
         ovIcon.textContent = "⏰"; ovTitle.textContent = "时间到！";
-        ovText.textContent = "那个不一样的是 " + cells[diffIdx].textContent + "，你已经得了 " + score + " 分！";
+        ovText.innerHTML = "那个不一样的是 " + GameIcons.get(diffKey).replace("<svg ", '<svg style="width:32px;height:32px;vertical-align:middle" ') + " ，你已经得了 " + score + " 分！";
         ovBtn.textContent = "重新开始 🔄";
         overlay.classList.remove("hidden");
       }

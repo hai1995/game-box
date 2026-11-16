@@ -33,6 +33,8 @@
     z-index:6; cursor:pointer; box-shadow:0 4px 0 rgba(0,0,0,.15); }
   .trackBtn:active { transform:translateY(-50%) scale(.94); }
   #btnLeft{left:12px} #btnRight{right:12px}
+  /* 移动端触摸适配：隐藏左右换轨虚拟键显示，保留按钮及事件；改为在画面上左右滑动换轨 */
+  .trackBtn { display:none !important; }
   .home-btn { position:fixed; top:calc(60px + env(safe-area-inset-top)); left:12px; z-index:8;
     width:52px; height:52px; border-radius:50%; background:rgba(255,255,255,.92);
     border:3px solid #ffb703; box-shadow:0 4px 0 rgba(0,0,0,.16);
@@ -60,7 +62,7 @@
 
   <div class="trackBtn" id="btnLeft">◀</div>
   <div class="trackBtn" id="btnRight">▶</div>
-  <div class="hint" id="hint">点屏幕鸣笛 🚂 · 按 ◀▶ 换轨道去接 ⭐❤️🎈</div>
+  <div class="hint" id="hint">左右滑动换轨道去接 ⭐❤️🎈 · 轻点屏幕鸣笛 🚂</div>
 
   <div id="controls">
     <div class="btn b1" id="btnWhistle">🚂<small>鸣笛</small></div>
@@ -690,9 +692,27 @@
     spawnFirework(W*.3,H*.35); spawnFirework(W*.6,H*.3); spawnFirework(W*.45,H*.5);
     if (running) toast("🎉 好耶！", "#c77dff");
   });
-  document.getElementById("btnLeft").addEventListener("click", function () { currentTrack=Math.max(0,currentTrack-1); });
-  document.getElementById("btnRight").addEventListener("click", function () { currentTrack=Math.min(2,currentTrack+1); });
-  cv.addEventListener("pointerdown", function () { ensureAudio(); honk(); });
+  function switchTrack(dir) { currentTrack = Math.max(0, Math.min(2, currentTrack + dir)); }
+  document.getElementById("btnLeft").addEventListener("click", function () { switchTrack(-1); });
+  document.getElementById("btnRight").addEventListener("click", function () { switchTrack(1); });
+  // 移动端触摸适配：在画面上左右滑动换轨；轻点仍鸣笛
+  var ptrStart = null;
+  cv.addEventListener("pointerdown", function (e) {
+    ensureAudio();
+    ptrStart = { x: e.clientX, y: e.clientY, t: Date.now() };
+  });
+  cv.addEventListener("pointerup", function (e) {
+    if (!ptrStart) { honk(); return; }
+    var dx = e.clientX - ptrStart.x, dy = e.clientY - ptrStart.y;
+    var dt = Date.now() - ptrStart.t;
+    ptrStart = null;
+    if (Math.abs(dx) > 28 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+      switchTrack(dx > 0 ? 1 : -1);      // 右滑向右换轨，左滑向左换轨
+    } else if (Math.abs(dx) < 14 && Math.abs(dy) < 14 && dt < 400) {
+      honk();                            // 轻点鸣笛
+    }
+  });
+  cv.addEventListener("pointercancel", function () { ptrStart = null; });
 
   window.addEventListener("resize", resize);
   resize();

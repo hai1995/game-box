@@ -27,8 +27,9 @@
   .board { display:grid; grid-template-columns:repeat(8,1fr); grid-template-rows:repeat(6,1fr);
     gap:5px; width:100%; aspect-ratio:8/6; }
   .tile { background:linear-gradient(180deg,#fff,#f3ebff); border:2px solid #d8c8f0; border-radius:12px;
-    display:flex; align-items:center; justify-content:center; font-size:clamp(20px,7vw,38px);
+    display:flex; align-items:center; justify-content:center; padding:12%;
     box-shadow:0 3px 0 rgba(120,90,160,.18); cursor:pointer; user-select:none; transition:transform .1s; }
+  .tile svg { width:100%; height:100%; display:block; filter:drop-shadow(0 1px 1px rgba(90,60,120,.25)); }
   .tile:active { transform:scale(.94); }
   .tile.sel { border-color:#ffb703; box-shadow:0 0 0 4px rgba(255,183,3,.5),0 3px 0 rgba(120,90,160,.18); background:#fff8e1; }
   .tile.gone { visibility:hidden; }
@@ -87,12 +88,13 @@
   <button class="btn" id="ovBtn">再玩一次</button>
 </div>
 
+<script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
 <script>
 (function () {
   "use strict";
   var R = 6, C = 8, TOTAL = R * C, TOTAL_TIME = 600;  // 对局时长 10 分钟
-  var EMOJI = ["🍎","🍊","🍋","🍉","🍇","🍓","🍒","🍑","🥭","🍍","🥝","🫐"];
+  var ICONS = ["apple","orange","lemon","watermelon","grapes","strawberry","cherry","peach","mango","pineapple","kiwi","blueberry"];
   var DR = [-1, 1, 0, 0], DC = [0, 0, -1, 1];
   var boardEl = document.getElementById("board"), layer = document.getElementById("layer");
   var timeEl = document.getElementById("time"), leftEl = document.getElementById("left");
@@ -109,7 +111,7 @@
   }
   function build() {
     var deck = [];
-    for (var i = 0; i < EMOJI.length; i++) for (var k = 0; k < 4; k++) deck.push(EMOJI[i]);
+    for (var i = 0; i < ICONS.length; i++) for (var k = 0; k < 4; k++) deck.push(ICONS[i]);
     shuffle(deck);
     grid = []; boardEl.innerHTML = ""; cells = [];
     var idx = 0;
@@ -118,7 +120,7 @@
       for (var c = 0; c < C; c++) {
         grid[r][c] = deck[idx++];
         var d = document.createElement("div");
-        d.className = "tile"; d.textContent = grid[r][c];
+        d.className = "tile"; d.innerHTML = GameIcons.get(grid[r][c]);
         (function (rr, cc, el) {
           el.addEventListener("click", function () { tap(rr, cc); });
         })(r, c, d);
@@ -131,7 +133,7 @@
   }
   function updateCell(r, c) {
     var val = grid[r][c];
-    cells[r][c].textContent = val || "";
+    cells[r][c].innerHTML = val ? GameIcons.get(val) : "";
     cells[r][c].classList.toggle("gone", !val);
     cells[r][c].classList.remove("sel", "hint", "shake");
   }

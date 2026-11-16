@@ -48,10 +48,8 @@
   .pad button { border:none; border-radius:16px; background:linear-gradient(180deg,#ffd166,#ffa62b);
     box-shadow:0 5px 0 #e08600; color:#fff; font-size:26px; font-weight:900; cursor:pointer; }
   .pad button:active { transform:translateY(3px); box-shadow:0 2px 0 #e08600; }
-  .pad .up { grid-column:2; grid-row:1; }
-  .pad .left { grid-column:1; grid-row:2; }
-  .pad .down { grid-column:2; grid-row:2; }
-  .pad .right { grid-column:3; grid-row:2; }
+  /* 移动端触摸适配：隐藏虚拟方向键显示，保留按钮及其事件；操作用棋盘滑动手势 */
+  .pad { display:none !important; }
   .newbtn { display:block; margin:16px auto 0; border:none; border-radius:999px;
     padding:12px 34px; font-size:18px; font-weight:900; color:#fff;
     background:linear-gradient(180deg,#ff8fab,#ff6b81); box-shadow:0 6px 0 #e84d68; cursor:pointer; }
