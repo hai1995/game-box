@@ -4,6 +4,9 @@
  * 【维护说明】所有子游戏共用本文件，改这一处即可全站生效。
  *   1) QUIZ_INTERVAL_SECONDS —— 弹题间隔（秒）
  *   2) QUESTION_TYPES        —— 题型注册表，新增题型只写一个函数并加入数组
+ *      · 选择题：返回 { ..., options: [4 个选项] }，玩家点选
+ *      · 输入题：返回 { ..., input: true }，玩家自己输入数字（如顺位填空）
+ *      当前题型：十以内加法 / 十以内减法 / 顺位填空（随机出现）
  *   3) 下方样式字符串          —— 弹窗外观
  *
  * 【接入方式】每个游戏页面引入本文件后调用一次：
@@ -70,7 +73,24 @@
     };
   }
 
-  // 题型 2：顺位数字填空（等差数列挖空，如 2、4、_、8）
+  // 题型 2：十以内减法（选择题）
+  function subtractionQuestion() {
+    var a = rnd(2, 10);          // 被减数 2~10
+    var b = rnd(1, a);           // 减数 1~a，保证结果 >= 0 且都在 10 以内
+    var correct = a - b;
+    var pool = [];
+    for (var i = 0; i <= 10; i++) pool.push(i);
+    var opts = [correct].concat(pickUnique(pool, [correct], OPTIONS_COUNT - 1));
+    return {
+      title: "来做一道减法题吧！",
+      text: a + " − " + b + " = ?",
+      speech: "来做一道减法题，" + cn(a) + "减" + cn(b) + "等于几？",
+      correct: correct,
+      options: shuffle(opts)
+    };
+  }
+
+  // 题型 3：顺位数字填空（等差数列挖空，如 2、4、_、8）—— 输入题，不提供选项
   function sequenceQuestion() {
     var step = rnd(1, 3);                       // 公差：1~3
     var start = rnd(1, 6);                      // 起始数
@@ -80,19 +100,6 @@
     var blank = rnd(1, len - 2);                // 挖中间某项（有前后参照）
     var correct = seq[blank];
 
-    // 干扰项：正确值 ± 公差 / ±1 / ±2 等接近的数
-    var pool = [];
-    var deltas = [-step, step, -1, 1, -2, 2, -step * 2, step * 2];
-    for (var d = 0; d < deltas.length; d++) {
-      var v = correct + deltas[d];
-      if (v >= 0) pool.push(v);
-    }
-    var opts = [correct].concat(pickUnique(pool, [correct], OPTIONS_COUNT - 1));
-    while (opts.length < OPTIONS_COUNT) {       // 兜底补足
-      var x = correct + rnd(-4, 4);
-      if (x >= 0 && opts.indexOf(x) < 0) opts.push(x);
-    }
-
     var parts = seq.map(function (n, idx) { return idx === blank ? "_" : n; });
     var spoken = seq.map(function (n, idx) { return idx === blank ? "空" : cn(n); }).join("、");
     return {
@@ -100,11 +107,12 @@
       text: parts.join("、"),
       speech: "看一看数字的顺序，" + spoken + "，空格里应该填几？",
       correct: correct,
-      options: shuffle(opts)
+      input: true   // 输入题：不显示选项，让小朋友自己输入数字
     };
   }
 
-  var QUESTION_TYPES = [additionQuestion, sequenceQuestion];
+  // 题型注册表：加法、减法、顺位填空随机出现
+  var QUESTION_TYPES = [additionQuestion, subtractionQuestion, sequenceQuestion];
 
   /* ---------- 语音 & 音效（公共自带，不依赖各游戏） ---------- */
   function speak(text, on) {
@@ -160,6 +168,17 @@
     ".gq-opt.c3{background:linear-gradient(180deg,#BA68C8,#AB47BC);}",
     ".gq-opt.shake{animation:gqShake .4s;}",
     "@keyframes gqShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-9px)}75%{transform:translateX(9px)}}",
+    /* 输入题样式：大号数字输入框 + 确定按钮（手机调出数字键盘） */
+    ".gq-input-wrap{display:flex;flex-direction:column;align-items:center;gap:18px;}",
+    ".gq-input{width:150px;height:98px;font-size:54px;font-weight:900;color:#FB8C00;text-align:center;",
+    "  border:5px solid #FFB74D;border-radius:22px;outline:none;background:#FFF9F0;box-sizing:border-box;",
+    "  -moz-appearance:textfield;}",
+    ".gq-input::-webkit-outer-spin-button,.gq-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}",
+    ".gq-input:focus{border-color:#FB8C00;box-shadow:0 0 0 5px rgba(251,140,0,.22);}",
+    ".gq-input.shake{animation:gqShake .4s;}",
+    ".gq-submit{padding:14px 46px;font-size:27px;font-weight:900;color:#fff;border:none;border-radius:20px;",
+    "  background:linear-gradient(180deg,#81C784,#4CAF50);box-shadow:0 6px 0 #388E3C;cursor:pointer;}",
+    ".gq-submit:active{transform:translateY(4px);box-shadow:0 2px 0 #388E3C;}",
     ".gq-msg{font-size:20px;font-weight:800;margin-top:18px;min-height:28px;color:#4a7ab0;}"
   ].join("");
 
@@ -201,33 +220,75 @@
 
     var box = document.getElementById("gqOpts");
     box.innerHTML = "";
-    current.options.forEach(function (v, i) {
-      var b = document.createElement("button");
-      b.className = "gq-opt c" + i;
-      b.textContent = v;
-      b.addEventListener("click", function () { answer(v, b); });
-      box.appendChild(b);
-    });
+    if (current.input) {
+      /* 输入题：数字输入框 + 确定按钮，不提供选项 */
+      box.className = "gq-input-wrap";
+      var inp = document.createElement("input");
+      inp.type = "number";
+      inp.inputMode = "numeric";        // 手机调出数字键盘
+      inp.pattern = "[0-9]*";
+      inp.className = "gq-input";
+      inp.id = "gqInput";
+      inp.autocomplete = "off";
+      var sub = document.createElement("button");
+      sub.className = "gq-submit";
+      sub.textContent = "确定";
+      sub.addEventListener("click", submitInput);
+      inp.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.keyCode === 13) submitInput();
+      });
+      box.appendChild(inp);
+      box.appendChild(sub);
+      setTimeout(function () { try { inp.focus(); } catch (e) {} }, 80); // 自动聚焦，方便直接输入
+    } else {
+      /* 选择题：4 个彩色选项按钮 */
+      box.className = "gq-opts";
+      current.options.forEach(function (v, i) {
+        var b = document.createElement("button");
+        b.className = "gq-opt c" + i;
+        b.textContent = v;
+        b.addEventListener("click", function () { resolve(v, b); });
+        box.appendChild(b);
+      });
+    }
     mask.style.display = "flex";
     speak(current.speech, cfg.speech);
   }
 
-  function answer(val, btn) {
+  /* 读取输入框的值并提交判定 */
+  function submitInput() {
+    if (!opened || !current || !current.input) return;
+    var inp = document.getElementById("gqInput");
+    if (!inp || inp.disabled) return;
+    var raw = String(inp.value).trim();
+    if (raw === "") {                 // 还没输入，提示一下
+      var msg = document.getElementById("gqMsg");
+      msg.style.color = "#EF6C00";
+      msg.textContent = "先输入一个数字哦～";
+      inp.classList.remove("shake"); void inp.offsetWidth; inp.classList.add("shake");
+      return;
+    }
+    resolve(parseInt(raw, 10), inp);
+  }
+
+  /* 统一的判定逻辑：val 为作答值，shakeEl 为答错时抖动的元素 */
+  function resolve(val, shakeEl) {
     if (!opened || !current) return;
     var msg = document.getElementById("gqMsg");
-    var buttons = document.getElementById("gqOpts").children;
     if (val === current.correct) {
       msg.style.color = "#2E7D32";
       msg.textContent = "✅ 答对啦！你真棒 🎉";
       chimeOK(); speak("答对啦，你真棒！", cfg.speech);
       if (typeof cfg.onReward === "function") cfg.onReward();
-      for (var i = 0; i < buttons.length; i++) buttons[i].disabled = true;
+      var items = document.getElementById("gqOpts").children;
+      for (var i = 0; i < items.length; i++) items[i].disabled = true;
       setTimeout(close, 1400);
     } else {
       msg.style.color = "#EF6C00";
       msg.textContent = "❌ 不对哦，再想想～";
       buzz(); speak("再想一想哦", cfg.speech);
-      btn.classList.remove("shake"); void btn.offsetWidth; btn.classList.add("shake");
+      shakeEl.classList.remove("shake"); void shakeEl.offsetWidth; shakeEl.classList.add("shake");
+      if (shakeEl.tagName === "INPUT") { try { shakeEl.select(); } catch (e) {} } // 选中内容，方便重输
     }
   }
 
