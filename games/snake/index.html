@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>🐍 贪吃蛇</title>
+<link rel="stylesheet" href="../../theme.css">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { width:100%; min-height:100%; overflow-x:hidden; font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
@@ -139,11 +140,19 @@
     }
     for (var s = snake.length - 1; s >= 0; s--) {
       var p = snake[s], head = s === 0;
-      ctx.fillStyle = head ? "#2e7d32" : (s % 2 ? "#66bb6a" : "#4caf50");
       var pad = cell * 0.08, rad = cell * 0.24;
+      var bx = p.x * cell + pad, by = p.y * cell + pad, bs = cell - 2 * pad;
+      var sg = ctx.createLinearGradient(bx, by, bx, by + bs);
+      if (head) { sg.addColorStop(0, "#7bc87f"); sg.addColorStop(.5, "#43a047"); sg.addColorStop(1, "#2e7d32"); }
+      else if (s % 2) { sg.addColorStop(0, "#a5e6a8"); sg.addColorStop(1, "#5cb85c"); }
+      else { sg.addColorStop(0, "#8fd694"); sg.addColorStop(1, "#45a049"); }
       ctx.beginPath();
-      ctx.roundRect ? ctx.roundRect(p.x * cell + pad, p.y * cell + pad, cell - 2 * pad, cell - 2 * pad, rad)
-                    : ctx.rect(p.x * cell + pad, p.y * cell + pad, cell - 2 * pad, cell - 2 * pad);
+      ctx.roundRect ? ctx.roundRect(bx, by, bs, bs, rad) : ctx.rect(bx, by, bs, bs);
+      ctx.fillStyle = sg; ctx.fill();
+      // 顶部柔和高光
+      ctx.fillStyle = "rgba(255,255,255,.28)";
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(bx + bs*.12, by + bs*.1, bs*.76, bs*.22, bs*.11) : ctx.rect(bx + bs*.12, by + bs*.1, bs*.76, bs*.22);
       ctx.fill();
       if (head) {
         ctx.fillStyle = "#fff";

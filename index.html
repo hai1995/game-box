@@ -121,9 +121,12 @@
   }
   .app-icon .em {
     font-size: 46px; line-height: 1;
-    filter: drop-shadow(0 4px 5px rgba(0,0,0,.2));
+    filter: drop-shadow(0 4px 5px rgba(0,0,0,.16));
     animation: floatEm 3.5s ease-in-out infinite;
+    display: flex; align-items: center; justify-content: center;
   }
+  /* 统一白色 SVG 图标：自动装饰会把 .em 里的 emoji 换成 [data-icon] */
+  .app-icon .em [data-icon] svg { width: 50px; height: 50px; display: block; }
   @keyframes floatEm {
     0%, 100% { transform: translateY(0) rotate(-5deg); }
     50%      { transform: translateY(-7px) rotate(5deg); }
@@ -275,5 +278,6 @@
   </footer>
 </div>
 
+<script src="icons.js"></script>
 </body>
 </html>

@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>🔢 数字华容道</title>
+<link rel="stylesheet" href="../../theme.css">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { width:100%; min-height:100%; overflow-x:hidden; font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
@@ -25,12 +26,15 @@
   .board { display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr);
     gap:8px; width:100%; max-width:390px; aspect-ratio:1/1; margin:0 auto; padding:10px;
     background:linear-gradient(180deg,#dfe6ff,#c5d0ff); border-radius:20px; box-shadow:0 8px 18px rgba(80,90,160,.28); }
-  .tile { border-radius:14px; display:flex; align-items:center; justify-content:center;
-    font-size:clamp(32px,10vw,54px); font-weight:900; color:#fff; cursor:pointer; user-select:none;
-    background:linear-gradient(180deg,#7c9cff,#5c7cfa); box-shadow:0 4px 0 #3f51b5; transition:transform .1s; }
+  .tile { border-radius:16px; display:flex; align-items:center; justify-content:center;
+    font-size:clamp(32px,10vw,54px); font-weight:900; color:#fff; text-shadow:0 2px 2px rgba(0,0,0,.18);
+    cursor:pointer; user-select:none; border:2px solid rgba(255,255,255,.7);
+    background:linear-gradient(160deg,#a9c0ff,#5c7cfa);
+    box-shadow:inset 0 4px 0 rgba(255,255,255,.45), inset 0 -3px 0 rgba(0,0,0,.08), 0 5px 0 #3f51b5, 0 8px 14px rgba(60,80,160,.2);
+    transition:transform .1s; }
   .tile:active { transform:scale(.95); }
-  .tile.empty { background:rgba(255,255,255,.35); box-shadow:inset 0 3px 6px rgba(0,0,0,.1); cursor:default; }
-  .tile.correct { background:linear-gradient(180deg,#81c784,#4caf50); box-shadow:0 4px 0 #388e3c; }
+  .tile.empty { background:rgba(255,255,255,.32); border-color:transparent; box-shadow:inset 0 3px 8px rgba(0,0,0,.1); cursor:default; }
+  .tile.correct { background:linear-gradient(160deg,#a5e6b0,#4caf50); box-shadow:inset 0 4px 0 rgba(255,255,255,.45), inset 0 -3px 0 rgba(0,0,0,.08), 0 5px 0 #388e3c, 0 8px 14px rgba(60,140,80,.2); }
   .tools { display:flex; justify-content:center; gap:14px; margin:18px 0 4px; flex-wrap:wrap; }
   .btn { border:none; border-radius:999px; padding:12px 26px; font-size:17px; font-weight:900; color:#fff; cursor:pointer;
     box-shadow:0 5px 0 rgba(0,0,0,.16); }
@@ -76,6 +80,7 @@
   <button class="btn" id="ovBtn">再玩一次</button>
 </div>
 
+<script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
 <script>
 (function () {

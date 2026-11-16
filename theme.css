@@ -1,0 +1,152 @@
+/*
+ * 公共视觉主题 —— 所有游戏统一美术语言（果冻质感 / 2.5D 微立体）
+ * 用法：在页面 <head> 里，于页面自身 <style> 之前引入：
+ *   games 子目录：<link rel="stylesheet" href="../../theme.css">
+ *   根目录页面：  <link rel="stylesheet" href="theme.css">
+ * 说明：本文件提供统一设计变量 + 通用组件类（.home-btn/.pill/.btn/.overlay/.brand）。
+ *      页面若自定义同名类，写在自己的 <style> 里即可覆盖；未定义则自动继承本主题。
+ *      背景渐变统一为奶油糖果色，圆角、阴影、字体全部走变量，方便一处维护。
+ */
+:root {
+  --gb-bg: linear-gradient(160deg, #fff7e8 0%, #fdeef4 52%, #eaf4ff 100%);
+  --gb-ink: #4a3b34;              /* 主文字：深棕，温和不刺眼 */
+  --gb-ink-soft: #8a7361;
+  --gb-card: #fffdf9;
+  --gb-primary: #ff7fa5;          /* 主色：草莓粉 */
+  --gb-primary-d: #f2567f;
+  --gb-accent: #ffb443;           /* 强调：糖果橙黄 */
+  --gb-line: #ffe0a8;             /* 统一描边/胶囊边 */
+  --gb-radius: 20px;
+  --gb-radius-sm: 14px;
+  --gb-shadow: 0 6px 0 rgba(210, 150, 120, .25), 0 10px 22px rgba(150, 100, 90, .16);
+  --gb-shadow-sm: 0 4px 0 rgba(210, 150, 120, .22), 0 6px 14px rgba(150, 100, 90, .12);
+  --gb-font: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+}
+
+/* 统一页面基底：字体、文字色、消除点击高亮 */
+html { -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: var(--gb-font);
+  color: var(--gb-ink);
+  background: var(--gb-bg);
+  background-attachment: fixed;
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* ---------- 返回主页按钮（统一 SVG 房子 + 圆形果冻底） ---------- */
+.home-btn {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 12px;
+  z-index: 50;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #ff9bb8, var(--gb-primary));
+  box-shadow: var(--gb-shadow-sm);
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.home-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(210,150,120,.25); }
+.home-btn svg { width: 26px; height: 26px; display: block; }
+
+/* ---------- 胶囊标签（计分/时间/目标） ---------- */
+.pill {
+  background: #fff;
+  border: 3px solid var(--gb-line);
+  border-radius: 999px;
+  padding: 7px 16px;
+  font-weight: 800;
+  color: var(--gb-ink);
+  box-shadow: 0 3px 0 rgba(210, 150, 120, .18);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.pill svg { width: 1.15em; height: 1.15em; vertical-align: -2px; }
+
+/* ---------- 通用按钮（果冻渐变 + 底部实心阴影 + 按压下沉） ---------- */
+.btn, button.primary, .newbtn {
+  border: none;
+  border-radius: 999px;
+  padding: 11px 22px;
+  font-family: var(--gb-font);
+  font-size: 16px;
+  font-weight: 900;
+  color: #fff;
+  background: linear-gradient(180deg, #ff9bb8, var(--gb-primary));
+  box-shadow: var(--gb-shadow-sm);
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform .06s;
+}
+.btn:active, button.primary:active, .newbtn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(210,150,120,.22); }
+.btn svg, button.primary svg, .newbtn svg { width: 1.1em; height: 1.1em; vertical-align: -2px; }
+
+/* 功能按钮统一色板（各游戏按需取用，视觉语言一致） */
+.btn.blue, .btn.undo   { background: linear-gradient(180deg, #7cc8ff, #3d9be9); box-shadow: 0 4px 0 #2277c4, var(--gb-shadow-sm); }
+.btn.green, .btn.hint  { background: linear-gradient(180deg, #8fdda0, #45bf6c); box-shadow: 0 4px 0 #2e9c52, var(--gb-shadow-sm); }
+.btn.yellow, .btn.shuffle { background: linear-gradient(180deg, #ffd976, #f5a623); box-shadow: 0 4px 0 #d98609, var(--gb-shadow-sm); }
+.btn.purple            { background: linear-gradient(180deg, #c3a4ff, #8b5cf6); box-shadow: 0 4px 0 #6d3fd6, var(--gb-shadow-sm); }
+.btn.red, .btn.restart { background: linear-gradient(180deg, #ff9bb8, var(--gb-primary)); box-shadow: 0 4px 0 var(--gb-primary-d), var(--gb-shadow-sm); }
+
+/* ---------- 标题 / 品牌区 ---------- */
+.brand { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.brand h1, .title, h1 { color: var(--gb-ink); font-weight: 900; }
+.brand svg, .title svg { width: 1.1em; height: 1.1em; vertical-align: -3px; }
+
+/* ---------- 弹层（通关/失败/提示） ---------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: rgba(74, 59, 52, .42);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  padding: 24px;
+  text-align: center;
+}
+.overlay .card, .overlay .panel, .overlay > div {
+  background: var(--gb-card);
+  border: 4px solid #fff;
+  border-radius: 26px;
+  box-shadow: var(--gb-shadow);
+  padding: 24px 28px;
+  max-width: 92vw;
+}
+
+/* ---------- 果冻数字块通用（1024 / 华容道 / 六边形数字球复用） ---------- */
+.jelly-tile {
+  border-radius: 14px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0,0,0,.18);
+  box-shadow: inset 0 3px 0 rgba(255,255,255,.5), inset 0 -3px 0 rgba(0,0,0,.08), 0 4px 0 rgba(0,0,0,.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+/* ---------- data-icon 占位符（由 icons.js 自动填充 SVG） ---------- */
+[data-icon] { display: inline-flex; align-items: center; justify-content: center; vertical-align: -0.14em; }
+[data-icon] svg { width: 1.2em; height: 1.2em; display: block; }
+[data-icon][data-mode="badge"] svg { width: 1.5em; height: 1.5em; }
+.logo [data-icon], .big [data-icon] { vertical-align: middle; }
+
+/* 统一的小提示文字 */
+.hint, .tip { color: var(--gb-ink-soft); font-size: 13px; }

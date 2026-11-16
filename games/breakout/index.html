@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>🧱 打砖块</title>
+<link rel="stylesheet" href="../../theme.css">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { width:100%; min-height:100%; overflow-x:hidden; font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
@@ -75,6 +76,7 @@
   <button class="btn" id="ovBtn">继续</button>
 </div>
 
+<script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
 <script>
 (function () {
@@ -112,20 +114,36 @@
     ball.vy = -(3 + Math.random());
     padX = W / 2;
   }
+  function roundRect(x, y, w, h, r) {
+    r = Math.min(r, w/2, h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+r, y); ctx.lineTo(x+w-r, y); ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+    ctx.lineTo(x+w, y+h-r); ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+    ctx.lineTo(x+r, y+h); ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+    ctx.lineTo(x, y+r); ctx.quadraticCurveTo(x, y, x+r, y); ctx.closePath();
+  }
   function draw() {
     ctx.fillStyle = "#1b1b3a"; ctx.fillRect(0, 0, W, H);
     for (var i = 0; i < bricks.length; i++) {
       var b = bricks[i];
       if (!b.alive) continue;
-      ctx.fillStyle = b.color;
-      ctx.fillRect(b.x, b.y, b.w, b.h);
-      ctx.fillStyle = "rgba(255,255,255,.25)";
-      ctx.fillRect(b.x, b.y, b.w, 4);
+      var g = ctx.createLinearGradient(b.x, b.y, b.x, b.y + b.h);
+      g.addColorStop(0, "rgba(255,255,255,.45)"); g.addColorStop(.35, "rgba(255,255,255,.05)"); g.addColorStop(1, "rgba(0,0,0,.18)");
+      roundRect(b.x, b.y, b.w, b.h, 6); ctx.fillStyle = b.color; ctx.fill();
+      ctx.fillStyle = g; ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,.35)";
+      roundRect(b.x + 3, b.y + 3, b.w - 6, 4, 2); ctx.fill();
     }
-    ctx.fillStyle = "#4fc3f7";
-    ctx.fillRect(padX - padW/2, H - padH - 6, padW, padH);
-    ctx.fillStyle = "#fff";
-    ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2); ctx.fill();
+    // 挡板：圆角果冻渐变
+    var px = padX - padW/2, py = H - padH - 6;
+    var pg = ctx.createLinearGradient(px, py, px, py + padH);
+    pg.addColorStop(0, "#a6e8ff"); pg.addColorStop(.5, "#4fc3f7"); pg.addColorStop(1, "#2196c9");
+    roundRect(px, py, padW, padH, padH/2); ctx.fillStyle = pg; ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.55)"; roundRect(px + 6, py + 2, padW - 12, 3, 1.5); ctx.fill();
+    // 球：径向高光
+    var bg = ctx.createRadialGradient(ball.x - ball.r*.35, ball.y - ball.r*.35, ball.r*.1, ball.x, ball.y, ball.r);
+    bg.addColorStop(0, "#fff"); bg.addColorStop(.7, "#e8f4ff"); bg.addColorStop(1, "#9fd4f5");
+    ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2); ctx.fillStyle = bg; ctx.fill();
   }
   function update(dt) {
     if (!playing || quizPaused || won) return;

@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>⬡ 六边形2048</title>
+<link rel="stylesheet" href="../../theme.css">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { width:100%; min-height:100%; overflow-x:hidden;
@@ -141,6 +142,7 @@
   <button class="btn" id="ovBtn">再玩一次</button>
 </div>
 
+<script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
 <script>
 (function () {
@@ -225,7 +227,7 @@
     var inn = cell.el.querySelector(".in");
     if (cell.val > 0) {
       cell.el.classList.remove("empty");
-      inn.style.background = "linear-gradient(160deg, rgba(255,255,255,.42), rgba(0,0,0,.06)), " + colorOf(cell.val);
+      inn.style.background = "linear-gradient(160deg, rgba(255,255,255,.5) 0%, rgba(255,255,255,.12) 38%, rgba(0,0,0,.05) 70%, rgba(0,0,0,.14) 100%), " + colorOf(cell.val);
       inn.textContent = cell.val;
       inn.style.fontSize = Math.round(cell.s * (String(cell.val).length >= 3 ? .5 : .62)) + "px";
       if (born) { cell.el.classList.remove("born"); void cell.el.offsetWidth; cell.el.classList.add("born"); }

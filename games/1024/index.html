@@ -4,14 +4,16 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>🔢 1024 数字合并</title>
+<link rel="stylesheet" href="../../theme.css">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { width:100%; min-height:100%; overflow-x:hidden; font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
   body { background:linear-gradient(160deg,#fff7e6 0%,#ffe9f2 55%,#e9f6ff 100%); background-attachment:fixed; color:#3b2f2f; padding-bottom:calc(26px + env(safe-area-inset-bottom)); }
   .home-btn { position:fixed; left:12px; top:calc(12px + env(safe-area-inset-top)); z-index:30;
-    width:46px; height:46px; border-radius:50%; background:rgba(255,255,255,.92);
-    border:3px solid #ffb703; box-shadow:0 4px 0 rgba(0,0,0,.14); color:#d62828;
-    display:flex; align-items:center; justify-content:center; font-size:26px; text-decoration:none; }
+    width:46px; height:46px; border-radius:50%; background:linear-gradient(180deg,#ff9bb8,#f2567f);
+    border:3px solid #fff; box-shadow:0 4px 0 rgba(0,0,0,.14);
+    display:flex; align-items:center; justify-content:center; text-decoration:none; }
+  .home-btn svg { width:26px; height:26px; display:block; }
   .home-btn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,.14); }
   .hero { text-align:center; padding:calc(20px + env(safe-area-inset-top)) 12px 4px; }
   .hero .logo { font-size:46px; animation:bob 3s ease-in-out infinite; }
@@ -28,21 +30,23 @@
     display:grid; grid-template-columns:repeat(4,1fr); grid-template-rows:repeat(4,1fr); gap:10px; }
   .cell { border-radius:12px; background:rgba(255,255,255,.5); }
   .tile { position:absolute; top:0; left:0; transition:transform .12s ease; }
-  .tile .face { width:100%; height:100%; border-radius:12px; display:flex; align-items:center; justify-content:center;
-    font-weight:900; color:#fff; box-shadow:0 4px 0 rgba(0,0,0,.12); font-size:clamp(22px,7vw,40px); }
+  .tile .face { width:100%; height:100%; border-radius:14px; display:flex; align-items:center; justify-content:center;
+    font-weight:900; color:#fff; text-shadow:0 1px 1px rgba(0,0,0,.16);
+    box-shadow:inset 0 3px 0 rgba(255,255,255,.5), inset 0 -3px 0 rgba(0,0,0,.08), 0 4px 0 rgba(0,0,0,.12);
+    font-size:clamp(22px,7vw,40px); }
   .tile.merge .face { animation:pop .22s ease; }
   @keyframes pop { 0%{transform:scale(.8)} 60%{transform:scale(1.1)} 100%{transform:scale(1)} }
-  .v2 .face    { background:#eee4da; color:#776e65; }
-  .v4 .face    { background:#f6d9b0; color:#776e65; }
-  .v8 .face    { background:#ffb067; }
-  .v16 .face   { background:#ff9261; }
-  .v32 .face   { background:#ff7256; }
-  .v64 .face   { background:#ff5342; }
-  .v128 .face  { background:#eedd64; font-size:clamp(20px,6vw,34px); }
-  .v256 .face  { background:#e8cf46; font-size:clamp(20px,6vw,34px); }
-  .v512 .face  { background:#e0c421; font-size:clamp(18px,5.5vw,30px); }
-  .v1024 .face { background:#f5b301; font-size:clamp(16px,5vw,26px); box-shadow:0 0 0 3px #fff3b0,0 4px 0 rgba(0,0,0,.12); }
-  .v2048 .face { background:#ffcf00; font-size:clamp(16px,5vw,26px); }
+  .v2 .face    { background:linear-gradient(160deg,#fff,#f0e6db); color:#9a8878; }
+  .v4 .face    { background:linear-gradient(160deg,#ffe8c4,#f7cf96); color:#a5713a; }
+  .v8 .face    { background:linear-gradient(160deg,#ffc48a,#ff9f52); }
+  .v16 .face   { background:linear-gradient(160deg,#ffab7d,#ff7d4d); }
+  .v32 .face   { background:linear-gradient(160deg,#ff927e,#ff5f57); }
+  .v64 .face   { background:linear-gradient(160deg,#ff7d7d,#f54343); }
+  .v128 .face  { background:linear-gradient(160deg,#ffe98a,#f5cf3c); font-size:clamp(20px,6vw,34px); }
+  .v256 .face  { background:linear-gradient(160deg,#ffe06e,#ecc21f); font-size:clamp(20px,6vw,34px); }
+  .v512 .face  { background:linear-gradient(160deg,#ffd54f,#e0a800); font-size:clamp(18px,5.5vw,30px); }
+  .v1024 .face { background:linear-gradient(160deg,#ffcf5a,#f59a00); font-size:clamp(16px,5vw,26px); box-shadow:inset 0 3px 0 rgba(255,255,255,.55),inset 0 -3px 0 rgba(0,0,0,.08),0 0 0 3px #fff3b0,0 4px 0 rgba(0,0,0,.12); }
+  .v2048 .face { background:linear-gradient(160deg,#ffe15a,#ffb300); font-size:clamp(16px,5vw,26px); }
   .pad { display:grid; grid-template-columns:repeat(3,64px); grid-template-rows:repeat(2,58px);
     gap:10px; justify-content:center; margin:18px auto 0; }
   .pad button { border:none; border-radius:16px; background:linear-gradient(180deg,#ffd166,#ffa62b);
@@ -69,14 +73,14 @@
 <a class="home-btn" href="../../" aria-label="返回主页" title="返回主页">🏠</a>
 
 <header class="hero">
-  <div class="logo">🔢</div>
+  <div class="logo"><span data-icon="hash" data-mode="badge"></span></div>
   <h1>1024 数字合并</h1>
   <p>滑动方块，相同的数字碰在一起就会合并，合出 1024 就毕业啦！</p>
 </header>
 
 <div class="bar">
-  <div class="pill">🏆 得分 <span id="score">0</span></div>
-  <div class="pill">⭐ 最高 <span id="best">0</span></div>
+  <div class="pill"><span data-icon="trophy"></span> 得分 <span id="score">0</span></div>
+  <div class="pill"><span data-icon="star"></span> 最高 <span id="best">0</span></div>
 </div>
 
 <div class="wrap">
@@ -96,16 +100,17 @@
     <button class="right" data-dir="right" aria-label="向右">→</button>
   </div>
 
-  <button class="newbtn" id="newBtn">🔄 重新开始</button>
+  <button class="newbtn" id="newBtn"><span data-icon="refresh"></span> 重新开始</button>
 </div>
 
 <div class="overlay hidden" id="overlay">
-  <div class="big" id="ovIcon">🎉</div>
+  <div class="big" id="ovIcon"><span data-icon="party" data-mode="badge"></span></div>
   <h2 id="ovTitle">太棒啦！</h2>
   <p id="ovText"></p>
   <button class="btn" id="ovBtn">继续玩</button>
 </div>
 
+<script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
 <script>
 (function () {
@@ -229,8 +234,9 @@
     }
     return false;
   }
+  function ic(name) { return window.GameIcons ? GameIcons.badge(name) : ""; }
   function showOverlay(icon, title, text, btn, action) {
-    ovIcon.textContent = icon; ovTitle.textContent = title; ovText.textContent = text;
+    ovIcon.innerHTML = ic(icon); ovTitle.textContent = title; ovText.textContent = text;
     ovBtn.textContent = btn; ovAction = action;
     overlay.classList.remove("hidden");
     gameActive = false;
@@ -238,11 +244,11 @@
   function checkState() {
     if (!won && hasBig()) {
       won = true;
-      showOverlay("🏆", "毕业啦！", "你合出了 1024！得分 " + score + "，太厉害啦！", "继续玩 🎮", function () {
+      showOverlay("trophy", "毕业啦！", "你合出了 1024！得分 " + score + "，太厉害啦！", "继续玩", function () {
         overlay.classList.add("hidden"); gameActive = true;
       });
     } else if (!canMove()) {
-      showOverlay("😵", "没有位置啦", "最终得分 " + score + "，再挑战一次吧！", "再玩一次 🔄", reset);
+      showOverlay("dizzy", "没有位置啦", "最终得分 " + score + "，再挑战一次吧！", "再玩一次", reset);
     }
   }
   function reset() {

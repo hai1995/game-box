@@ -167,7 +167,11 @@
     ".gq-card{background:#fff;border-radius:28px;padding:24px 22px 26px;width:min(92vw,460px);text-align:center;",
     "  box-shadow:0 16px 44px rgba(0,0,0,.4);animation:gqIn .3s cubic-bezier(.2,1.3,.4,1);}",
     "@keyframes gqIn{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}",
-    ".gq-emoji{font-size:46px;line-height:1;margin-bottom:4px;}",
+    ".gq-emoji{font-size:46px;line-height:1;margin-bottom:4px;display:flex;gap:10px;justify-content:center;align-items:center;}",
+    ".gq-emoji [data-icon] svg{width:52px;height:52px;display:block;}",
+    ".gq-score [data-icon]{display:inline-flex;vertical-align:-2px;} .gq-score [data-icon] svg{width:1.15em;height:1.15em;}",
+    ".gq-action [data-icon]{display:inline-flex;vertical-align:-2px;} .gq-action [data-icon] svg{width:1.1em;height:1.1em;}",
+    ".gq-msg [data-icon]{display:inline-flex;vertical-align:-3px;} .gq-msg [data-icon] svg{width:1.2em;height:1.2em;}",
     ".gq-title{font-size:clamp(20px,5.5vw,26px);color:#3a6ea5;margin:2px 0 10px;font-weight:800;}",
     ".gq-q{font-size:clamp(38px,11vw,58px);font-weight:900;color:#FB8C00;letter-spacing:3px;margin:8px 0 18px;}",
     ".gq-opts{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;}",
@@ -227,21 +231,23 @@
       '<div class="gq-card">' +
       '  <div class="gq-score" id="gqScore" style="display:none">' +
       '    <span class="sc">已做 <b id="gqTotal">0</b> 题</span>' +
-      '    <span class="ok">✅ <b id="gqRight">0</b></span>' +
-      '    <span class="no">❌ <b id="gqWrong">0</b></span>' +
+      '    <span class="ok"><span data-icon="check"></span> <b id="gqRight">0</b></span>' +
+      '    <span class="no"><span data-icon="refresh"></span> <b id="gqWrong">0</b></span>' +
       '    <span class="sc">正确率 <b id="gqRate">0%</b></span>' +
       '  </div>' +
-      '  <div class="gq-emoji">📝 🧠</div>' +
+      '  <div class="gq-emoji"><span data-icon="pencil" data-mode="badge"></span> <span data-icon="brain" data-mode="badge"></span></div>' +
       '  <div class="gq-title" id="gqTitle">来做一道题吧！</div>' +
       '  <div class="gq-q" id="gqQ">?</div>' +
       '  <div class="gq-opts" id="gqOpts"></div>' +
       '  <div class="gq-msg" id="gqMsg"></div>' +
       '  <div class="gq-actions" id="gqActions" style="display:none">' +
-      '    <button class="gq-action skip" id="gqSkip">🔄 换一题</button>' +
-      '    <button class="gq-action exit" id="gqExit">🏠 结束练习</button>' +
+      '    <button class="gq-action skip" id="gqSkip"><span data-icon="refresh"></span> 换一题</button>' +
+      '    <button class="gq-action exit" id="gqExit"><span data-icon="home"></span> 结束练习</button>' +
       '  </div>' +
       '</div>';
     document.body.appendChild(mask);
+    // 用公共图标库填充弹窗里的 data-icon 占位符（icons.js 已在各游戏页先于本脚本加载）
+    if (window.GameIcons && GameIcons.decorate) GameIcons.decorate();
     document.getElementById("gqSkip").addEventListener("click", function () {
       if (practice) { answeredCurrent = true; renderCurrentQuestion(); }
     });
@@ -348,9 +354,10 @@
       refreshScore();
     }
 
+    function ico(n) { return window.GameIcons ? GameIcons.symbol(n) : ""; }
     if (isRight) {
       msg.style.color = "#2E7D32";
-      msg.textContent = "✅ 答对啦！你真棒 🎉";
+      msg.innerHTML = ico("check") + " 答对啦！你真棒 " + ico("party");
       chimeOK(); speak("答对啦，你真棒！", cfg.speech);
       if (typeof cfg.onReward === "function") cfg.onReward();
       var items = document.getElementById("gqOpts").children;
@@ -361,7 +368,7 @@
       }, 1200);
     } else {
       msg.style.color = "#EF6C00";
-      msg.textContent = "❌ 不对哦，再想想～";
+      msg.innerHTML = ico("refresh") + " 不对哦，再想想～";
       buzz(); speak("再想一想哦", cfg.speech);
       shakeEl.classList.remove("shake"); void shakeEl.offsetWidth; shakeEl.classList.add("shake");
       if (shakeEl.tagName === "INPUT") { try { shakeEl.select(); } catch (e) {} } // 选中内容，方便重输

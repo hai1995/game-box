@@ -10,6 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="题目练习">
 <meta name="description" content="小朋友的数学题目练习，做完自动下一题，还带成绩统计">
 <title>✏️ 题目练习</title>
+<link rel="stylesheet" href="../theme.css">
 <style>
   :root { --ink:#3b2f2f; --sub:#8b7d7d; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -50,7 +51,8 @@
     background:#fff; border-radius:28px; padding:26px 22px 28px; text-align:center;
     box-shadow:0 14px 34px rgba(120,90,90,.22); animation:rise .45s ease both;
   }
-  .report .medal { font-size:60px; line-height:1; margin-bottom:6px; }
+  .report .medal { font-size:60px; line-height:1; margin-bottom:6px; display:flex; justify-content:center; }
+  .report .medal svg { width:72px; height:72px; display:block; }
   .report h2 { margin:0 0 6px; font-size:clamp(22px,6vw,28px); color:#ef476f; }
   .report .praise { margin:0 0 20px; color:var(--sub); font-size:15px; }
   .grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:8px; }
@@ -104,6 +106,7 @@
   </div>
 </div>
 
+<script src="../icons.js"></script>
 <script src="../quiz.js"></script>
 <script>
 (function () {
@@ -128,13 +131,14 @@
     document.getElementById("rWrong").textContent = s.wrong;
     document.getElementById("rRate").textContent = s.rate + "%";
     // 根据正确率给不同鼓励和奖牌
-    var medal = "🏆", praise = "太棒啦，继续加油！";
-    if (s.total === 0) { medal = "📝"; praise = "还没开始做题呢，再来一次吧～"; }
-    else if (s.rate >= 90) { medal = "🏆"; praise = "哇！几乎全对，你真是小天才！"; }
-    else if (s.rate >= 60) { medal = "🥇"; praise = "很不错哦，再接再厉！"; }
-    else if (s.rate >= 40) { medal = "🥈"; praise = "有进步，多练几次就更棒啦！"; }
-    else { medal = "🌱"; praise = "慢慢来，每一题都是进步！"; }
-    document.getElementById("medal").textContent = medal;
+    var medal = "trophy", praise = "太棒啦，继续加油！";
+    if (s.total === 0) { medal = "note"; praise = "还没开始做题呢，再来一次吧～"; }
+    else if (s.rate >= 90) { medal = "trophy"; praise = "哇！几乎全对，你真是小天才！"; }
+    else if (s.rate >= 60) { medal = "medal"; praise = "很不错哦，再接再厉！"; }
+    else if (s.rate >= 40) { medal = "medal"; praise = "有进步，多练几次就更棒啦！"; }
+    else { medal = "sprout"; praise = "慢慢来，每一题都是进步！"; }
+    var medalEl = document.getElementById("medal");
+    medalEl.innerHTML = window.GameIcons ? GameIcons.badge(medal) : "";
     document.getElementById("praise").textContent = praise;
     document.getElementById("report").style.display = "block";
     document.getElementById("tip").style.display = "none";
