@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../../theme.css">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html,body { width:100%; min-height:100%; overflow:hidden;
+  html,body { width:100%; height:100%; overflow:hidden;
     font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif; color:var(--gb-ink); }
   body { background:var(--gb-bg); background-attachment:fixed;
     display:flex; flex-direction:column; align-items:center; }
@@ -31,10 +31,11 @@
   .bar .pill.bump { animation:bump .35s; }
   @keyframes bump { 0%,100%{transform:scale(1)} 40%{transform:scale(1.25) rotate(-6deg)} }
 
-  /* 棋盘 */
-  .boardwrap { flex:1; width:100%; display:flex; align-items:center; justify-content:center;
+  /* 棋盘：容器负责裁剪，canvas 绝对定位居中，由 JS 施加平移偏移；支持双指/滚轮缩放 */
+  .boardwrap { flex:1; width:100%; position:relative; overflow:hidden;
     padding:6px 12px 4px; min-height:0; }
-  canvas { display:block; touch-action:none; border-radius:18px;
+  canvas { position:absolute; left:50%; top:50%; display:block; touch-action:none; border-radius:18px;
+    transform:translate(-50%,-50%); transform-origin:center center; will-change:transform;
     box-shadow:0 8px 0 rgba(210,150,120,.22), 0 16px 30px rgba(150,100,90,.18),
       inset 0 0 0 4px #fff; background:rgba(255,255,255,.55); }
 
@@ -82,6 +83,7 @@
 <div class="ctrl">
   <button class="btn yellow" id="replayBtn"><span data-icon="refresh"></span> 重玩本关</button>
   <button class="btn blue" id="pickBtn"><span data-icon="target"></span> 选关</button>
+  <button class="btn" id="fitBtn" title="双指捏合/滚轮缩放，拖动平移；点此复位"><span data-icon="eye"></span> 适应屏幕</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -128,7 +130,10 @@
 
   /* ---------- 游戏状态 ---------- */
   var DIRS = [[-1, 0], [0, 1], [1, 0], [0, -1]]; // 0上 1右 2下 3左
-  var level = 1, board = null, occ = null, cell = 30, ox = 0, oy = 0;
+  var level = 1, board = null, occ = null, cell = 30;
+  /* 视图缩放：baseCell=适应容器的基准格尺寸，cell=baseCell*zoom；panX/panY=canvas 中心相对容器中心的偏移 */
+  var baseCell = 30, zoom = 1, panX = 0, panY = 0;
+  var MIN_ZOOM = 1, MAX_ZOOM = 5;
   var remaining = 0, lives = 3, timeLeft = 600, bonusTime = 0, streak = 0;
   var started = false, running = false, won = false, lost = false, quizPaused = false;
   var flying = [], flash = null, shake = null, timerId = null;
@@ -205,6 +210,7 @@
       lives = 3; timeLeft = board.t; bonusTime = 0; streak = 0;
       started = false; running = false; won = false; lost = false; quizPaused = false;
       flying = []; flash = null; shake = null;
+      zoom = 1; panX = 0; panY = 0; // 换关复位视图，从全貌开始
       localStorage.setItem("gb-arrow-level", String(level));
       resize();
       syncHud();
@@ -220,14 +226,45 @@
     var topH = document.querySelector(".top").offsetHeight || 120;
     var ctrlH = document.querySelector(".ctrl").offsetHeight || 60;
     var availW = Math.min(vw - 24, 560), availH = vh - topH - ctrlH - 20;
-    cell = Math.floor(Math.min(availW / board.c, availH / board.r));
-    cell = Math.max(8, Math.min(cell, 72));
+    baseCell = Math.floor(Math.min(availW / board.c, availH / board.r));
+    baseCell = Math.max(8, Math.min(baseCell, 72));
+    cell = baseCell * zoom;
+    sizeCanvas(); clampPan(); applyPosition(); invalidate();
+  }
+  // 重新设置 canvas 像素尺寸（改 width/height 会重置 ctx，必须重设 transform）
+  function sizeCanvas() {
     var w = cell * board.c, h = cell * board.r;
     cv.style.width = w + "px"; cv.style.height = h + "px";
     cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ox = 0; oy = 0;
-    invalidate();
+  }
+  // 施加平移（canvas 以容器中心为基准，再叠加 pan 偏移）
+  function applyPosition() {
+    cv.style.transform = "translate(-50%,-50%) translate(" + panX + "px," + panY + "px)";
+  }
+  // 限制平移范围：棋盘比容器小时不能拖；大时边缘最多拖到刚露出
+  function clampPan() {
+    var wrap = cv.parentNode;
+    var maxX = Math.max(0, (cell * board.c - wrap.clientWidth) / 2);
+    var maxY = Math.max(0, (cell * board.r - wrap.clientHeight) / 2);
+    panX = Math.max(-maxX, Math.min(maxX, panX));
+    panY = Math.max(-maxY, Math.min(maxY, panY));
+  }
+  // 复位视图：回到适应容器的 100% 且居中
+  function resetView() {
+    zoom = 1; panX = 0; panY = 0; cell = baseCell;
+    sizeCanvas(); applyPosition(); invalidate();
+  }
+  // 围绕屏幕焦点 (fx,fy) 缩放到 newZoom，保持该点下的格子不动
+  function zoomAt(fx, fy, newZoom) {
+    newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
+    var wr = cv.parentNode.getBoundingClientRect();
+    var ccx = wr.left + wr.width / 2, ccy = wr.top + wr.height / 2;
+    var gx = (fx - ccx - panX) / cell, gy = (fy - ccy - panY) / cell;
+    zoom = newZoom; cell = baseCell * zoom;
+    sizeCanvas();
+    panX = fx - gx * cell - ccx; panY = fy - gy * cell - ccy;
+    clampPan(); applyPosition(); invalidate();
   }
   function center(r, c) { return { x: c * cell + cell / 2, y: r * cell + cell / 2 }; }
   function roundRect(x, y, w, h, r) {
@@ -491,8 +528,77 @@
     overlay.classList.remove("hidden");
   }
 
-  /* ---------- 事件绑定 ---------- */
-  cv.addEventListener("pointerdown", function (e) { e.preventDefault(); onTap(e); });
+  /* ---------- 缩放/平移手势 ----------
+   * 单指点击=消除；单指拖动=平移；双指捏合=缩放+平移；滚轮=缩放 */
+  var pointers = {}, gesture = null, dragged = false, downPt = null, lastSingle = null;
+  var DRAG_TH = 8;
+  function twoState() {
+    var ids = Object.keys(pointers), a = pointers[ids[0]], b = pointers[ids[1]];
+    return { dist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
+  }
+  function beginGesture() {
+    var s = twoState(), wr = cv.parentNode.getBoundingClientRect();
+    var ccx = wr.left + wr.width / 2, ccy = wr.top + wr.height / 2;
+    gesture = { dist: s.dist, zoom: zoom,
+      ax: (s.cx - ccx - panX) / cell, ay: (s.cy - ccy - panY) / cell };
+  }
+  function updateGesture() {
+    if (!gesture) return;
+    var s = twoState(), wr = cv.parentNode.getBoundingClientRect();
+    var ccx = wr.left + wr.width / 2, ccy = wr.top + wr.height / 2;
+    zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, gesture.zoom * s.dist / gesture.dist));
+    cell = baseCell * zoom;
+    sizeCanvas();
+    panX = s.cx - gesture.ax * cell - ccx; panY = s.cy - gesture.ay * cell - ccy;
+    clampPan(); applyPosition(); invalidate();
+  }
+  cv.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+    pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var n = Object.keys(pointers).length;
+    if (n === 1) { dragged = false; downPt = { x: e.clientX, y: e.clientY }; lastSingle = downPt; gesture = null; }
+    else if (n === 2) { dragged = true; beginGesture(); }
+  });
+  cv.addEventListener("pointermove", function (e) {
+    if (!pointers[e.pointerId]) return;
+    pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var n = Object.keys(pointers).length;
+    if (n >= 2) { updateGesture(); return; }
+    if (n === 1) {
+      var p = pointers[e.pointerId];
+      if (!dragged && downPt && Math.hypot(p.x - downPt.x, p.y - downPt.y) > DRAG_TH) {
+        dragged = true; lastSingle = downPt;
+      }
+      if (dragged && lastSingle) {
+        panX += p.x - lastSingle.x; panY += p.y - lastSingle.y;
+        clampPan(); applyPosition(); invalidate();
+      }
+      lastSingle = { x: e.clientX, y: e.clientY };
+    }
+  });
+  function endPointer(e, cancelled) {
+    if (!pointers[e.pointerId]) return;
+    var n0 = Object.keys(pointers).length, shouldTap = n0 === 1 && !dragged && !gesture;
+    delete pointers[e.pointerId];
+    try { cv.releasePointerCapture(e.pointerId); } catch (_) {}
+    var n = Object.keys(pointers).length;
+    if (n >= 2) beginGesture();                 // 三指抬一指：重锚剩余两指
+    else if (n === 1) {                         // 双指抬一指：剩余那指当漂移，不再触发点击
+      var id = Object.keys(pointers)[0];
+      downPt = pointers[id]; lastSingle = pointers[id]; dragged = true; gesture = null;
+    } else {                                    // 全部抬起
+      downPt = null; gesture = null;
+      if (shouldTap && !cancelled) onTap(e);
+    }
+  }
+  cv.addEventListener("pointerup", function (e) { endPointer(e, false); });
+  cv.addEventListener("pointercancel", function (e) { endPointer(e, true); });
+  cv.addEventListener("wheel", function (e) {
+    e.preventDefault();
+    zoomAt(e.clientX, e.clientY, zoom * Math.pow(0.9988, e.deltaY));
+  }, { passive: false });
+
   window.addEventListener("resize", resize);
   document.getElementById("replayBtn").addEventListener("click", function () { startLevel(level); });
   function pick() {
@@ -500,6 +606,7 @@
     if (n >= 1 && isFinite(n)) startLevel(Math.min(n, 1000000));
   }
   document.getElementById("pickBtn").addEventListener("click", pick);
+  document.getElementById("fitBtn").addEventListener("click", resetView);
   lvPill.addEventListener("click", pick);
 
   /* ---------- 公共题库（定时弹题，暂停倒计时） ---------- */
