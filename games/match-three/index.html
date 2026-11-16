@@ -14,7 +14,8 @@
     display:flex; align-items:center; justify-content:center; font-size:26px; text-decoration:none; }
   .home-btn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,.14); }
   .hero { text-align:center; padding:calc(20px + env(safe-area-inset-top)) 12px 4px; }
-  .hero .logo { font-size:46px; animation:bob 3s ease-in-out infinite; }
+  .hero .logo { width:54px; height:54px; display:block; margin:0 auto; animation:bob 3s ease-in-out infinite;
+    filter:drop-shadow(0 3px 2px rgba(200,70,100,.22)); }
   @keyframes bob { 0%,100%{transform:translateY(0) rotate(-5deg)} 50%{transform:translateY(-7px) rotate(5deg)} }
   .hero h1 { font-size:clamp(22px,6vw,30px); margin:4px 0; color:#ff6b9d; }
   .hero p { font-size:13px; color:#8b7d7d; }
@@ -30,9 +31,11 @@
     gap:4px; width:100%; aspect-ratio:1/1; background:rgba(255,255,255,.4); padding:6px; border-radius:18px;
     box-shadow:inset 0 2px 8px rgba(0,0,0,.06); }
   .tile { border-radius:11px; display:flex; align-items:center; justify-content:center;
-    font-size:clamp(20px,6.5vw,34px); background:linear-gradient(180deg,#fff,#fff4f8);
-    box-shadow:0 3px 0 rgba(200,120,150,.22); cursor:pointer; user-select:none; }
-  .tile.sel { box-shadow:0 0 0 4px #ffb703,0 3px 0 rgba(200,120,150,.22); background:#fff8e1; transform:scale(.92); }
+    background:linear-gradient(160deg,#fffdfd 0%,#fff1f6 100%);
+    box-shadow:0 3px 0 rgba(200,120,150,.16), inset 0 1px 2px rgba(255,255,255,.9);
+    cursor:pointer; user-select:none; }
+  .tile svg { width:94%; height:94%; display:block; filter:drop-shadow(0 2px 1.4px rgba(120,60,80,.26)); }
+  .tile.sel { box-shadow:0 0 0 4px #ffb703, 0 3px 0 rgba(200,120,150,.16); background:#fff8e1; transform:scale(.92); }
   .tile.clear { animation:clearAnim .28s ease forwards; }
   @keyframes clearAnim { 0%{transform:scale(1)} 50%{transform:scale(1.2)} 100%{transform:scale(0);opacity:0} }
   .tile.new { animation:newAnim .28s ease; }
@@ -60,8 +63,27 @@
 <body>
 <a class="home-btn" href="../../" aria-label="返回主页" title="返回主页">🏠</a>
 
+<!-- 全局渐变定义：所有水果共用同一套左上光源（0,0 -> 1,1），保证风格统一 -->
+<svg id="fruitDefs" width="0" height="0" aria-hidden="true" style="position:absolute;pointer-events:none">
+  <defs>
+    <linearGradient id="g0" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffa8ba"/><stop offset="1" stop-color="#ef3055"/></linearGradient>
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd976"/><stop offset="1" stop-color="#ff8a00"/></linearGradient>
+    <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff09a"/><stop offset="1" stop-color="#f2b705"/></linearGradient>
+    <linearGradient id="g3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#96eea8"/><stop offset="1" stop-color="#2fa84f"/></linearGradient>
+    <linearGradient id="g4" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#cfa6ff"/><stop offset="1" stop-color="#7b3fd4"/></linearGradient>
+    <linearGradient id="g5" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#93c4ff"/><stop offset="1" stop-color="#2e6fe0"/></linearGradient>
+  </defs>
+</svg>
+
 <header class="hero">
-  <div class="logo">🍬</div>
+  <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
+    <path d="M18 24 L9 19 L7 27 L16 31 Z" fill="#ffd166" stroke="#e8a200" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M18 40 L9 45 L7 37 L16 33 Z" fill="#ffd166" stroke="#e8a200" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M46 24 L55 19 L57 27 L48 31 Z" fill="#ffd166" stroke="#e8a200" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M46 40 L55 45 L57 37 L48 33 Z" fill="#ffd166" stroke="#e8a200" stroke-width="2" stroke-linejoin="round"/>
+    <rect x="16" y="20" width="32" height="24" rx="10" fill="url(#g0)" stroke="#c81e42" stroke-width="2.2"/>
+    <ellipse cx="26" cy="27" rx="5" ry="3" fill="#fff" opacity=".6" transform="rotate(-25 26 27)"/>
+  </svg>
   <h1>消消乐</h1>
   <p>点两个相邻的水果交换位置，三个一样的连成一线就能消除得分！</p>
 </header>
@@ -93,7 +115,53 @@
 (function () {
   "use strict";
   var R = 8, C = 8, TARGET = 1200, STEPS = 45, PER = 20;
-  var EMOJI = ["🍎","🍊","🍋","🍉","🍇","🍓"];
+
+  // 手绘果冻质感水果，全套统一：圆润 Q 版 / 左上光源 / 柔和渐变 + 高光 / 统一描边。
+  // 6 种主色覆盖红橙黄绿紫蓝，剪影各不相同，48px 下也能一眼区分。
+  var FRUIT_SVG = [
+    // 0 草莓：倒心形 + 小叶 + 籽点
+    '<svg viewBox="0 0 64 64">' +
+      '<path d="M32 55 C21 48 13 39 15 29 C16 23 23 20 32 24 C41 20 48 23 49 29 C51 39 43 48 32 55 Z" fill="url(#g0)" stroke="#c81e42" stroke-width="2.2" stroke-linejoin="round"/>' +
+      '<path d="M32 24 C27 16 17 15 14 21 C19 21 23 23 26 27 C28 24 30 23 32 24 C34 23 36 24 38 27 C41 23 45 21 50 21 C47 15 37 16 32 24 Z" fill="#4cbf6a" stroke="#2e9b4f" stroke-width="1.5" stroke-linejoin="round"/>' +
+      '<g fill="#ffe9a8"><ellipse cx="26" cy="34" rx="1.6" ry="2.2"/><ellipse cx="38" cy="34" rx="1.6" ry="2.2"/><ellipse cx="32" cy="40" rx="1.6" ry="2.2"/><ellipse cx="23" cy="42" rx="1.4" ry="1.9"/><ellipse cx="41" cy="42" rx="1.4" ry="1.9"/><ellipse cx="32" cy="48" rx="1.4" ry="1.9"/></g>' +
+      '<ellipse cx="24" cy="31" rx="5.5" ry="3.2" fill="#fff" opacity=".55" transform="rotate(-25 24 31)"/>' +
+    '</svg>',
+    // 1 橙子：正圆 + 果蒂小叶
+    '<svg viewBox="0 0 64 64">' +
+      '<path d="M32 15 L32 10" stroke="#8b5a2b" stroke-width="2.6" stroke-linecap="round"/>' +
+      '<path d="M33 15 C37 9 45 9 48 13 C44 17 38 18 33 16 Z" fill="#4cbf6a" stroke="#2e9b4f" stroke-width="1.5" stroke-linejoin="round"/>' +
+      '<circle cx="32" cy="35" r="20" fill="url(#g1)" stroke="#e07000" stroke-width="2.2"/>' +
+      '<ellipse cx="24" cy="27" rx="7" ry="4.6" fill="#fff" opacity=".5" transform="rotate(-30 24 27)"/>' +
+      '<g fill="#ffb733" opacity=".7"><circle cx="41" cy="35" r="1"/><circle cx="44" cy="41" r="1"/><circle cx="34" cy="46" r="1"/><circle cx="24" cy="43" r="1"/></g>' +
+    '</svg>',
+    // 2 柠檬：两端带尖的纺锤形 + 小叶
+    '<svg viewBox="0 0 64 64">' +
+      '<path d="M11 32 C18 21 28 17 39 20 C47 22 52 27 53 32 C52 37 47 42 39 44 C28 47 18 43 11 32 Z" fill="url(#g2)" stroke="#d99e00" stroke-width="2.2" stroke-linejoin="round"/>' +
+      '<path d="M50 28 C53 26 56 27 57 30 C55 32 52 32 50 31 Z" fill="#4cbf6a" stroke="#2e9b4f" stroke-width="1.3" stroke-linejoin="round"/>' +
+      '<ellipse cx="27" cy="27" rx="9" ry="3.6" fill="#fff" opacity=".55" transform="rotate(-16 27 27)"/>' +
+    '</svg>',
+    // 3 西瓜：圆瓜 + 深绿条纹 + 瓜蒂
+    '<svg viewBox="0 0 64 64">' +
+      '<path d="M32 14 L32 10" stroke="#6b4f2a" stroke-width="2.6" stroke-linecap="round"/>' +
+      '<circle cx="32" cy="35" r="20" fill="url(#g3)" stroke="#1f8a42" stroke-width="2.2"/>' +
+      '<g fill="none" stroke="#1e7a3c" stroke-width="3" stroke-linecap="round" opacity=".65"><path d="M32 15 C29 24 29 46 32 55"/><path d="M23 17 C17 26 17 45 23 53"/><path d="M41 17 C47 26 47 45 41 53"/></g>' +
+      '<ellipse cx="24" cy="27" rx="6" ry="4" fill="#fff" opacity=".45" transform="rotate(-28 24 27)"/>' +
+    '</svg>',
+    // 4 葡萄：一串圆润浆果 + 藤叶
+    '<svg viewBox="0 0 64 64">' +
+      '<path d="M32 13 L32 19" stroke="#6b4f2a" stroke-width="2.4" stroke-linecap="round"/>' +
+      '<path d="M33 17 C38 11 46 12 48 17 C43 20 37 20 33 18 Z" fill="#4cbf6a" stroke="#2e9b4f" stroke-width="1.3" stroke-linejoin="round"/>' +
+      '<g fill="url(#g4)" stroke="#6a2fb8" stroke-width="1.8"><circle cx="24" cy="27" r="8"/><circle cx="40" cy="27" r="8"/><circle cx="32" cy="28" r="8"/><circle cx="28" cy="40" r="8"/><circle cx="36" cy="40" r="8"/><circle cx="32" cy="51" r="7.5"/></g>' +
+      '<g fill="#fff" opacity=".6"><circle cx="21" cy="24" r="2.3"/><circle cx="37" cy="24" r="2.3"/><circle cx="29" cy="25" r="2.3"/><circle cx="25" cy="37" r="2.3"/><circle cx="33" cy="37" r="2.3"/><circle cx="29" cy="48" r="2.2"/></g>' +
+    '</svg>',
+    // 5 蓝莓：圆果 + 星形花萼
+    '<svg viewBox="0 0 64 64">' +
+      '<circle cx="32" cy="36" r="19" fill="url(#g5)" stroke="#234faa" stroke-width="2.2"/>' +
+      '<path d="M32 15 L34.2 21.2 L40.6 21.2 L35.4 25 L37.3 31.2 L32 27.4 L26.7 31.2 L28.6 25 L23.4 21.2 L29.8 21.2 Z" fill="#2a5fcc" stroke="#1b4199" stroke-width="1.2" stroke-linejoin="round"/>' +
+      '<ellipse cx="23" cy="33" rx="5.5" ry="3.4" fill="#fff" opacity=".5" transform="rotate(-28 23 33)"/>' +
+    '</svg>'
+  ];
+
   var boardEl = document.getElementById("board"), comboEl = document.getElementById("combo");
   var scoreEl = document.getElementById("score"), stepsEl = document.getElementById("steps"), barEl = document.getElementById("bar");
   var overlay = document.getElementById("overlay");
@@ -107,6 +175,7 @@
     }
     return a;
   }
+  function randFruit() { return Math.floor(Math.random() * FRUIT_SVG.length); }
   function wouldMatch(r, c, v) {
     // 逐行自上而下构建，只需检查左侧与上方已生成的格子；
     // 下方格子尚未生成，等它生成时会反过来检查上方，同样能避免三连。
@@ -122,7 +191,7 @@
       grid[r] = [];
       for (var c = 0; c < C; c++) {
         var v, tries = 0;
-        do { v = EMOJI[Math.floor(Math.random() * EMOJI.length)]; tries++; }
+        do { v = randFruit(); tries++; }
         while (wouldMatch(r, c, v) && tries < 40);
         grid[r][c] = v;
       }
@@ -133,7 +202,7 @@
     for (var r = 0; r < R; r++) for (var c = 0; c < C; c++) {
       var el = cells[r][c];
       el.className = "tile";
-      el.textContent = grid[r][c];
+      el.innerHTML = FRUIT_SVG[grid[r][c]];
       if (fresh && fresh[r + "," + c]) el.classList.add("new");
     }
   }
@@ -143,16 +212,17 @@
     for (var r = 0; r < R; r++) {
       var s = 0;
       for (var c = 1; c <= C; c++) {
-        if (c < C && grid[r][c] && grid[r][c] === grid[r][s]) continue;
-        if (grid[r][s] && c - s >= 3) for (var k = s; k < c; k++) add(r, k);
+        // 索引 0 也是有效水果，必须用 != null 判空，不能用 truthy
+        if (c < C && grid[r][c] != null && grid[r][c] === grid[r][s]) continue;
+        if (grid[r][s] != null && c - s >= 3) for (var k = s; k < c; k++) add(r, k);
         s = c;
       }
     }
     for (var c2 = 0; c2 < C; c2++) {
       var s2 = 0;
       for (var r2 = 1; r2 <= R; r2++) {
-        if (r2 < R && grid[r2][c2] && grid[r2][c2] === grid[s2][c2]) continue;
-        if (grid[s2][c2] && r2 - s2 >= 3) for (var k2 = s2; k2 < r2; k2++) add(k2, c2);
+        if (r2 < R && grid[r2][c2] != null && grid[r2][c2] === grid[s2][c2]) continue;
+        if (grid[s2][c2] != null && r2 - s2 >= 3) for (var k2 = s2; k2 < r2; k2++) add(k2, c2);
         s2 = r2;
       }
     }
@@ -187,11 +257,11 @@
     var fresh = {};
     for (var c = 0; c < C; c++) {
       var vals = [];
-      for (var r = R - 1; r >= 0; r--) if (grid[r][c]) vals.push(grid[r][c]);
+      for (var r = R - 1; r >= 0; r--) if (grid[r][c] != null) vals.push(grid[r][c]);
       var vi = 0;
       for (var r2 = R - 1; r2 >= 0; r2--) {
         if (vi < vals.length) grid[r2][c] = vals[vi++];
-        else { grid[r2][c] = EMOJI[Math.floor(Math.random() * EMOJI.length)]; fresh[r2 + "," + c] = true; }
+        else { grid[r2][c] = randFruit(); fresh[r2 + "," + c] = true; }
       }
     }
     return fresh;
