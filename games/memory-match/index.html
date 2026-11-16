@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>🧠 动物记忆翻翻乐</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { width:100%; min-height:100%; overflow-x:hidden; font-family:"PingFang SC","Microsoft YaHei","Comic Sans MS",system-ui,sans-serif; }
+  body { background:linear-gradient(160deg,#fff0f6 0%,#e8f6ff 55%,#f0ffe9 100%); background-attachment:fixed; color:#3b2f2f; padding-bottom:calc(24px + env(safe-area-inset-bottom)); }
+  .home-btn { position:fixed; left:12px; top:calc(12px + env(safe-area-inset-top)); z-index:30;
+    width:46px; height:46px; border-radius:50%; background:rgba(255,255,255,.92);
+    border:3px solid #ffb703; box-shadow:0 4px 0 rgba(0,0,0,.14); color:#d62828;
+    display:flex; align-items:center; justify-content:center; font-size:26px; text-decoration:none; }
+  .home-btn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,.14); }
+  .hero { text-align:center; padding:calc(20px + env(safe-area-inset-top)) 12px 8px; }
+  .hero .logo { font-size:46px; animation:bob 3s ease-in-out infinite; }
+  @keyframes bob { 0%,100%{transform:translateY(0) rotate(-5deg)} 50%{transform:translateY(-7px) rotate(5deg)} }
+  .hero h1 { font-size:clamp(22px,6vw,30px); margin:4px 0; color:#ff6b81; text-shadow:0 2px 0 #fff; }
+  .hero p { font-size:13px; color:#8b7d7d; }
+  .bar { display:flex; justify-content:center; gap:12px; margin:10px 0 16px; flex-wrap:wrap; }
+  .pill { background:#fff; border:3px solid #ffd23f; border-radius:999px; padding:7px 16px;
+    font-size:16px; font-weight:800; color:#e07a00; box-shadow:0 4px 0 #f0c000; white-space:nowrap; }
+  .board { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; max-width:480px; margin:0 auto; padding:0 14px; }
+  @media (min-width:600px) { .board { grid-template-columns:repeat(4,1fr); } }
+  .card { position:relative; aspect-ratio:1/1; cursor:pointer; perspective:600px; }
+  .card .inner { position:absolute; inset:0; transition:transform .45s cubic-bezier(.2,.8,.3,1); transform-style:preserve-3d; }
+  .card.flipped .inner, .card.matched .inner { transform:rotateY(180deg); }
+  .face { position:absolute; inset:0; backface-visibility:hidden; -webkit-backface-visibility:hidden;
+    border-radius:18px; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 5px 0 rgba(0,0,0,.14); font-size:clamp(30px,9vw,46px); }
+  .front { background:linear-gradient(135deg,#ffb457,#ff8fab); color:#fff; font-weight:900; }
+  .front::after { content:"❓"; }
+  .back { background:#fff; border:3px solid #ffe08a; transform:rotateY(180deg); }
+  .card.matched .back { border-color:#5fd38b; background:#eafff1; box-shadow:0 5px 0 #3fae6b; }
+  .card.matched { animation:pop .4s ease; }
+  @keyframes pop { 0%{transform:scale(1)} 50%{transform:scale(1.12)} 100%{transform:scale(1)} }
+  .card.shake .inner { animation:shake .4s; }
+  @keyframes shake { 0%,100%{transform:rotateY(180deg) translateX(0)} 25%{transform:rotateY(180deg) translateX(-6px)} 75%{transform:rotateY(180deg) translateX(6px)} }
+  .overlay { position:fixed; inset:0; z-index:40; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:rgba(255,255,255,.9); backdrop-filter:blur(4px); text-align:center; }
+  .overlay.hidden { display:none; }
+  .overlay .big { font-size:80px; animation:pop .6s ease; }
+  .overlay h2 { font-size:32px; color:#ff6b81; margin:8px 0; }
+  .overlay p { font-size:18px; color:#6d6262; margin:6px 0 20px; }
+  .btn { border:none; border-radius:999px; padding:14px 40px; font-size:22px; font-weight:900; color:#fff;
+    background:linear-gradient(180deg,#ff8fab,#ff6b81); box-shadow:0 6px 0 #e84d68; cursor:pointer; }
+  .btn:active { transform:translateY(3px); box-shadow:0 3px 0 #e84d68; }
+</style>
+</head>
+<body>
+<a class="home-btn" href="../../" aria-label="返回主页" title="返回主页">🏠</a>
+
+<header class="hero">
+  <div class="logo">🧠</div>
+  <h1>动物记忆翻翻乐</h1>
+  <p>翻开两张一样的动物，把它们找出来！</p>
+</header>
+
+<div class="bar">
+  <div class="pill">✅ 配对 <span id="pairs">0</span>/6</div>
+  <div class="pill">🔄 翻牌 <span id="moves">0</span> 次</div>
+</div>
+
+<div class="board" id="board"></div>
+
+<div class="overlay hidden" id="winScreen">
+  <div class="big">🎉</div>
+  <h2>全找到啦！</h2>
+  <p id="winText">你用了 0 次翻牌</p>
+  <button class="btn" id="againBtn">再玩一次 🔄</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var animals = ["🐶","🐱","🦊","🐼","🦁","🐸","🐰","🐻"];
+  var emojis = animals.slice(0, 6);
+  var deck = emojis.concat(emojis);
+  var board = document.getElementById("board");
+  var pairsEl = document.getElementById("pairs");
+  var movesEl = document.getElementById("moves");
+  var winScreen = document.getElementById("winScreen");
+  var first = null, lock = false, pairs = 0, moves = 0;
+
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  function build() {
+    board.innerHTML = "";
+    shuffle(deck);
+    deck.forEach(function (em, i) {
+      var c = document.createElement("div");
+      c.className = "card";
+      c.dataset.emoji = em;
+      c.dataset.index = i;
+      c.innerHTML = '<div class="inner"><div class="face front"></div><div class="face back">' + em + '</div></div>';
+      c.addEventListener("click", function () { flip(c); });
+      board.appendChild(c);
+    });
+  }
+
+  function flip(card) {
+    if (lock || card.classList.contains("flipped") || card.classList.contains("matched")) return;
+    card.classList.add("flipped");
+    if (!first) { first = card; return; }
+    moves++; movesEl.textContent = moves;
+    var second = card;
+    if (first.dataset.emoji === second.dataset.emoji) {
+      first.classList.add("matched");
+      second.classList.add("matched");
+      first = null;
+      pairs++; pairsEl.textContent = pairs;
+      if (pairs === deck.length / 2) {
+        setTimeout(function () {
+          winScreen.classList.remove("hidden");
+          document.getElementById("winText").textContent = "你用了 " + moves + " 次翻牌，太棒啦！";
+        }, 500);
+      }
+    } else {
+      lock = true;
+      var a = first, b = second;
+      a.classList.add("shake"); b.classList.add("shake");
+      setTimeout(function () {
+        a.classList.remove("flipped", "shake");
+        b.classList.remove("flipped", "shake");
+        first = null; lock = false;
+      }, 800);
+    }
+  }
+
+  function reset() {
+    first = null; lock = false; pairs = 0; moves = 0;
+    pairsEl.textContent = "0"; movesEl.textContent = "0";
+    winScreen.classList.add("hidden");
+    build();
+  }
+
+  document.getElementById("againBtn").addEventListener("click", reset);
+  reset();
+})();
+</script>
+</body>
+</html>

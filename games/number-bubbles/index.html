@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>🫧 算术泡泡</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { width:100%; height:100%; overflow:hidden; font-family:"PingFang SC","Microsoft YaHei","Comic Sans MS",system-ui,sans-serif; user-select:none; -webkit-user-select:none; touch-action:manipulation; }
+  body { background:linear-gradient(180deg,#7fd0ff 0%,#b8ecff 60%,#e8fbff 100%); position:relative; }
+  .home-btn { position:fixed; left:12px; top:calc(12px + env(safe-area-inset-top)); z-index:30;
+    width:46px; height:46px; border-radius:50%; background:rgba(255,255,255,.92);
+    border:3px solid #ffb703; box-shadow:0 4px 0 rgba(0,0,0,.14); color:#d62828;
+    display:flex; align-items:center; justify-content:center; font-size:26px; text-decoration:none; }
+  .home-btn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,.14); }
+  .hud { position:fixed; top:calc(12px + env(safe-area-inset-top)); left:0; right:0; z-index:10;
+    display:flex; justify-content:center; gap:10px; pointer-events:none; padding:0 70px; }
+  .pill { background:rgba(255,255,255,.9); border:3px solid #38bdf8; border-radius:999px;
+    padding:6px 14px; font-size:clamp(14px,4vw,18px); font-weight:800; color:#0284c7; white-space:nowrap; box-shadow:0 4px 0 rgba(0,0,0,.1); }
+  .question { position:fixed; top:calc(70px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); z-index:10;
+    background:#fff; border:4px solid #ffb703; border-radius:24px; padding:10px 26px;
+    font-size:clamp(28px,8vw,42px); font-weight:900; color:#ef476f; box-shadow:0 6px 0 #f0a500; white-space:nowrap; pointer-events:none; }
+  #field { position:absolute; inset:0; overflow:hidden; }
+  .bubble { position:absolute; width:var(--size); height:var(--size); border-radius:50%;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    font-size:clamp(22px,7vw,38px); font-weight:900; color:#fff;
+    background:radial-gradient(circle at 32% 28%, rgba(255,255,255,.9) 0%, rgba(255,255,255,.15) 22%, var(--c) 60%);
+    box-shadow:inset -6px -10px 16px rgba(0,0,0,.12), 0 6px 14px rgba(0,0,0,.16);
+    border:2px solid rgba(255,255,255,.6); text-shadow:0 2px 3px rgba(0,0,0,.25);
+    animation:floatUp var(--dur) ease-in-out infinite alternate; will-change:transform; }
+  .bubble:active { filter:brightness(1.1); transform:scale(.92); }
+  @keyframes floatUp { from{transform:translateY(0) translateX(0)} to{transform:translateY(-24px) translateX(10px)} }
+  .bubble.pop { animation:popburst .35s ease forwards; pointer-events:none; }
+  @keyframes popburst { to { transform:scale(1.9); opacity:0; } }
+  .bubble.wrong { animation:wrongshake .4s; }
+  @keyframes wrongshake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-9px)} 75%{transform:translateX(9px)} }
+  .fx { position:absolute; z-index:20; font-size:34px; font-weight:900; pointer-events:none; animation:fly .9s ease-out forwards; }
+  @keyframes fly { to { transform:translateY(-70px) scale(1.4); opacity:0; } }
+  .toast { position:fixed; left:50%; top:45%; transform:translate(-50%,-50%); z-index:25;
+    font-size:clamp(34px,10vw,54px); font-weight:900; color:#fff; text-shadow:0 3px 0 #f97316,0 0 16px rgba(0,0,0,.3);
+    pointer-events:none; opacity:0; }
+  .toast.show { animation:toastpop .8s ease; }
+  @keyframes toastpop { 0%{opacity:0;transform:translate(-50%,-30%) scale(.6)} 30%{opacity:1;transform:translate(-50%,-50%) scale(1.15)} 100%{opacity:0;transform:translate(-50%,-80%) scale(1)} }
+</style>
+</head>
+<body>
+<a class="home-btn" href="../../" aria-label="返回主页" title="返回主页">🏠</a>
+<div class="hud">
+  <div class="pill">⭐ <span id="score">0</span> 分</div>
+  <div class="pill">🔥 连对 <span id="combo">0</span></div>
+</div>
+<div class="question" id="question">3 + 4 = ?</div>
+<div id="field"></div>
+<div class="toast" id="toast">太棒啦！</div>
+
+<script>
+(function () {
+  "use strict";
+  var field = document.getElementById("field");
+  var questionEl = document.getElementById("question");
+  var scoreEl = document.getElementById("score");
+  var comboEl = document.getElementById("combo");
+  var toast = document.getElementById("toast");
+  var score = 0, combo = 0, answer = 0, busy = false;
+  var colors = ["#ff6b6b","#ffa62b","#4d96ff","#6bcb77","#c77dff","#26c6da","#ef476f","#ffb703"];
+  var emojis = ["⭐","🍎","✨","🎈","🍓","🌟"];
+
+  function rnd(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+
+  function makeQuestion() {
+    var hard = score >= 20;
+    var a = hard ? rnd(5, 15) : rnd(1, 9);
+    var b = hard ? rnd(5, 15) : rnd(1, 9);
+    answer = a + b;
+    questionEl.textContent = a + " + " + b + " = ?";
+  }
+
+  function layout(n) {
+    var W = window.innerWidth, H = window.innerHeight;
+    var topZone = 150;
+    var cols = W < 420 ? 3 : 4;
+    var rows = Math.ceil(n / cols);
+    var cellW = W / cols, cellH = (H - topZone - 20) / rows;
+    var cells = [];
+    for (var r = 0; r < rows; r++) {
+      for (var c = 0; c < cols; c++) {
+        cells.push({ x: c * cellW + cellW / 2, y: topZone + r * cellH + cellH / 2 });
+      }
+    }
+    for (var i = cells.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = cells[i]; cells[i] = cells[j]; cells[j] = t;
+    }
+    return cells.slice(0, n);
+  }
+
+  function spawn() {
+    field.innerHTML = "";
+    makeQuestion();
+    var n = score < 8 ? 4 : (score < 20 ? 5 : 6);
+    var vals = [answer];
+    while (vals.length < n) {
+      var v = Math.max(0, answer + rnd(-6, 6));
+      if (vals.indexOf(v) === -1) vals.push(v);
+    }
+    for (var i = vals.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = vals[i]; vals[i] = vals[j]; vals[j] = t;
+    }
+    var pts = layout(n);
+    var size = Math.min(window.innerWidth < 420 ? 84 : 94, pts[0] ? 94 : 94);
+    vals.forEach(function (val, i) {
+      var el = document.createElement("div");
+      el.className = "bubble";
+      el.textContent = val;
+      el.style.setProperty("--size", size + "px");
+      el.style.setProperty("--c", colors[i % colors.length]);
+      el.style.setProperty("--dur", (1.6 + Math.random() * 1.2) + "s");
+      el.style.left = (pts[i].x - size / 2) + "px";
+      el.style.top = (pts[i].y - size / 2) + "px";
+      el.addEventListener("click", function () { tap(el, val); });
+      field.appendChild(el);
+    });
+    busy = false;
+  }
+
+  function showToast(txt, color) {
+    toast.textContent = txt;
+    toast.style.textShadow = "0 3px 0 " + color + ",0 0 16px rgba(0,0,0,.3)";
+    toast.classList.remove("show");
+    void toast.offsetWidth;
+    toast.classList.add("show");
+  }
+
+  function tap(el, val) {
+    if (busy || el.classList.contains("pop")) return;
+    if (val === answer) {
+      busy = true;
+      combo++;
+      score += 1 + Math.min(combo, 5);
+      scoreEl.textContent = score;
+      comboEl.textContent = combo;
+      el.classList.add("pop");
+      showToast(combo >= 3 ? "连对 " + combo + "！🔥" : "答对啦！⭐", "#f97316");
+      burst(el);
+      setTimeout(spawn, 420);
+    } else {
+      combo = 0;
+      comboEl.textContent = "0";
+      el.classList.remove("wrong");
+      void el.offsetWidth;
+      el.classList.add("wrong");
+    }
+  }
+
+  function burst(el) {
+    var r = el.getBoundingClientRect();
+    for (var i = 0; i < 4; i++) {
+      var f = document.createElement("div");
+      f.className = "fx";
+      f.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+      f.style.left = (r.left + r.width / 2 + rnd(-30, 30)) + "px";
+      f.style.top = (r.top + r.height / 2) + "px";
+      field.appendChild(f);
+      setTimeout(function (node) { return function () { node.remove(); }; }(f), 900);
+    }
+  }
+
+  window.addEventListener("resize", function () { if (!busy) spawn(); });
+  spawn();
+})();
+</script>
+</body>
+</html>
