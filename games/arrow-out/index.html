@@ -208,26 +208,26 @@
       if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
     }
   }
-  function drawArrow(a, pal, dx, dy, alpha, sh) {
+  function lineThrough(pts) {
+    ctx.beginPath();
+    for (var i = 0; i < pts.length; i++) {
+      var p = pts[i];
+      if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+    }
+  }
+  // 按给定点序列绘制一条果冻箭头（头三角形固定指向 dir）
+  function drawArrowShape(pts, dir, pal, alpha) {
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.lineJoin = "round"; ctx.lineCap = "round";
-    ctx.translate(dx + sh, dy);
-    // 路径阴影描边
-    pathOf(a.cells); ctx.lineWidth = cell * 0.66; ctx.strokeStyle = pal.d; ctx.stroke();
-    // 渐变主体
-    var p0 = center(a.cells[0][0], a.cells[0][1]);
-    var pe = center(a.cells[a.cells.length - 1][0], a.cells[a.cells.length - 1][1]);
-    var g = ctx.createLinearGradient(p0.x, p0.y, pe.x, pe.y);
+    lineThrough(pts); ctx.lineWidth = cell * 0.66; ctx.strokeStyle = pal.d; ctx.stroke();
+    var g = ctx.createLinearGradient(pts[0].x, pts[0].y, pts[pts.length - 1].x, pts[pts.length - 1].y);
     g.addColorStop(0, pal.s); g.addColorStop(1, pal.e);
-    pathOf(a.cells); ctx.lineWidth = cell * 0.5; ctx.strokeStyle = g; ctx.stroke();
-    // 左上高光
+    lineThrough(pts); ctx.lineWidth = cell * 0.5; ctx.strokeStyle = g; ctx.stroke();
     ctx.save(); ctx.translate(-cell * 0.06, -cell * 0.1);
-    pathOf(a.cells); ctx.lineWidth = cell * 0.12; ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.stroke();
+    lineThrough(pts); ctx.lineWidth = cell * 0.12; ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.stroke();
     ctx.restore();
-    // 末端箭头三角
-    var end = center(a.cells[a.cells.length - 1][0], a.cells[a.cells.length - 1][1]);
-    var v = DIRS[a.dir], vx = v[1], vy = v[0];       // 列=x 行=y
+    var end = pts[pts.length - 1], v = DIRS[dir], vx = v[1], vy = v[0];   // 列=x 行=y
     var bx = end.x + vx * cell * 0.02, by = end.y + vy * cell * 0.02;
     var tipx = end.x + vx * cell * 0.5, tipy = end.y + vy * cell * 0.5;
     var px = -vy, py = vx, half = cell * 0.34;
@@ -235,10 +235,35 @@
       ctx.lineTo(bx + px * half, by + py * half); ctx.lineTo(bx - px * half, by - py * half); ctx.closePath(); }
     tri(); ctx.lineWidth = cell * 0.12; ctx.strokeStyle = pal.d; ctx.stroke();
     tri(); ctx.fillStyle = pal.e; ctx.fill();
-    // 起点尾巴圆点
-    var st = center(a.cells[0][0], a.cells[0][1]);
+    var st = pts[0];
     ctx.beginPath(); ctx.arc(st.x, st.y, cell * 0.12, 0, Math.PI * 2); ctx.fillStyle = pal.d; ctx.fill();
     ctx.restore();
+  }
+  function drawArrow(a, pal, dx, dy, alpha, sh) {
+    var pts = [];
+    for (var i = 0; i < a.cells.length; i++) pts.push(center(a.cells[i][0], a.cells[i][1]));
+    ctx.save(); ctx.translate(dx + sh, dy);
+    drawArrowShape(pts, a.dir, pal, alpha);
+    ctx.restore();
+  }
+  // 沿「自身轨迹 + 头部方向直线延长」取弧长 s 处的点，供蛇形滑动采样
+  function trackPoint(base, total, vx, vy, s) {
+    if (s <= total) {
+      var seg = Math.floor(s / cell);
+      if (seg >= base.length - 1) return base[base.length - 1];
+      var f = (s - seg * cell) / cell, p0 = base[seg], p1 = base[seg + 1];
+      return { x: p0.x + (p1.x - p0.x) * f, y: p0.y + (p1.y - p0.y) * f };
+    }
+    var h = base[base.length - 1], over = s - total;
+    return { x: h.x + vx * over, y: h.y + vy * over };
+  }
+  // 整条箭头沿轨迹前滑 d：头先钻出、身体逐节沿原路径跟进（像蛇被拽出洞口）
+  function slidePts(a, d) {
+    var base = [], n = a.cells.length;
+    for (var i = 0; i < n; i++) base.push(center(a.cells[i][0], a.cells[i][1]));
+    var total = (n - 1) * cell, v = DIRS[a.dir], pts = [];
+    for (var k = 0; k < n; k++) pts.push(trackPoint(base, total, v[1], v[0], d + k * cell));
+    return pts;
   }
   function draw() {
     if (!board) return;
@@ -260,34 +285,37 @@
       var sh = (shake && shake.id === id) ? Math.sin(shake.p * 28) * cell * 0.12 * (1 - shake.p) : 0;
       drawArrow(a, PALETTE[id % PALETTE.length], 0, 0, 1, sh);
     });
-    // 飞出动画：加速射出 + 三层拖尾残影 + 速度线
+    // 飞出动画：整条箭头像蛇一样顺着自身轨迹滑出，头先钻出、身体逐节跟进
     flying.forEach(function (f) {
       var v = DIRS[f.a.dir], vx = v[1], vy = v[0];
-      var span = (Math.max(board.r, board.c) + 4) * cell;
       var pal = PALETTE[f.id % PALETTE.length];
-      var alpha = f.p < 0.7 ? 1 : Math.max(0, (1 - f.p) / 0.3);
-      // 残影：落后者更淡，营造拖尾
+      var n = f.a.cells.length, total = (n - 1) * cell;
+      // 需要滑出的总弧长：整条路径 + 头彻底越过棋盘对角
+      var maxD = total + (board.r + board.c) * cell;
+      var d = maxD * f.e;
+      var alpha = f.p < 0.78 ? 1 : Math.max(0, (1 - f.p) / 0.22);
+      // 拖尾残影：沿轨迹略微滞后的形态
       for (var k = 3; k >= 1; k--) {
-        var lag = Math.max(0, f.e - k * 0.045);
-        drawArrow(f.a, pal, vx * span * lag, vy * span * lag, alpha * (0.30 - k * 0.07), 0);
+        var gd = Math.max(0, d - k * cell * 0.55);
+        drawArrowShape(slidePts(f.a, gd), f.a.dir, pal, alpha * (0.28 - k * 0.075));
       }
-      // 速度线：沿飞行方向从末端甩出
-      if (f.p < 0.88) {
-        var tail = center(f.a.cells[f.a.cells.length - 1]);
-        var ex = tail.x + vx * span * f.e, ey = tail.y + vy * span * f.e;
-        ctx.save(); ctx.globalAlpha = (1 - f.p / 0.88) * 0.55;
+      // 主体：蛇形滑动后的形态
+      var pts = slidePts(f.a, d);
+      // 速度线：从蛇头（点序列末端）沿方向甩出
+      if (f.p < 0.86) {
+        var head = pts[pts.length - 1];
+        ctx.save(); ctx.globalAlpha = (1 - f.p / 0.86) * 0.5;
         ctx.lineCap = "round"; ctx.strokeStyle = "#fff"; ctx.lineWidth = cell * 0.07;
         for (var s = -1; s <= 1; s++) {
           var off = s * cell * 0.22;
           ctx.beginPath();
-          ctx.moveTo(ex + vx * cell * 0.15 - vy * off, ey + vy * cell * 0.15 + vx * off);
-          ctx.lineTo(ex + vx * cell * 0.95 - vy * off, ey + vy * cell * 0.95 + vx * off);
+          ctx.moveTo(head.x + vx * cell * 0.12 - vy * off, head.y + vy * cell * 0.12 + vx * off);
+          ctx.lineTo(head.x + vx * cell * 0.9 - vy * off, head.y + vy * cell * 0.9 + vx * off);
           ctx.stroke();
         }
         ctx.restore();
       }
-      // 主体
-      drawArrow(f.a, pal, vx * span * f.e, vy * span * f.e, alpha, 0);
+      drawArrowShape(pts, f.a.dir, pal, alpha);
     });
     // 被挡射线红色反馈
     if (flash) {
@@ -306,7 +334,7 @@
     rafId = null;
     var active = false, now = ts || performance.now();
     flying = flying.filter(function (f) {
-      f.p = (now - f.t0) / 540; f.e = Math.pow(Math.min(f.p, 1), 2.3);
+      f.p = Math.max(0, Math.min(1, (now - f.t0) / 540)); f.e = Math.pow(f.p, 2.3);
       return f.p < 1;
     });
     if (flying.length) active = true;
