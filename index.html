@@ -93,6 +93,7 @@
   .app:nth-child(5) { animation-delay: .25s; }
   .app:nth-child(6) { animation-delay: .30s; }
   .app:nth-child(7) { animation-delay: .35s; }
+  .app:nth-child(8) { animation-delay: .40s; }
   @keyframes rise {
     from { opacity: 0; transform: translateY(14px); }
     to   { opacity: 1; transform: translateY(0); }
@@ -135,6 +136,14 @@
   .c-number  { background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%); }
   .c-mole    { background: linear-gradient(135deg, #f59e0b 0%, #84cc16 100%); }
   .c-maze    { background: linear-gradient(135deg, #7c5cff 0%, #4a7ad9 100%); }
+  .c-quiz    { background: linear-gradient(135deg, #ff6b9d 0%, #ff9f43 100%); }
+  /* 题目练习入口：加个「练习」小角标，与其他游戏区分 */
+  .app-icon.quiz-icon { position: relative; }
+  .app-icon.quiz-icon::after {
+    content: "练习"; position: absolute; top: -6px; right: -8px;
+    background: #fff; color: #ff6b9d; font-size: 11px; font-weight: 900;
+    padding: 2px 7px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,.18);
+  }
 
   footer { text-align: center; margin-top: 30px; color: var(--sub); font-size: 12px; }
   footer .heart { color: #ff6b81; }
@@ -153,7 +162,7 @@
   <header class="hero">
     <div class="logo">🎮</div>
     <h1>游戏盒子</h1>
-    <p>选一个喜欢的游戏，点开就能玩啦！</p>
+    <p>选一个喜欢的游戏，点开就能玩啦！也可以做做题目练习 ✏️</p>
   </header>
 
   <main class="games">
@@ -190,6 +199,11 @@
     <a class="app" href="games/maze-escape/index.html" aria-label="打开 小探险家走迷宫">
       <div class="app-icon c-maze"><span class="em">🗺️</span></div>
       <div class="app-name">走迷宫</div>
+    </a>
+
+    <a class="app" href="practice/index.html" aria-label="打开 题目练习">
+      <div class="app-icon c-quiz quiz-icon"><span class="em">✏️</span></div>
+      <div class="app-name">题目<br>练习</div>
     </a>
   </main>
 

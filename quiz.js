@@ -20,6 +20,15 @@
  *     onReward   : function()，答对时调用（用于给游戏加分，可选）
  *     speech     : 是否朗读题目（默认 true）
  * 也暴露 GameQuiz.open() / GameQuiz.close() 供手动触发（调试用）。
+ *
+ * 【练习模式】独立的做题练习页（practice/）使用，连续出题、答对自动下一题：
+ *   GameQuiz.startPractice({
+ *     speech  : 是否朗读（默认 true）
+ *     onScore : function(stats){...}，每题作答后回调，stats={total,correct,wrong,rate}
+ *     onExit  : function()，点击「结束练习」时回调（练习页用于返回主页）
+ *   });
+ *   GameQuiz.stopPractice() —— 结束练习、关闭弹窗。
+ * 统计口径：每道新题首次作答计 1 题；首次答对记「答对」，首次答错记「需再想」（可重试）。
  * ===================================================================== */
 (function () {
   "use strict";
@@ -183,11 +192,27 @@
     ".gq-submit{padding:14px 46px;font-size:27px;font-weight:900;color:#fff;border:none;border-radius:20px;",
     "  background:linear-gradient(180deg,#81C784,#4CAF50);box-shadow:0 6px 0 #388E3C;cursor:pointer;}",
     ".gq-submit:active{transform:translateY(4px);box-shadow:0 2px 0 #388E3C;}",
-    ".gq-msg{font-size:20px;font-weight:800;margin-top:18px;min-height:28px;color:#4a7ab0;}"
+    ".gq-msg{font-size:20px;font-weight:800;margin-top:18px;min-height:28px;color:#4a7ab0;}",
+    /* 练习模式：统计条 + 底部操作按钮 */
+    ".gq-score{display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:center;margin-bottom:14px;",
+    "  font-size:16px;font-weight:800;color:#5a6b7b;background:#f0f6ff;border-radius:16px;padding:10px 14px;}",
+    ".gq-score .sc b{color:#FB8C00;font-size:20px;}",
+    ".gq-score .ok b{color:#2E7D32;} .gq-score .no b{color:#EF6C00;}",
+    ".gq-actions{display:flex;gap:12px;justify-content:center;margin-top:18px; flex-wrap:wrap;}",
+    ".gq-action{border:none;border-radius:16px;padding:12px 22px;font-size:18px;font-weight:800;cursor:pointer;",
+    "  box-shadow:0 5px 0 rgba(0,0,0,.14);color:#fff;}",
+    ".gq-action:active{transform:translateY(3px);box-shadow:0 2px 0 rgba(0,0,0,.14);}",
+    ".gq-action.skip{background:linear-gradient(180deg,#64B5F6,#42A5F5);}",
+    ".gq-action.exit{background:linear-gradient(180deg,#FFB74D,#FB8C00);}"
   ].join("");
 
   /* ---------- 状态 ---------- */
   var cfg = {}, opened = false, elapsed = 0, current = null, mask = null, timer = null;
+  /* 练习模式状态 */
+  var practice = false;              // 是否处于练习模式
+  var practiceCfg = {};             // 练习模式配置
+  var stat = { total: 0, right: 0, wrong: 0 };  // 练习统计
+  var answeredCurrent = false;      // 当前题是否已计入统计（避免重试重复计数）
 
   function injectDOM() {
     if (document.getElementById("gqMask")) { mask = document.getElementById("gqMask"); return; }
@@ -200,23 +225,38 @@
     mask.style.display = "none";
     mask.innerHTML =
       '<div class="gq-card">' +
+      '  <div class="gq-score" id="gqScore" style="display:none">' +
+      '    <span class="sc">已做 <b id="gqTotal">0</b> 题</span>' +
+      '    <span class="ok">✅ <b id="gqRight">0</b></span>' +
+      '    <span class="no">❌ <b id="gqWrong">0</b></span>' +
+      '    <span class="sc">正确率 <b id="gqRate">0%</b></span>' +
+      '  </div>' +
       '  <div class="gq-emoji">📝 🧠</div>' +
       '  <div class="gq-title" id="gqTitle">来做一道题吧！</div>' +
       '  <div class="gq-q" id="gqQ">?</div>' +
       '  <div class="gq-opts" id="gqOpts"></div>' +
       '  <div class="gq-msg" id="gqMsg"></div>' +
+      '  <div class="gq-actions" id="gqActions" style="display:none">' +
+      '    <button class="gq-action skip" id="gqSkip">🔄 换一题</button>' +
+      '    <button class="gq-action exit" id="gqExit">🏠 结束练习</button>' +
+      '  </div>' +
       '</div>';
     document.body.appendChild(mask);
+    document.getElementById("gqSkip").addEventListener("click", function () {
+      if (practice) { answeredCurrent = true; renderCurrentQuestion(); }
+    });
+    document.getElementById("gqExit").addEventListener("click", function () {
+      var onExit = practiceCfg.onExit;   // 先保存，stopPractice 会清空 practiceCfg
+      stopPractice();
+      if (typeof onExit === "function") onExit();
+    });
   }
 
-  function open() {
-    if (opened) return;
-    injectDOM();
-    opened = true;
-    if (typeof cfg.onOpen === "function") cfg.onOpen();
-
+  /* 生成并渲染一道新题（练习模式和定时模式共用） */
+  function renderCurrentQuestion() {
     var maker = QUESTION_TYPES[Math.floor(Math.random() * QUESTION_TYPES.length)];
     current = maker();
+    answeredCurrent = false;
     document.getElementById("gqTitle").textContent = current.title;
     document.getElementById("gqQ").textContent = current.text;
     var msg = document.getElementById("gqMsg");
@@ -255,8 +295,16 @@
         box.appendChild(b);
       });
     }
-    mask.style.display = "flex";
     speak(current.speech, cfg.speech);
+  }
+
+  function open() {
+    if (opened) return;
+    injectDOM();
+    opened = true;
+    if (typeof cfg.onOpen === "function") cfg.onOpen();
+    renderCurrentQuestion();
+    mask.style.display = "flex";
   }
 
   /* 读取输入框的值并提交判定 */
@@ -275,18 +323,42 @@
     resolve(parseInt(raw, 10), inp);
   }
 
+  /* 更新练习统计条并回调页面 */
+  function refreshScore() {
+    var rate = stat.total ? Math.round(stat.right / stat.total * 100) : 0;
+    var set = function (id, v) { var el = document.getElementById(id); if (el) el.textContent = v; };
+    set("gqTotal", stat.total); set("gqRight", stat.right);
+    set("gqWrong", stat.wrong); set("gqRate", rate + "%");
+    if (typeof practiceCfg.onScore === "function") {
+      practiceCfg.onScore({ total: stat.total, right: stat.right, wrong: stat.wrong, rate: rate });
+    }
+  }
+
   /* 统一的判定逻辑：val 为作答值，shakeEl 为答错时抖动的元素 */
   function resolve(val, shakeEl) {
     if (!opened || !current) return;
     var msg = document.getElementById("gqMsg");
-    if (val === current.correct) {
+    var isRight = (val === current.correct);
+
+    /* 练习模式：每题首次作答计入统计 */
+    if (practice && !answeredCurrent) {
+      answeredCurrent = true;
+      stat.total++;
+      if (isRight) stat.right++; else stat.wrong++;
+      refreshScore();
+    }
+
+    if (isRight) {
       msg.style.color = "#2E7D32";
       msg.textContent = "✅ 答对啦！你真棒 🎉";
       chimeOK(); speak("答对啦，你真棒！", cfg.speech);
       if (typeof cfg.onReward === "function") cfg.onReward();
       var items = document.getElementById("gqOpts").children;
       for (var i = 0; i < items.length; i++) items[i].disabled = true;
-      setTimeout(close, 1400);
+      setTimeout(function () {
+        if (practice) { renderCurrentQuestion(); }  // 练习模式：自动出下一题
+        else { close(); }
+      }, 1200);
     } else {
       msg.style.color = "#EF6C00";
       msg.textContent = "❌ 不对哦，再想想～";
@@ -311,6 +383,32 @@
     if (elapsed >= (cfg.interval || QUIZ_INTERVAL_SECONDS)) open();
   }
 
+  /* ---------- 练习模式 ---------- */
+  function startPractice(options) {
+    practiceCfg = options || {};
+    practice = true;
+    stat = { total: 0, right: 0, wrong: 0 };
+    answeredCurrent = false;
+    cfg = { speech: practiceCfg.speech };  // 练习模式复用 cfg 的 speech
+    if (timer) { clearInterval(timer); timer = null; }  // 练习模式不需要定时弹题
+    injectDOM();
+    document.getElementById("gqScore").style.display = "flex";
+    document.getElementById("gqActions").style.display = "flex";
+    refreshScore();
+    opened = false;
+    open();
+  }
+
+  function stopPractice() {
+    practice = false;
+    practiceCfg = {};
+    if (mask) {
+      document.getElementById("gqScore").style.display = "none";
+      document.getElementById("gqActions").style.display = "none";
+    }
+    close();
+  }
+
   /* ---------- 对外 API ---------- */
   window.GameQuiz = {
     init: function (options) {
@@ -320,6 +418,8 @@
       timer = setInterval(tick, 1000);
     },
     open: open,
-    close: close
+    close: close,
+    startPractice: startPractice,
+    stopPractice: stopPractice
   };
 })();

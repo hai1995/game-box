@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#fff6e5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="题目练习">
+<meta name="description" content="小朋友的数学题目练习，做完自动下一题，还带成绩统计">
+<title>✏️ 题目练习</title>
+<style>
+  :root { --ink:#3b2f2f; --sub:#8b7d7d; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; padding:0; }
+  body {
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    color:var(--ink);
+    background:linear-gradient(160deg,#fff6e5 0%,#ffeaf1 55%,#e9f4ff 100%);
+    background-attachment:fixed; min-height:100vh; -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  .page {
+    position:relative; z-index:1; max-width:560px; margin:0 auto;
+    padding:calc(env(safe-area-inset-top) + 26px) 16px calc(env(safe-area-inset-bottom) + 28px);
+  }
+  .home-btn {
+    position:fixed; left:14px; top:calc(env(safe-area-inset-top) + 14px); z-index:10;
+    width:50px; height:50px; border-radius:50%;
+    background:rgba(255,255,255,.92); border:3px solid #ffb703;
+    box-shadow:0 4px 0 rgba(0,0,0,.12);
+    display:flex; align-items:center; justify-content:center;
+    font-size:26px; text-decoration:none; line-height:1;
+  }
+  .home-btn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,.12); }
+  .hero { text-align:center; margin:8px 0 24px; animation:rise .5s ease both; }
+  .hero .logo { font-size:52px; line-height:1; filter:drop-shadow(0 6px 10px rgba(255,150,80,.35)); animation:bob 3s ease-in-out infinite; }
+  @keyframes bob { 0%,100%{transform:translateY(0) rotate(-4deg)} 50%{transform:translateY(-7px) rotate(4deg)} }
+  @keyframes rise { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+  .hero h1 {
+    margin:8px 0 4px; font-size:clamp(26px,7vw,34px); letter-spacing:2px;
+    background:linear-gradient(90deg,#ff7a59,#ffb03a,#38c6a0);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .hero p { margin:0; color:var(--sub); font-size:14px; line-height:1.6; }
+
+  /* 成绩单卡片 */
+  .report {
+    background:#fff; border-radius:28px; padding:26px 22px 28px; text-align:center;
+    box-shadow:0 14px 34px rgba(120,90,90,.22); animation:rise .45s ease both;
+  }
+  .report .medal { font-size:60px; line-height:1; margin-bottom:6px; }
+  .report h2 { margin:0 0 6px; font-size:clamp(22px,6vw,28px); color:#ef476f; }
+  .report .praise { margin:0 0 20px; color:var(--sub); font-size:15px; }
+  .grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:8px; }
+  .cell { background:#f6f9ff; border-radius:18px; padding:14px 8px; }
+  .cell .num { font-size:30px; font-weight:900; color:#3a6ea5; line-height:1.1; }
+  .cell.right .num { color:#2E7D32; }
+  .cell.wrong .num { color:#EF6C00; }
+  .cell.rate .num { color:#FB8C00; }
+  .cell .lab { font-size:13px; color:var(--sub); margin-top:2px; }
+  .btns { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:22px; }
+  .btn {
+    border:none; border-radius:18px; padding:14px 30px; font-size:18px; font-weight:800;
+    color:#fff; cursor:pointer; box-shadow:0 6px 0 rgba(0,0,0,.14);
+  }
+  .btn:active { transform:translateY(4px); box-shadow:0 2px 0 rgba(0,0,0,.14); }
+  .btn.again { background:linear-gradient(180deg,#81C784,#4CAF50); }
+  .btn.back  { background:linear-gradient(180deg,#64B5F6,#42A5F5); }
+  .tip { text-align:center; color:var(--sub); font-size:12px; margin-top:20px; line-height:1.7; }
+</style>
+</head>
+<body>
+
+<a class="home-btn" href="../" aria-label="返回主页" title="返回主页">🏠</a>
+
+<div class="page">
+  <div class="hero">
+    <div class="logo">✏️</div>
+    <h1>题目练习</h1>
+    <p>加法 · 减法 · 找规律填数字<br>答对自动下一题，看看你能做对多少！</p>
+  </div>
+
+  <div class="report" id="report" style="display:none">
+    <div class="medal" id="medal">🏆</div>
+    <h2>本次练习完成！</h2>
+    <p class="praise" id="praise">太棒啦，继续加油！</p>
+    <div class="grid">
+      <div class="cell"><div class="num" id="rTotal">0</div><div class="lab">已做题数</div></div>
+      <div class="cell right"><div class="num" id="rRight">0</div><div class="lab">答对</div></div>
+      <div class="cell wrong"><div class="num" id="rWrong">0</div><div class="lab">需再想</div></div>
+      <div class="cell rate"><div class="num" id="rRate">0%</div><div class="lab">正确率</div></div>
+    </div>
+    <div class="btns">
+      <button class="btn again" id="againBtn">🔄 再练一次</button>
+      <a class="btn back" href="../" style="text-decoration:none;display:inline-flex;align-items:center;">🏠 返回主页</a>
+    </div>
+  </div>
+
+  <div class="tip" id="tip">
+    进入后会自动开始出题 · 答对就进入下一题 · 答错可以再想想<br>
+    弹窗里点「🔄 换一题」可跳过，点「🏠 结束练习」查看成绩
+  </div>
+</div>
+
+<script src="../quiz.js"></script>
+<script>
+(function () {
+  "use strict";
+  var lastScore = { total: 0, right: 0, wrong: 0, rate: 0 };
+
+  function start() {
+    document.getElementById("report").style.display = "none";
+    document.getElementById("tip").style.display = "block";
+    lastScore = { total: 0, right: 0, wrong: 0, rate: 0 };
+    GameQuiz.startPractice({
+      speech: true,
+      onScore: function (s) { lastScore = s; },
+      onExit: showReport
+    });
+  }
+
+  function showReport() {
+    var s = lastScore;
+    document.getElementById("rTotal").textContent = s.total;
+    document.getElementById("rRight").textContent = s.right;
+    document.getElementById("rWrong").textContent = s.wrong;
+    document.getElementById("rRate").textContent = s.rate + "%";
+    // 根据正确率给不同鼓励和奖牌
+    var medal = "🏆", praise = "太棒啦，继续加油！";
+    if (s.total === 0) { medal = "📝"; praise = "还没开始做题呢，再来一次吧～"; }
+    else if (s.rate >= 90) { medal = "🏆"; praise = "哇！几乎全对，你真是小天才！"; }
+    else if (s.rate >= 60) { medal = "🥇"; praise = "很不错哦，再接再厉！"; }
+    else if (s.rate >= 40) { medal = "🥈"; praise = "有进步，多练几次就更棒啦！"; }
+    else { medal = "🌱"; praise = "慢慢来，每一题都是进步！"; }
+    document.getElementById("medal").textContent = medal;
+    document.getElementById("praise").textContent = praise;
+    document.getElementById("report").style.display = "block";
+    document.getElementById("tip").style.display = "none";
+  }
+
+  document.getElementById("againBtn").addEventListener("click", start);
+  // 进入即自动开始
+  start();
+})();
+</script>
+</body>
+</html>
