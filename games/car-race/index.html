@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#2a2f45" />
+<title>疯狂赛车 🏎️</title>
+<link rel="stylesheet" href="../../theme.css">
+<link rel="icon" href="data:," />
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { width:100%; height:100%; overflow:hidden; font-family:var(--gb-font); background:#20243a; }
+  #game { position:fixed; inset:0; }
+  canvas { display:block; width:100%; height:100%; touch-action:none; }
+
+  #hud {
+    position:fixed; z-index:5; left:0; right:0;
+    top:calc(10px + env(safe-area-inset-top));
+    padding:0 62px 0 62px; display:flex; gap:8px; justify-content:space-between;
+    pointer-events:none;
+  }
+  #hud .pill { font-size:14px; padding:6px 12px; }
+  #hud .grp { display:flex; gap:8px; }
+
+  .overlay { z-index:20; }
+  .overlay .card { width:min(90vw,380px); }
+  .ov-emoji { font-size:52px; line-height:1; }
+  .ov-emoji [data-icon] svg { width:56px; height:56px; }
+  .overlay h2 { font-size:24px; margin:6px 0; font-weight:900; }
+  .overlay p { color:var(--gb-ink-soft); font-size:14px; line-height:1.6; margin:6px 0 14px; }
+  .big-score { font-size:30px; font-weight:900; color:var(--gb-primary-d); }
+  .btnrow { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:16px; }
+  .hidden { display:none !important; }
+  #toast {
+    position:fixed; z-index:8; left:50%; top:34%; transform:translate(-50%,-50%) scale(.8);
+    font-size:24px; font-weight:900; color:#fff; opacity:0; pointer-events:none;
+    text-shadow:0 2px 8px rgba(0,0,0,.4); transition:opacity .2s, transform .2s;
+  }
+  #toast.show { opacity:1; transform:translate(-50%,-50%) scale(1); }
+</style>
+</head>
+<body>
+<a class="home-btn" href="../../" aria-label="返回主页" title="返回主页">🏠</a>
+<div id="game"><canvas id="cv"></canvas></div>
+
+<div id="hud">
+  <div class="grp">
+    <span class="pill">🏆 <b id="scorePill">0</b></span>
+    <span class="pill">🪙 <b id="coinPill">0</b></span>
+  </div>
+  <div class="grp"><span class="pill">❤ <b id="lifePill" style="color:#ff5b7f">3</b></span></div>
+</div>
+
+<div id="toast"></div>
+
+<div id="overlay" class="overlay">
+  <div class="card">
+    <div class="ov-emoji" id="ovEmoji">🏎️</div>
+    <h2 id="ovTitle">疯狂赛车</h2>
+    <p id="ovMsg">左右拖动你的赛车，躲开迎面来的车！<br>捡金币能加分，开得越远越厉害～</p>
+    <div id="ovScore" class="hidden">本局得分<br><span class="big-score" id="ovBigScore">0</span></div>
+    <div class="btnrow" id="ovBtns">
+      <button class="btn yellow" id="startBtn">▶ 开始比赛</button>
+    </div>
+  </div>
+</div>
+
+<script src="../../icons.js"></script>
+<script src="../../quiz.js"></script>
+<script>
+(function () {
+  "use strict";
+  var cv=document.getElementById("cv"),ctx=cv.getContext("2d");
+  var scorePill=document.getElementById("scorePill"),coinPill=document.getElementById("coinPill"),lifePill=document.getElementById("lifePill");
+  var overlay=document.getElementById("overlay"),ovEmoji=document.getElementById("ovEmoji");
+  var ovTitle=document.getElementById("ovTitle"),ovMsg=document.getElementById("ovMsg");
+  var ovScore=document.getElementById("ovScore"),ovBigScore=document.getElementById("ovBigScore");
+  var ovBtns=document.getElementById("ovBtns"),toast=document.getElementById("toast");
+
+  var W=0,H=0,dpr=1,scale=1,roadL=0,roadR=0,roadW=0,laneW=0;
+  var state="menu",quizPaused=false,lastT=0,raf=0;
+  var score=0,coins=0,life=3,distance=0,speed=0,invincible=0,shake=0,flash=0;
+  var car={x:0,y:0,target:0,w:52,h:92,tilt:0};
+  var traffic=[],coinItems=[],marks=[],particles=[],spawnCd=0,coinCd=0;
+
+  function rand(a,b){return a+Math.random()*(b-a);}
+  function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+
+  var MYCAR={s:"#ff8a7a",e:"#e53935",d:"#9b1c1c"};
+  var TRAFFIC=[
+    {s:"#9fd8ff",e:"#3d8fe0",d:"#1f5da0"},
+    {s:"#ffe082",e:"#f5a623",d:"#b9790d"},
+    {s:"#c9a8ff",e:"#8b5cf6",d:"#5c34b8"},
+    {s:"#a7e6a0",e:"#3ea85a",d:"#237a3c"},
+    {s:"#f7f7f7",e:"#b8c0cc",d:"#7c8794"}
+  ];
+  var COIN={s:"#fff3a0",e:"#f5b301",d:"#b98300"};
+
+  function resize(){
+    dpr=Math.min(window.devicePixelRatio||1,2);
+    W=window.innerWidth;H=window.innerHeight;
+    cv.width=Math.floor(W*dpr);cv.height=Math.floor(H*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    scale=clamp(W/390,0.72,1.25);
+    roadW=Math.min(W*0.92,360*scale);roadL=(W-roadW)/2;roadR=roadL+roadW;
+    laneW=roadW/3;
+    car.w=52*scale;car.h=92*scale;
+    car.x=W/2;car.target=W/2;car.y=H-100*scale;
+    buildMarks();
+  }
+  function buildMarks(){ marks=[]; for(var i=0;i<10;i++)marks.push((i/10)*H); }
+  function reset(){
+    score=0;coins=0;life=3;distance=0;speed=250;invincible=0;shake=0;flash=0;
+    traffic=[];coinItems=[];particles=[];spawnCd=1;coinCd=1.8;
+    car.x=W/2;car.target=W/2;car.tilt=0;
+    updateHud();
+  }
+  function updateHud(){
+    scorePill.textContent=Math.floor(score);
+    coinPill.textContent=coins;
+    lifePill.textContent=life;
+  }
+  function start(){ reset();state="playing";overlay.classList.add("hidden");lastT=performance.now(); }
+  function gameOver(){
+    state="over"; burst(car.x,car.y,MYCAR,20);
+    setTimeout(function(){
+      ovEmoji.innerHTML='<span data-icon="dizzy"></span>';
+      if(window.GameIcons)GameIcons.decorate();
+      ovTitle.textContent="撞车啦！";
+      ovMsg.innerHTML="这次开了 <b>"+Math.floor(distance)+"</b> 米，捡了 <b>"+coins+"</b> 枚金币！<br>小心躲避，再来一次吧～";
+      ovScore.classList.remove("hidden");ovBigScore.textContent=Math.floor(score);
+      ovBtns.innerHTML='<button class="btn yellow" id="againBtn">▶ 再赛一次</button>';
+      document.getElementById("againBtn").addEventListener("click",start);
+      overlay.classList.remove("hidden");
+    },520);
+  }
+  function toastMsg(t,c){toast.textContent=t;toast.style.color=c||"#fff";toast.classList.add("show");
+    clearTimeout(toastMsg._t);toastMsg._t=setTimeout(function(){toast.classList.remove("show");},600);}
+  function laneX(l){ return roadL+laneW*(l+0.5); }
+  function spawnCar(){
+    var lane=Math.floor(rand(0,3));
+    // 避免三条道同一高度全堵死：至多占两条
+    var same=traffic.filter(function(t){return t.y<120;}).map(function(t){return t.lane;});
+    if(same.length>=2){ var free=[0,1,2].filter(function(l){return same.indexOf(l)<0;}); lane=free[0]!=null?free[0]:lane; }
+    var pal=TRAFFIC[Math.floor(rand(0,TRAFFIC.length))];
+    traffic.push({lane:lane,x:laneX(lane),y:-car.h,w:car.w*rand(.9,1.05),h:car.h*rand(.9,1.1),pal:pal,hit:false,vyMul:rand(.82,1.12)});
+    spawnCd=Math.max(.5,1.15-speed/900)+rand(0,.5);
+  }
+  function spawnCoin(){
+    var lane=Math.floor(rand(0,3));
+    coinItems.push({lane:lane,x:laneX(lane),y:-30,r:14*scale,got:false,spin:rand(0,6)});
+    coinCd=rand(1.4,2.8);
+  }
+  function burst(x,y,pal,n){for(var i=0;i<n;i++)particles.push({x:x,y:y,vx:rand(-140,140)*scale,vy:rand(-140,140)*scale,life:rand(.3,.7),max:.7,r:rand(2,6)*scale,pal:pal});}
+
+  function loop(now){
+    raf=requestAnimationFrame(loop);
+    var dt=Math.min(.034,(now-lastT)/1000);lastT=now;
+    if(state!=="playing"||quizPaused){draw();return;}
+    update(dt);draw();
+  }
+  function update(dt){
+    speed=Math.min(560,speed+dt*2.6);
+    distance+=speed*dt/7;
+    score+=dt*3;
+    if(invincible>0)invincible-=dt;
+    if(shake>0)shake-=dt;
+    if(flash>0)flash=Math.max(0,flash-dt*2.5);
+
+    // 玩家车移动 + 倾斜
+    var oldX=car.x;
+    car.x+=(car.target-car.x)*Math.min(1,dt*14);
+    car.x=clamp(car.x,roadL+car.w/2,roadR-car.w/2);
+    car.tilt+=((car.x-oldX)*0.02-car.tilt)*Math.min(1,dt*10);
+    car.tilt=clamp(car.tilt,-0.22,0.22);
+
+    // 路面标线滚动
+    for(var i=0;i<marks.length;i++){ marks[i]+=speed*dt; if(marks[i]>H)marks[i]-=H; }
+
+    spawnCd-=dt; if(spawnCd<=0)spawnCar();
+    coinCd-=dt; if(coinCd<=0)spawnCoin();
+
+    var dv=speed*dt;
+    // 来车（相对向下移动更快）
+    for(var i=traffic.length-1;i>=0;i--){
+      var t=traffic[i]; t.y+=dv*t.vyMul+speed*0.35*dt;
+      if(t.y>H+car.h){traffic.splice(i,1);continue;}
+      if(!t.hit && invincible<=0 &&
+         Math.abs(t.x-car.x)<(t.w+car.w)*0.4 && Math.abs(t.y-car.y)<(t.h+car.h)*0.42){
+        t.hit=true; hit();
+      }
+    }
+    // 金币
+    for(var i=coinItems.length-1;i>=0;i--){
+      var c=coinItems[i]; c.y+=dv*0.9; c.spin+=dt*6;
+      if(c.y>H+30){coinItems.splice(i,1);continue;}
+      if(!c.got && Math.abs(c.x-car.x)<car.w*0.5 && Math.abs(c.y-car.y)<car.h*0.5){
+        c.got=true;coinItems.splice(i,1);coins++;score+=15;
+        burst(c.x,c.y,COIN,8);toastMsg("+1 金币","#fff3a0");updateHud();
+      }
+    }
+    for(var i=particles.length-1;i>=0;i--){var p=particles[i];p.life-=dt;
+      if(p.life<=0){particles.splice(i,1);continue;}p.x+=p.vx*dt;p.y+=p.vy*dt;}
+    updateHud();
+  }
+  function hit(){
+    life--;invincible=1.3;shake=.35;flash=.5;speed=Math.max(220,speed-60);
+    burst(car.x,car.y,MYCAR,12);toastMsg("嘭！","#ffd0d0");updateHud();
+    if(life<=0)gameOver();
+  }
+
+  function draw(){
+    // 草地背景
+    ctx.fillStyle="#5aa85a";ctx.fillRect(0,0,W,H);
+    // 草地条纹
+    ctx.fillStyle="rgba(255,255,255,.045)";
+    for(var y=0;y<H;y+=80)ctx.fillRect(0,y,W,40);
+    // 公路
+    var rg=ctx.createLinearGradient(roadL,0,roadR,0);
+    rg.addColorStop(0,"#3b3f52");rg.addColorStop(.5,"#4a4f64");rg.addColorStop(1,"#3b3f52");
+    ctx.fillStyle=rg;ctx.fillRect(roadL,0,roadW,H);
+    // 路肩
+    ctx.fillStyle="#f3f3f3";ctx.fillRect(roadL-4*scale,0,4*scale,H);ctx.fillRect(roadR,0,4*scale,H);
+    // 车道虚线
+    ctx.fillStyle="rgba(255,255,255,.7)";
+    for(var l=1;l<3;l++)for(var i=0;i<marks.length;i++){
+      ctx.fillRect(roadL+laneW*l-2*scale,marks[i],4*scale,34*scale);
+    }
+    ctx.save();if(shake>0)ctx.translate(rand(-5,5)*scale,rand(-5,5)*scale);
+    for(var i=0;i<particles.length;i++)drawParticle(particles[i]);
+    for(var i=0;i<traffic.length;i++)drawCar(traffic[i].x,traffic[i].y,traffic[i].w,traffic[i].h,traffic[i].pal,0);
+    for(var i=0;i<coinItems.length;i++)drawCoin(coinItems[i]);
+    if(invincible<=0||Math.floor(invincible*10)%2===0) drawCar(car.x,car.y,car.w,car.h,MYCAR,car.tilt,true);
+    ctx.restore();
+    if(flash>0){ctx.fillStyle="rgba(255,60,60,"+(flash*.3)+")";ctx.fillRect(0,0,W,H);}
+  }
+  function drawParticle(p){ctx.save();ctx.globalAlpha=Math.max(0,p.life/p.max);ctx.fillStyle=p.pal.e;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.fill();ctx.restore();}
+  function drawCoin(c){
+    ctx.save();ctx.translate(c.x,c.y);
+    var w=Math.abs(Math.cos(c.spin))*c.r;
+    var g=ctx.createLinearGradient(-c.r,-c.r,c.r,c.r);g.addColorStop(0,COIN.s);g.addColorStop(1,COIN.e);
+    ctx.fillStyle=g;ctx.strokeStyle=COIN.d;ctx.lineWidth=2*scale;
+    ctx.beginPath();ctx.ellipse(0,0,Math.max(2,w),c.r,0,0,7);ctx.fill();ctx.stroke();
+    ctx.fillStyle="rgba(255,255,255,.55)";ctx.beginPath();ctx.ellipse(-w*0.25,-c.r*0.3,Math.max(1,w*0.2),c.r*0.3,0,0,7);ctx.fill();
+    ctx.restore();
+  }
+  function drawCar(x,y,w,h,pal,tilt,isMine){
+    ctx.save();ctx.translate(x,y);ctx.rotate(tilt||0);
+    // 车轮
+    ctx.fillStyle="#222";
+    roundRect(-w*0.56,-h*0.34,w*0.16,h*0.26,3*scale);ctx.fill();
+    roundRect(w*0.4,-h*0.34,w*0.16,h*0.26,3*scale);ctx.fill();
+    roundRect(-w*0.56,h*0.1,w*0.16,h*0.26,3*scale);ctx.fill();
+    roundRect(w*0.4,h*0.1,w*0.16,h*0.26,3*scale);ctx.fill();
+    // 车身
+    var g=ctx.createLinearGradient(0,-h/2,0,h/2);g.addColorStop(0,pal.s);g.addColorStop(1,pal.e);
+    ctx.fillStyle=g;ctx.strokeStyle=pal.d;ctx.lineWidth=2.4*scale;ctx.lineJoin="round";
+    roundRect(-w/2,-h/2,w,h,12*scale);ctx.fill();ctx.stroke();
+    // 引擎盖高光
+    ctx.fillStyle="rgba(255,255,255,.3)";roundRect(-w*0.38,-h*0.44,w*0.76,h*0.16,5*scale);ctx.fill();
+    // 挡风玻璃
+    ctx.fillStyle="#cfeaff";ctx.strokeStyle=pal.d;ctx.lineWidth=1.6*scale;
+    roundRect(-w*0.36,-h*0.16,w*0.72,h*0.3,6*scale);ctx.fill();ctx.stroke();
+    ctx.fillStyle="rgba(255,255,255,.45)";roundRect(-w*0.3,-h*0.13,w*0.24,h*0.24,3*scale);ctx.fill();
+    // 车灯（朝向决定：玩家车灯在下，来车灯在上）
+    if(isMine){
+      ctx.fillStyle="#fff3a0";roundRect(-w*0.36,h*0.36,w*0.2,h*0.1,3*scale);ctx.fill();
+      roundRect(w*0.16,h*0.36,w*0.2,h*0.1,3*scale);ctx.fill();
+    } else {
+      ctx.fillStyle="#fff3a0";roundRect(-w*0.36,-h*0.46,w*0.2,h*0.1,3*scale);ctx.fill();
+      roundRect(w*0.16,-h*0.46,w*0.2,h*0.1,3*scale);ctx.fill();
+      // 尾部红灯
+      ctx.fillStyle="#ff5b6e";roundRect(-w*0.36,h*0.36,w*0.2,h*0.08,3*scale);ctx.fill();
+      roundRect(w*0.16,h*0.36,w*0.2,h*0.08,3*scale);ctx.fill();
+    }
+    ctx.restore();
+  }
+  function roundRect(x,y,w,h,r){r=Math.min(r,w/2,h/2);ctx.beginPath();
+    ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+  function moveTo(clientX){ car.target=clamp(clientX,roadL+car.w/2,roadR-car.w/2); }
+  cv.addEventListener("pointerdown",function(e){e.preventDefault();if(state==="playing")moveTo(e.clientX);},{passive:false});
+  cv.addEventListener("pointermove",function(e){if(state==="playing"&&e.buttons){e.preventDefault();moveTo(e.clientX);}},{passive:false});
+  cv.addEventListener("touchmove",function(e){if(state==="playing"){e.preventDefault();moveTo(e.touches[0].clientX);}},{passive:false});
+  document.addEventListener("keydown",function(e){
+    if(state!=="playing")return;
+    if(e.code==="ArrowLeft"||e.code==="KeyA")car.target=clamp(car.target-42,roadL+car.w/2,roadR-car.w/2);
+    if(e.code==="ArrowRight"||e.code==="KeyD")car.target=clamp(car.target+42,roadL+car.w/2,roadR-car.w/2);
+  });
+  window.addEventListener("resize",resize);
+  document.getElementById("startBtn").addEventListener("click",start);
+  document.addEventListener("visibilitychange",function(){if(!document.hidden)lastT=performance.now();});
+
+  if(window.GameQuiz){
+    GameQuiz.init({
+      speech:true,
+      isPlaying:function(){return state==="playing";},
+      onOpen:function(){quizPaused=true;},
+      onClose:function(){quizPaused=false;lastT=performance.now();},
+      onReward:function(){score+=10;updateHud();toastMsg("+10 答对啦","#c8ffcf");}
+    });
+  }
+  resize();raf=requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#eaf7ff" />
+<title>恐龙快跑 🦖</title>
+<link rel="stylesheet" href="../../theme.css">
+<link rel="icon" href="data:," />
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { width:100%; height:100%; overflow:hidden; font-family:var(--gb-font); }
+  #game { position:fixed; inset:0; }
+  canvas { display:block; width:100%; height:100%; touch-action:none; }
+
+  /* 顶部胶囊 HUD */
+  #hud {
+    position:fixed; z-index:5; left:0; right:0;
+    top:calc(10px + env(safe-area-inset-top));
+    padding:0 62px 0 62px;
+    display:flex; gap:8px; align-items:center; justify-content:space-between;
+    pointer-events:none;
+  }
+  #hud .pill { font-size:14px; padding:6px 12px; }
+  #hud .grp { display:flex; gap:8px; }
+  .heart-mini { color:#ff5b7f; }
+
+  /* 开始/结束弹层 */
+  .overlay { z-index:20; }
+  .overlay .card { width:min(90vw,380px); }
+  .ov-emoji { font-size:52px; line-height:1; margin-bottom:2px; }
+  .ov-emoji [data-icon] svg { width:56px; height:56px; }
+  .overlay h2 { font-size:24px; margin:6px 0; font-weight:900; }
+  .overlay p { color:var(--gb-ink-soft); font-size:14px; line-height:1.6; margin:6px 0 14px; }
+  .overlay .big-score { font-size:30px; font-weight:900; color:var(--gb-primary-d); }
+  .btnrow { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+
+  /* 跳跃提示 */
+  #tip {
+    position:fixed; z-index:6; left:50%; bottom:calc(26px + env(safe-area-inset-bottom));
+    transform:translateX(-50%);
+    background:rgba(255,255,255,.86); border:2px solid var(--gb-line);
+    border-radius:999px; padding:8px 18px; font-size:13px; font-weight:800;
+    color:var(--gb-ink-soft); pointer-events:none; transition:opacity .4s;
+    white-space:nowrap;
+  }
+  #toast {
+    position:fixed; z-index:8; left:50%; top:38%; transform:translate(-50%,-50%) scale(.8);
+    font-size:26px; font-weight:900; color:#fff; opacity:0; pointer-events:none;
+    text-shadow:0 2px 8px rgba(0,0,0,.3); transition:opacity .2s, transform .2s;
+  }
+  #toast.show { opacity:1; transform:translate(-50%,-50%) scale(1); }
+  .hidden { display:none !important; }
+</style>
+</head>
+<body>
+<a class="home-btn" href="../../" aria-label="返回主页" title="返回主页">🏠</a>
+
+<div id="game"><canvas id="cv"></canvas></div>
+
+<div id="hud">
+  <div class="grp">
+    <span class="pill">🏆 <b id="scorePill">0</b></span>
+    <span class="pill">❤ <b id="lifePill" class="heart-mini">3</b></span>
+  </div>
+  <div class="grp">
+    <span class="pill">🏁 <b id="distPill">0</b>m</span>
+  </div>
+</div>
+
+<div id="tip">轻点屏幕 / 按空格 让恐龙跳起来</div>
+<div id="toast"></div>
+
+<div id="overlay" class="overlay">
+  <div class="card">
+    <div class="ov-emoji" id="ovEmoji">🦖</div>
+    <h2 id="ovTitle">恐龙快跑</h2>
+    <p id="ovMsg">帮小恐龙跳过仙人掌和飞鸟，收集恐龙蛋！<br>轻点屏幕就能跳，跳得越远越厉害～</p>
+    <div id="ovScore" class="hidden">本局得分<br><span class="big-score" id="ovBigScore">0</span></div>
+    <div class="btnrow" id="ovBtns" style="margin-top:16px">
+      <button class="btn green" id="startBtn">▶ 开始跑</button>
+    </div>
+  </div>
+</div>
+
+<script src="../../icons.js"></script>
+<script src="../../quiz.js"></script>
+<script>
+(function () {
+  "use strict";
+  var cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+  var scorePill = document.getElementById("scorePill"), lifePill = document.getElementById("lifePill");
+  var distPill = document.getElementById("distPill");
+  var overlay = document.getElementById("overlay"), ovEmoji = document.getElementById("ovEmoji");
+  var ovTitle = document.getElementById("ovTitle"), ovMsg = document.getElementById("ovMsg");
+  var ovScore = document.getElementById("ovScore"), ovBigScore = document.getElementById("ovBigScore");
+  var ovBtns = document.getElementById("ovBtns"), tip = document.getElementById("tip"), toast = document.getElementById("toast");
+
+  var W = 0, H = 0, dpr = 1, groundY = 0, scale = 1;
+  var state = "menu"; // menu | playing | over
+  var quizPaused = false, lastT = 0, raf = 0;
+  var score = 0, life = 3, distance = 0, speed = 0, slowTime = 0;
+  var obstacles = [], eggs = [], clouds = [], hills = [], particles = [];
+  var spawnGap = 0, timeAcc = 0, shake = 0, invincible = 0, flashAlpha = 0;
+  var dino = { x:0, y:0, vy:0, onGround:true, frame:0, squash:0 };
+
+  // 果冻质感配色
+  var DINO_G = { s:"#b6f08a", e:"#4fae3a", d:"#2c7a24" }; // 恐龙主色
+  var DINO_B = { s:"#e9ffcf", e:"#9be16f", d:"#5aa83c" }; // 恐龙肚皮
+  var CACTUS  = { s:"#a7e6a0", e:"#3ea85a", d:"#237a3c" };
+  var EGG     = { s:"#fff3c4", e:"#ffcf5c", d:"#d99b18" };
+  var BIRD    = { s:"#c9b8ff", e:"#7a5fd6", d:"#5038a0" };
+
+  function rand(a, b) { return a + Math.random() * (b - a); }
+
+  /* ---------- 尺寸与场景 ---------- */
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = Math.floor(W * dpr); cv.height = Math.floor(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    groundY = H * 0.76;
+    scale = Math.max(0.72, Math.min(1.25, W / 390));
+    dino.x = Math.max(58, W * 0.2);
+    if (state === "menu" || state === "over") resetScene();
+    buildBackdrop();
+  }
+
+  function buildBackdrop() {
+    clouds = []; hills = [];
+    for (var i = 0; i < 5; i++) clouds.push({ x:rand(0, W), y:rand(H*0.12, H*0.42), s:rand(.6,1.3), v:rand(6,14) });
+    for (var i = 0; i < 8; i++) hills.push({ x:rand(0, W+200), w:rand(120,240), h:rand(40,110) });
+  }
+
+  function resetScene() {
+    obstacles = []; eggs = []; particles = [];
+    score = 0; life = 3; distance = 0; speed = 0; slowTime = 0;
+    spawnGap = 1.2; invincible = 0; shake = 0; flashAlpha = 0;
+    dino.y = groundY; dino.vy = 0; dino.onGround = true; dino.frame = 0; dino.squash = 0;
+    updateHud();
+  }
+
+  function updateHud() {
+    scorePill.textContent = Math.floor(score);
+    lifePill.textContent = life;
+    distPill.textContent = Math.floor(distance);
+  }
+
+  /* ---------- 开始 / 结束 ---------- */
+  function start() {
+    resetScene();
+    state = "playing";
+    speed = 190; // px/s
+    overlay.classList.add("hidden");
+    tip.style.opacity = "1";
+    setTimeout(function () { if (state === "playing") tip.style.opacity = "0"; }, 3200);
+    lastT = performance.now();
+  }
+
+  function gameOver() {
+    state = "over";
+    burst(dino.x, dino.y - 26, DINO_G, 16);
+    setTimeout(function () {
+      ovEmoji.innerHTML = '<span data-icon="dizzy"></span>';
+      if (window.GameIcons) GameIcons.decorate();
+      ovTitle.textContent = "再试一次吧！";
+      ovMsg.innerHTML = "小恐龙跑累了～<br>这次跑了 <b>" + Math.floor(distance) + "</b> 米，攒了 <b>" + score + "</b> 分！";
+      ovScore.classList.remove("hidden");
+      ovBigScore.textContent = score;
+      ovBtns.innerHTML = '<button class="btn green" id="againBtn">▶ 再跑一次</button>';
+      document.getElementById("againBtn").addEventListener("click", start);
+      overlay.classList.remove("hidden");
+    }, 500);
+  }
+
+  /* ---------- 跳跃 ---------- */
+  function jump() {
+    if (state !== "playing" || quizPaused) return;
+    if (dino.onGround) {
+      dino.vy = -Math.min(760, 520 + speed * 0.32) * scale;
+      dino.onGround = false;
+      dino.squash = -0.18;
+      burst(dino.x, groundY, { s:"#fff", e:"#e9d9b8", d:"#c9b48a" }, 6, true);
+    }
+  }
+
+  /* ---------- 粒子 ---------- */
+  function burst(x, y, pal, n, dust) {
+    for (var i = 0; i < n; i++) {
+      particles.push({
+        x:x, y:y, vx:rand(-90,90)*scale, vy:rand(dust?-140:-220, dust?-30:-60)*scale,
+        life:rand(.35,.7), max:.7, r:rand(3,7)*scale, pal:pal, dust:!!dust
+      });
+    }
+  }
+  function floatText(txt, color) {
+    toast.textContent = txt; toast.style.color = color || "#fff";
+    toast.classList.add("show");
+    clearTimeout(floatText._t);
+    floatText._t = setTimeout(function () { toast.classList.remove("show"); }, 650);
+  }
+
+  /* ---------- 生成障碍 ---------- */
+  function spawn() {
+    // 速度越快，障碍间距略缩短但有下限，保证可跳
+    var minGap = Math.max(0.72, 1.15 - speed / 900);
+    var r = Math.random();
+    var y = groundY;
+    if (r < 0.42) {
+      // 仙人掌（1~2 根）
+      var cnt = Math.random() < 0.35 ? 2 : 1;
+      obstacles.push({ type:"cactus", x:W + 40, y:y, w:26*scale*cnt, h:(cnt>1?58:44)*scale, cnt:cnt, hit:false });
+    } else if (r < 0.66 && speed > 230) {
+      // 飞鸟：分高低两种
+      var high = Math.random() < 0.5;
+      y = high ? groundY - 96*scale : groundY - 40*scale;
+      obstacles.push({ type:"bird", x:W + 40, y:y, w:36*scale, h:26*scale, flap:rand(0,6), hit:false });
+    } else {
+      // 恐龙蛋（收集物）：地面或空中
+      y = Math.random() < 0.5 ? groundY - 16*scale : groundY - 100*scale;
+      eggs.push({ x:W + 40, y:y, r:12*scale, got:false, spin:rand(0,6) });
+    }
+    spawnGap = minGap + rand(0.05, 0.75);
+  }
+
+  /* ---------- 主循环 ---------- */
+  function loop(now) {
+    raf = requestAnimationFrame(loop);
+    var dt = Math.min(0.034, (now - lastT) / 1000); lastT = now;
+    if (state !== "playing" || quizPaused) { draw(); return; }
+    update(dt);
+    draw();
+  }
+
+  function update(dt) {
+    // 难度：距离越远越快，上限保护
+    distance += speed * dt / 12;
+    if (!slowTime) speed = Math.min(520, speed + dt * 3.2);
+    if (slowTime > 0) slowTime -= dt;
+    if (invincible > 0) invincible -= dt;
+    if (shake > 0) shake -= dt;
+    if (flashAlpha > 0) flashAlpha = Math.max(0, flashAlpha - dt * 2.6);
+
+    // 恐龙物理
+    dino.frame += dt * (speed / 22);
+    if (dino.squash < 0) dino.squash = Math.min(0, dino.squash + dt * 1.6);
+    else if (dino.squash > 0) dino.squash = Math.max(0, dino.squash - dt * 2.2);
+    if (!dino.onGround) {
+      dino.vy += 1750 * scale * dt;
+      dino.y += dino.vy * dt;
+      if (dino.y >= groundY) {
+        dino.y = groundY; dino.vy = 0; dino.onGround = true; dino.squash = 0.16;
+        burst(dino.x, groundY, { s:"#fff", e:"#e9d9b8", d:"#c9b48a" }, 5, true);
+      }
+    }
+
+    // 背景滚动
+    for (var i = 0; i < clouds.length; i++) {
+      clouds[i].x -= clouds[i].v * dt;
+      if (clouds[i].x < -80) { clouds[i].x = W + rand(20,120); clouds[i].y = rand(H*0.12, H*0.42); }
+    }
+    for (var i = 0; i < hills.length; i++) {
+      hills[i].x -= speed * 0.12 * dt;
+      if (hills[i].x + hills[i].w < 0) { hills[i].x = W + rand(0,160); hills[i].w = rand(120,240); hills[i].h = rand(40,110); }
+    }
+
+    // 生成
+    spawnGap -= dt;
+    if (spawnGap <= 0) spawn();
+
+    var dv = speed * dt;
+    // 障碍移动 + 碰撞
+    var dx0 = dino.x - 18*scale, dx1 = dino.x + 18*scale;
+    var dy0 = dino.y - 46*scale, dy1 = dino.y;
+    for (var i = obstacles.length - 1; i >= 0; i--) {
+      var o = obstacles[i];
+      o.x -= dv;
+      if (o.type === "bird") o.flap += dt * 12;
+      if (o.x + o.w < -30) { obstacles.splice(i,1); continue; }
+      if (!o.hit && invincible <= 0 &&
+          o.x < dx1 && o.x + o.w > dx0 && o.y - o.h < dy1 && o.y > dy0) {
+        o.hit = true;
+        hit();
+      }
+    }
+    // 蛋收集
+    for (var i = eggs.length - 1; i >= 0; i--) {
+      var e = eggs[i];
+      e.x -= dv; e.spin += dt * 5;
+      if (e.x < -30) { eggs.splice(i,1); continue; }
+      if (!e.got &&
+          Math.abs(e.x - dino.x) < 22*scale &&
+          Math.abs((e.y - e.r) - (dino.y - 24*scale)) < 30*scale) {
+        e.got = true; eggs.splice(i,1);
+        score += 5; burst(e.x, e.y, EGG, 9); floatText("+5 恐龙蛋", "#fff3b0");
+        updateHud();
+      }
+    }
+    // 距离分
+    score += dt * 2;
+
+    // 粒子
+    for (var i = particles.length - 1; i >= 0; i--) {
+      var p = particles[i];
+      p.life -= dt;
+      if (p.life <= 0) { particles.splice(i,1); continue; }
+      p.vy += (p.dust ? 240 : 520) * scale * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt;
+    }
+    updateHud();
+  }
+
+  function hit() {
+    life--; invincible = 1.3; shake = 0.35; flashAlpha = 0.5; slowTime = 0.6;
+    burst(dino.x, dino.y - 24*scale, DINO_G, 10);
+    floatText("哎呀！", "#ffd0d0");
+    updateHud();
+    if (life <= 0) gameOver();
+  }
+
+  /* ---------- 绘制 ---------- */
+  function draw() {
+    // 天空渐变
+    var sky = ctx.createLinearGradient(0,0,0,H);
+    sky.addColorStop(0,"#dff3ff"); sky.addColorStop(.55,"#eef9e6"); sky.addColorStop(1,"#fff4dd");
+    ctx.fillStyle = sky; ctx.fillRect(0,0,W,H);
+
+    ctx.save();
+    if (shake > 0) ctx.translate(rand(-5,5)*scale, rand(-4,4)*scale);
+
+    // 太阳
+    ctx.save();
+    var sg = ctx.createRadialGradient(W*0.82, H*0.16, 4, W*0.82, H*0.16, 54*scale);
+    sg.addColorStop(0,"rgba(255,238,150,.95)"); sg.addColorStop(1,"rgba(255,238,150,0)");
+    ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(W*0.82, H*0.16, 54*scale, 0, 7); ctx.fill();
+    ctx.fillStyle = "#ffe07a"; ctx.beginPath(); ctx.arc(W*0.82, H*0.16, 22*scale, 0, 7); ctx.fill();
+    ctx.restore();
+
+    // 云
+    for (var i = 0; i < clouds.length; i++) drawCloud(clouds[i]);
+    // 远山
+    for (var i = 0; i < hills.length; i++) drawHill(hills[i]);
+    // 地面
+    drawGround();
+
+    // 蛋、障碍、恐龙、粒子
+    for (var i = 0; i < eggs.length; i++) drawEgg(eggs[i]);
+    for (var i = 0; i < obstacles.length; i++) {
+      if (obstacles[i].type === "cactus") drawCactus(obstacles[i]);
+      else drawBird(obstacles[i]);
+    }
+    if (invincible <= 0 || Math.floor(invincible*10) % 2 === 0) drawDino();
+    for (var i = 0; i < particles.length; i++) drawParticle(particles[i]);
+
+    ctx.restore();
+
+    // 受击闪红
+    if (flashAlpha > 0) { ctx.fillStyle = "rgba(255,80,80," + (flashAlpha*0.32) + ")"; ctx.fillRect(0,0,W,H); }
+  }
+
+  function drawCloud(c) {
+    ctx.save(); ctx.translate(c.x, c.y); ctx.scale(c.s, c.s);
+    ctx.fillStyle = "rgba(255,255,255,.9)";
+    ctx.beginPath(); ctx.arc(0,0,18,0,7); ctx.arc(22,-6,22,0,7); ctx.arc(48,2,17,0,7); ctx.arc(24,10,20,0,7); ctx.fill();
+    ctx.restore();
+  }
+  function drawHill(h) {
+    ctx.save();
+    ctx.fillStyle = "rgba(150,205,130,.42)";
+    ctx.beginPath(); ctx.moveTo(h.x, groundY);
+    ctx.quadraticCurveTo(h.x + h.w/2, groundY - h.h, h.x + h.w, groundY); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+  function drawGround() {
+    var g = ctx.createLinearGradient(0, groundY, 0, H);
+    g.addColorStop(0, "#c8e98a"); g.addColorStop(1, "#8fc45a");
+    ctx.fillStyle = g; ctx.fillRect(0, groundY, W, H - groundY);
+    ctx.fillStyle = "rgba(255,255,255,.35)"; ctx.fillRect(0, groundY, W, 3*scale);
+    // 地面纹理小草
+    ctx.fillStyle = "rgba(90,150,60,.28)";
+    var off = (distance * 8) % 40;
+    for (var x = -40; x < W + 40; x += 40) {
+      var gx = x - off;
+      ctx.beginPath(); ctx.moveTo(gx, groundY+6*scale); ctx.lineTo(gx+3*scale, groundY+14*scale); ctx.lineTo(gx+6*scale, groundY+6*scale); ctx.fill();
+    }
+  }
+
+  function jellyPath(x, y, w, h, r, pal) {
+    var g = ctx.createLinearGradient(x, y - h, x + w*0.3, y);
+    g.addColorStop(0, pal.s); g.addColorStop(1, pal.e);
+    ctx.fillStyle = g; ctx.strokeStyle = pal.d; ctx.lineWidth = 2*scale;
+    roundRect(x, y - h, w, h, r); ctx.fill(); ctx.stroke();
+    // 左上高光
+    ctx.fillStyle = "rgba(255,255,255,.4)";
+    roundRect(x + 3*scale, y - h + 3*scale, w*0.42, h*0.18, 3*scale); ctx.fill();
+  }
+  function roundRect(x, y, w, h, r) {
+    r = Math.min(r, w/2, h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+  }
+
+  function drawCactus(o) {
+    for (var k = 0; k < o.cnt; k++) {
+      var cx = o.x + k*26*scale;
+      jellyPath(cx, o.y, 20*scale, o.h, 9*scale, CACTUS);
+      // 手臂
+      ctx.fillStyle = CACTUS.e; ctx.strokeStyle = CACTUS.d; ctx.lineWidth = 1.6*scale;
+      roundRect(cx - 8*scale, o.y - o.h*0.6, 9*scale, 8*scale, 3*scale); ctx.fill(); ctx.stroke();
+      roundRect(cx + 19*scale, o.y - o.h*0.45, 8*scale, 7*scale, 3*scale); ctx.fill(); ctx.stroke();
+    }
+  }
+
+  function drawBird(o) {
+    ctx.save();
+    ctx.translate(o.x + o.w/2, o.y - o.h/2);
+    var wing = Math.sin(o.flap) * 8*scale;
+    var g = ctx.createLinearGradient(0,-o.h/2,0,o.h/2);
+    g.addColorStop(0,BIRD.s); g.addColorStop(1,BIRD.e);
+    ctx.fillStyle = g; ctx.strokeStyle = BIRD.d; ctx.lineWidth = 2*scale;
+    // 身体
+    ctx.beginPath(); ctx.ellipse(0,0,16*scale,10*scale,0,0,7); ctx.fill(); ctx.stroke();
+    // 翅膀
+    ctx.beginPath(); ctx.ellipse(-4*scale,-6*scale-wing*0.3,12*scale,5*scale,-0.4,0,7); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(4*scale,6*scale+wing*0.3,12*scale,5*scale,0.4,0,7); ctx.fill(); ctx.stroke();
+    // 嘴 + 眼
+    ctx.fillStyle = "#ffb443"; ctx.beginPath(); ctx.moveTo(15*scale,-2*scale); ctx.lineTo(24*scale,0); ctx.lineTo(15*scale,2*scale); ctx.fill();
+    ctx.fillStyle="#fff"; ctx.beginPath(); ctx.arc(9*scale,-3*scale,3.2*scale,0,7); ctx.fill();
+    ctx.fillStyle="#333"; ctx.beginPath(); ctx.arc(10*scale,-3*scale,1.6*scale,0,7); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawEgg(e) {
+    ctx.save(); ctx.translate(e.x, e.y - e.r); ctx.rotate(Math.sin(e.spin)*0.18);
+    var g = ctx.createLinearGradient(-e.r,-e.r,e.r,e.r);
+    g.addColorStop(0,EGG.s); g.addColorStop(1,EGG.e);
+    ctx.fillStyle=g; ctx.strokeStyle=EGG.d; ctx.lineWidth=2*scale;
+    ctx.beginPath(); ctx.ellipse(0,0,e.r*0.82,e.r,0,0,7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle="rgba(255,255,255,.6)"; ctx.beginPath(); ctx.ellipse(-e.r*0.28,-e.r*0.35,e.r*0.22,e.r*0.34,-0.4,0,7); ctx.fill();
+    // 斑点
+    ctx.fillStyle="rgba(255,170,60,.55)";
+    ctx.beginPath(); ctx.arc(e.r*0.25,e.r*0.1,2*scale,0,7); ctx.arc(-e.r*0.1,e.r*0.35,1.6*scale,0,7); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawDino() {
+    var x = dino.x, y = dino.y;
+    var sq = dino.squash;
+    var sx = 1 + sq*0.5, sy = 1 - sq*0.5;
+    var legSwing = dino.onGround ? Math.sin(dino.frame)*7*scale : -5*scale;
+    ctx.save(); ctx.translate(x, y); ctx.scale(sx, sy);
+    var g = ctx.createLinearGradient(0,-48*scale,0,0);
+    g.addColorStop(0,DINO_G.s); g.addColorStop(1,DINO_G.e);
+    ctx.fillStyle=g; ctx.strokeStyle=DINO_G.d; ctx.lineWidth=2.4*scale; ctx.lineJoin="round";
+
+    // 尾巴
+    ctx.beginPath(); ctx.moveTo(-12*scale,-22*scale);
+    ctx.quadraticCurveTo(-40*scale,-24*scale,-38*scale,-6*scale);
+    ctx.quadraticCurveTo(-30*scale,-16*scale,-12*scale,-12*scale); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // 腿
+    ctx.beginPath(); ctx.roundRect(-8*scale, -14*scale, 10*scale, 16*scale+legSwing*0.3, 4*scale); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.roundRect(6*scale, -14*scale, 10*scale, 16*scale-legSwing*0.3, 4*scale); ctx.fill(); ctx.stroke();
+    // 身体
+    ctx.beginPath(); ctx.ellipse(0,-26*scale,17*scale,20*scale,0,0,7); ctx.fill(); ctx.stroke();
+    // 肚皮
+    ctx.fillStyle=DINO_B.e; ctx.beginPath(); ctx.ellipse(3*scale,-22*scale,10*scale,13*scale,0,0,7); ctx.fill();
+    // 背刺
+    ctx.fillStyle=DINO_G.d;
+    for (var i=0;i<3;i++){
+      ctx.beginPath(); ctx.moveTo(-6*scale+i*8*scale,-44*scale);
+      ctx.lineTo(-2*scale+i*8*scale,-52*scale); ctx.lineTo(1*scale+i*8*scale,-43*scale); ctx.fill();
+    }
+    // 头
+    ctx.fillStyle=g;
+    ctx.beginPath(); ctx.ellipse(12*scale,-46*scale,15*scale,13*scale,0,0,7); ctx.fill(); ctx.stroke();
+    // 嘴
+    ctx.beginPath(); ctx.roundRect(18*scale,-45*scale,16*scale,9*scale,4*scale); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle=DINO_G.d; ctx.lineWidth=1.4*scale;
+    ctx.beginPath(); ctx.moveTo(22*scale,-41*scale); ctx.lineTo(32*scale,-41*scale); ctx.stroke();
+    // 眼
+    ctx.fillStyle="#fff"; ctx.beginPath(); ctx.arc(15*scale,-49*scale,4.4*scale,0,7); ctx.fill();
+    ctx.fillStyle="#2b2b2b"; ctx.beginPath(); ctx.arc(16.5*scale,-49*scale,2.2*scale,0,7); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawParticle(p) {
+    ctx.save(); ctx.globalAlpha = Math.max(0, p.life/p.max);
+    ctx.fillStyle = p.pal.e;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
+    ctx.restore();
+  }
+
+  /* ---------- 输入 ---------- */
+  cv.addEventListener("pointerdown", function (e) { e.preventDefault(); jump(); }, { passive:false });
+  document.addEventListener("keydown", function (e) {
+    if (e.code === "Space" || e.code === "ArrowUp") { e.preventDefault(); jump(); }
+  });
+  window.addEventListener("resize", resize);
+  document.getElementById("startBtn").addEventListener("click", start);
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) lastT = performance.now();
+  });
+
+  /* ---------- 题库接入 ---------- */
+  if (window.GameQuiz) {
+    GameQuiz.init({
+      speech:true,
+      isPlaying: function () { return state === "playing"; },
+      onOpen: function () { quizPaused = true; },
+      onClose: function () { quizPaused = false; lastT = performance.now(); },
+      onReward: function () { score += 10; updateHud(); floatText("+10 答对啦", "#c8ffcf"); }
+    });
+  }
+
+  resize();
+  raf = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

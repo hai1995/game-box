@@ -40,6 +40,10 @@ games/
 ├── arrow-out/       # 箭头消除 1000 关（关卡预生成 + 求解器校验）
 │   ├── README.md
 │   ├── index.html
+├── dino-run/        # 恐龙快跑（横版跑酷跳跃）
+├── space-shooter/   # 太空大战（竖版飞行射击）
+├── car-race/        # 疯狂赛车（竖版躲避竞速）
+├── gold-miner/      # 黄金矿工（钩爪抓取）
 │   └── levels/      # l001.js…l010.js，每块 100 关按需加载
 ├── puzzle/          # 拼图游戏
 │   ├── README.md

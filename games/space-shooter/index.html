@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0e1230" />
+<title>太空大战 🚀</title>
+<link rel="stylesheet" href="../../theme.css">
+<link rel="icon" href="data:," />
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { width:100%; height:100%; overflow:hidden; font-family:var(--gb-font); background:#0b1030; }
+  #game { position:fixed; inset:0; }
+  canvas { display:block; width:100%; height:100%; touch-action:none; }
+
+  #hud {
+    position:fixed; z-index:5; left:0; right:0;
+    top:calc(10px + env(safe-area-inset-top));
+    padding:0 62px 0 62px; display:flex; gap:8px; justify-content:space-between;
+    pointer-events:none;
+  }
+  #hud .pill { font-size:14px; padding:6px 12px; background:rgba(255,255,255,.9); border-color:rgba(120,180,255,.6); }
+  #hud .grp { display:flex; gap:8px; }
+
+  .overlay { z-index:20; }
+  .overlay .card { width:min(90vw,380px); }
+  .ov-emoji { font-size:52px; line-height:1; }
+  .ov-emoji [data-icon] svg { width:56px; height:56px; }
+  .overlay h2 { font-size:24px; margin:6px 0; font-weight:900; }
+  .overlay p { color:var(--gb-ink-soft); font-size:14px; line-height:1.6; margin:6px 0 14px; }
+  .big-score { font-size:30px; font-weight:900; color:var(--gb-primary-d); }
+  .btnrow { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:16px; }
+  .hidden { display:none !important; }
+  #toast {
+    position:fixed; z-index:8; left:50%; top:32%; transform:translate(-50%,-50%) scale(.8);
+    font-size:24px; font-weight:900; color:#fff; opacity:0; pointer-events:none;
+    text-shadow:0 2px 8px rgba(0,0,0,.5); transition:opacity .2s, transform .2s;
+  }
+  #toast.show { opacity:1; transform:translate(-50%,-50%) scale(1); }
+</style>
+</head>
+<body>
+<a class="home-btn" href="../../" aria-label="返回主页" title="返回主页">🏠</a>
+<div id="game"><canvas id="cv"></canvas></div>
+
+<div id="hud">
+  <div class="grp">
+    <span class="pill">🏆 <b id="scorePill">0</b></span>
+    <span class="pill">❤ <b id="lifePill" style="color:#ff5b7f">3</b></span>
+  </div>
+  <div class="grp"><span class="pill">🚀 <b id="wavePill">1</b> 关</span></div>
+</div>
+
+<div id="toast"></div>
+
+<div id="overlay" class="overlay">
+  <div class="card">
+    <div class="ov-emoji" id="ovEmoji">🚀</div>
+    <h2 id="ovTitle">太空大战</h2>
+    <p id="ovMsg">驾驶飞船消灭入侵的外星人和陨石！<br>手指左右拖动来移动飞船，子弹会自动发射～</p>
+    <div id="ovScore" class="hidden">本局得分<br><span class="big-score" id="ovBigScore">0</span></div>
+    <div class="btnrow" id="ovBtns">
+      <button class="btn blue" id="startBtn">▶ 出发</button>
+    </div>
+  </div>
+</div>
+
+<script src="../../icons.js"></script>
+<script src="../../quiz.js"></script>
+<script>
+(function () {
+  "use strict";
+  var cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+  var scorePill = document.getElementById("scorePill"), lifePill = document.getElementById("lifePill"), wavePill = document.getElementById("wavePill");
+  var overlay = document.getElementById("overlay"), ovEmoji = document.getElementById("ovEmoji");
+  var ovTitle = document.getElementById("ovTitle"), ovMsg = document.getElementById("ovMsg");
+  var ovScore = document.getElementById("ovScore"), ovBigScore = document.getElementById("ovBigScore");
+  var ovBtns = document.getElementById("ovBtns"), toast = document.getElementById("toast");
+
+  var W=0,H=0,dpr=1,scale=1;
+  var state="menu", quizPaused=false, lastT=0, raf=0;
+  var score=0, life=3, wave=1, killed=0, invincible=0, shake=0, flash=0, fireCd=0;
+  var ship={x:0,y:0,w:54,h:52,target:0};
+  var bullets=[], enemies=[], ebullets=[], stars=[], particles=[];
+  var spawnCd=0, waveTimer=0;
+
+  function rand(a,b){ return a+Math.random()*(b-a); }
+  function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+
+  var SHIP  = { s:"#8fe0ff", e:"#2f7fd6", d:"#1b4e96" };
+  var SHIP2 = { s:"#e6f6ff", e:"#9fd0ff", d:"#5a9ad6" };
+  var FLAME = { s:"#fff3a0", e:"#ff9f2e", d:"#e2680c" };
+  var UFO   = { s:"#b6f0a0", e:"#49b25a", d:"#267a35" };
+  var UFO2  = { s:"#ffb3d1", e:"#e55487", d:"#a82f5c" };
+  var ROCK  = { s:"#c9c6d6", e:"#7a7690", d:"#4a4660" };
+
+  function resize(){
+    dpr=Math.min(window.devicePixelRatio||1,2);
+    W=window.innerWidth; H=window.innerHeight;
+    cv.width=Math.floor(W*dpr); cv.height=Math.floor(H*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    scale=clamp(W/390,0.72,1.25);
+    ship.w=54*scale; ship.h=52*scale;
+    ship.x=W/2; ship.target=W/2; ship.y=H-70*scale;
+    buildStars();
+  }
+  function buildStars(){
+    stars=[];
+    for(var i=0;i<70;i++) stars.push({ x:rand(0,W), y:rand(0,H), r:rand(.6,2), sp:rand(20,90), tw:rand(0,6) });
+  }
+  function reset(){
+    score=0; life=3; wave=1; killed=0; invincible=0; shake=0; flash=0; fireCd=0;
+    bullets=[]; enemies=[]; ebullets=[]; particles=[];
+    spawnCd=0.8; waveTimer=0;
+    ship.x=W/2; ship.target=W/2;
+    updateHud();
+  }
+  function updateHud(){
+    scorePill.textContent=Math.floor(score);
+    lifePill.textContent=life;
+    wavePill.textContent=wave;
+  }
+  function start(){
+    reset(); state="playing"; overlay.classList.add("hidden");
+    lastT=performance.now();
+  }
+  function gameOver(){
+    state="over";
+    burst(ship.x,ship.y,SHIP,20);
+    setTimeout(function(){
+      ovEmoji.innerHTML='<span data-icon="dizzy"></span>';
+      if(window.GameIcons) GameIcons.decorate();
+      ovTitle.textContent="飞船需要修理！";
+      ovMsg.innerHTML="你击落了 <b>"+killed+"</b> 个敌人，冲到了第 <b>"+wave+"</b> 关！<br>再来一次，保护地球吧～";
+      ovScore.classList.remove("hidden"); ovBigScore.textContent=Math.floor(score);
+      ovBtns.innerHTML='<button class="btn blue" id="againBtn">▶ 再战一次</button>';
+      document.getElementById("againBtn").addEventListener("click",start);
+      overlay.classList.remove("hidden");
+    },520);
+  }
+  function toastMsg(t,c){ toast.textContent=t; toast.style.color=c||"#fff"; toast.classList.add("show");
+    clearTimeout(toastMsg._t); toastMsg._t=setTimeout(function(){toast.classList.remove("show");},600); }
+
+  function spawnEnemy(){
+    var r=Math.random();
+    var type = r<0.62 ? "ufo" : "rock";
+    var variant = Math.random()<0.35;
+    var e={
+      type:type, variant:variant,
+      x:rand(30,W-30), y:-30,
+      w:(type==="rock"?rand(34,52):rand(40,52))*scale,
+      hp: type==="rock"?1:(wave>=3&&variant?2:1),
+      vx:rand(-30,30), vy:rand(60,95)+wave*9,
+      t:rand(0,6), shoot:rand(1.2,3)
+    };
+    e.h=e.w*(type==="rock"?1:0.8);
+    enemies.push(e);
+  }
+  function fire(){
+    bullets.push({x:ship.x-ship.w*0.22,y:ship.y-ship.h*0.4,vy:-620*scale});
+    bullets.push({x:ship.x+ship.w*0.22,y:ship.y-ship.h*0.4,vy:-620*scale});
+  }
+  function enemyShoot(e){
+    ebullets.push({x:e.x,y:e.y+e.h*0.5,vx:rand(-40,40),vy:230*scale+wave*6});
+  }
+  function burst(x,y,pal,n){
+    for(var i=0;i<n;i++) particles.push({x:x,y:y,vx:rand(-150,150)*scale,vy:rand(-150,150)*scale,life:rand(.3,.7),max:.7,r:rand(2,6)*scale,pal:pal});
+  }
+
+  function loop(now){
+    raf=requestAnimationFrame(loop);
+    var dt=Math.min(.034,(now-lastT)/1000); lastT=now;
+    if(state!=="playing"||quizPaused){ draw(); return; }
+    update(dt); draw();
+  }
+  function update(dt){
+    waveTimer+=dt;
+    if(waveTimer>14 && wave<12){ wave++; waveTimer=0; killFlash("第 "+wave+" 关！"); }
+    if(invincible>0) invincible-=dt;
+    if(shake>0) shake-=dt;
+    if(flash>0) flash=Math.max(0,flash-dt*2.5);
+
+    // 星空滚动
+    for(var i=0;i<stars.length;i++){ var s=stars[i]; s.y+=s.sp*dt; s.tw+=dt*3; if(s.y>H){s.y=-2;s.x=rand(0,W);} }
+
+    // 飞船跟随手指
+    ship.x += (ship.target-ship.x)*Math.min(1,dt*16);
+    ship.x=clamp(ship.x,ship.w/2,W-ship.w/2);
+
+    // 自动开火
+    fireCd-=dt; if(fireCd<=0){ fire(); fireCd=Math.max(.12,.26-wave*0.01); }
+
+    // 敌机生成
+    spawnCd-=dt;
+    if(spawnCd<=0){ spawnEnemy(); spawnCd=Math.max(.5,1.25-wave*0.05)+rand(0,.5); }
+
+    // 子弹
+    for(var i=bullets.length-1;i>=0;i--){
+      var b=bullets[i]; b.y+=b.vy*dt;
+      if(b.y<-10){bullets.splice(i,1);continue;}
+      for(var j=enemies.length-1;j>=0;j--){
+        var e=enemies[j];
+        if(Math.abs(b.x-e.x)<e.w*0.55 && Math.abs(b.y-e.y)<e.h*0.7){
+          bullets.splice(i,1); e.hp--;
+          burst(b.x,b.y,e.type==="rock"?ROCK:(e.variant?UFO2:UFO),5);
+          if(e.hp<=0){ killEnemy(j); }
+          break;
+        }
+      }
+    }
+    // 敌机
+    for(var i=enemies.length-1;i>=0;i--){
+      var e=enemies[i]; e.t+=dt; e.y+=e.vy*dt; e.x+=e.vx*dt;
+      if(e.x<e.w/2||e.x>W-e.w/2){e.vx*=-1;e.x=clamp(e.x,e.w/2,W-e.w/2);}
+      if(e.type!=="rock"){ e.shoot-=dt; if(e.shoot<=0 && e.y>0 && e.y<H*0.6){ enemyShoot(e); e.shoot=rand(1.6,3.2)-wave*0.05; } }
+      if(e.y>H+30){ enemies.splice(i,1); continue; }
+      if(invincible<=0 && Math.abs(e.x-ship.x)<(e.w+ship.w)*0.42 && Math.abs(e.y-ship.y)<(e.h+ship.h)*0.42){
+        enemies.splice(i,1); hit();
+      }
+    }
+    // 敌方子弹
+    for(var i=ebullets.length-1;i>=0;i--){
+      var b=ebullets[i]; b.y+=b.vy*dt; b.x+=b.vx*dt;
+      if(b.y>H+10){ebullets.splice(i,1);continue;}
+      if(invincible<=0 && Math.abs(b.x-ship.x)<ship.w*0.42 && Math.abs(b.y-ship.y)<ship.h*0.42){
+        ebullets.splice(i,1); hit();
+      }
+    }
+    // 粒子
+    for(var i=particles.length-1;i>=0;i--){ var p=particles[i]; p.life-=dt;
+      if(p.life<=0){particles.splice(i,1);continue;} p.x+=p.vx*dt; p.y+=p.vy*dt; }
+    updateHud();
+  }
+  function killEnemy(j){
+    var e=enemies[j]; enemies.splice(j,1);
+    burst(e.x,e.y,e.type==="rock"?ROCK:(e.variant?UFO2:UFO),12);
+    score += e.type==="rock"?8:(e.variant?20:12); killed++;
+    shake=0.12;
+  }
+  function hit(){
+    life--; invincible=1.4; shake=0.35; flash=.5;
+    burst(ship.x,ship.y,SHIP,14); toastMsg("小心！","#ffd0d0"); updateHud();
+    if(life<=0) gameOver();
+  }
+  function killFlash(t){ toastMsg(t,"#b6f0ff"); }
+
+  function draw(){
+    // 太空背景
+    var bg=ctx.createLinearGradient(0,0,0,H);
+    bg.addColorStop(0,"#0b1030"); bg.addColorStop(.6,"#141a48"); bg.addColorStop(1,"#241a4a");
+    ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+    // 星星
+    for(var i=0;i<stars.length;i++){ var s=stars[i];
+      ctx.globalAlpha=0.4+0.5*(0.5+0.5*Math.sin(s.tw)); ctx.fillStyle="#fff";
+      ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,7); ctx.fill(); }
+    ctx.globalAlpha=1;
+
+    ctx.save(); if(shake>0) ctx.translate(rand(-5,5)*scale,rand(-5,5)*scale);
+    for(var i=0;i<particles.length;i++) drawParticle(particles[i]);
+    for(var i=0;i<enemies.length;i++) drawEnemy(enemies[i]);
+    for(var i=0;i<ebullets.length;i++) drawEBullet(ebullets[i]);
+    if(state!=="over" && (invincible<=0||Math.floor(invincible*10)%2===0)) drawShip();
+    for(var i=0;i<bullets.length;i++) drawBullet(bullets[i]);
+    ctx.restore();
+
+    if(flash>0){ ctx.fillStyle="rgba(255,70,70,"+(flash*.3)+")"; ctx.fillRect(0,0,W,H); }
+  }
+  function drawParticle(p){ ctx.save(); ctx.globalAlpha=Math.max(0,p.life/p.max); ctx.fillStyle=p.pal.e;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7); ctx.fill(); ctx.restore(); }
+  function drawBullet(b){
+    ctx.save();
+    var g=ctx.createLinearGradient(b.x,b.y-12,b.x,b.y+6); g.addColorStop(0,"#fff9c4"); g.addColorStop(1,"#ff9f2e");
+    ctx.fillStyle=g; ctx.shadowColor="#ffd54f"; ctx.shadowBlur=10;
+    roundRect(b.x-3*scale,b.y-12*scale,6*scale,18*scale,3*scale); ctx.fill();
+    ctx.restore();
+  }
+  function drawEBullet(b){
+    ctx.save(); ctx.fillStyle="#ff7aa8"; ctx.shadowColor="#ff4f8b"; ctx.shadowBlur=8;
+    ctx.beginPath(); ctx.arc(b.x,b.y,5*scale,0,7); ctx.fill(); ctx.restore();
+  }
+  function drawEnemy(e){
+    ctx.save(); ctx.translate(e.x,e.y);
+    if(e.type==="rock"){
+      ctx.rotate(Math.sin(e.t)*0.3);
+      var g=ctx.createLinearGradient(-e.w/2,-e.h/2,e.w/2,e.h/2); g.addColorStop(0,ROCK.s); g.addColorStop(1,ROCK.e);
+      ctx.fillStyle=g; ctx.strokeStyle=ROCK.d; ctx.lineWidth=2*scale;
+      ctx.beginPath();
+      var n=7;
+      for(var i=0;i<n;i++){ var a=i/n*Math.PI*2, rr=e.w*0.5*(0.82+0.18*Math.sin(i*2.7));
+        var px=Math.cos(a)*rr, py=Math.sin(a)*rr*0.9; if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py); }
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle="rgba(60,55,80,.35)"; ctx.beginPath(); ctx.arc(-e.w*0.15,-e.h*0.1,e.w*0.12,0,7); ctx.arc(e.w*0.18,e.h*0.16,e.w*0.09,0,7); ctx.fill();
+    } else {
+      var pal=e.variant?UFO2:UFO;
+      // 碟身
+      var g=ctx.createLinearGradient(0,-e.h/2,0,e.h/2); g.addColorStop(0,pal.s); g.addColorStop(1,pal.e);
+      ctx.fillStyle=g; ctx.strokeStyle=pal.d; ctx.lineWidth=2*scale;
+      ctx.beginPath(); ctx.ellipse(0,2*scale,e.w*0.5,e.h*0.28,0,0,7); ctx.fill(); ctx.stroke();
+      // 舱盖
+      ctx.fillStyle="#dff6ff"; ctx.strokeStyle=pal.d;
+      ctx.beginPath(); ctx.ellipse(0,-e.h*0.18,e.w*0.2,e.h*0.28,0,Math.PI,0); ctx.fill(); ctx.stroke();
+      // 眼
+      ctx.fillStyle="#2b2b2b"; ctx.beginPath(); ctx.arc(-5*scale,-e.h*0.2,2.4*scale,0,7); ctx.arc(5*scale,-e.h*0.2,2.4*scale,0,7); ctx.fill();
+      // 灯
+      ctx.fillStyle="#ffe36e";
+      for(var i=-1;i<=1;i++){ ctx.beginPath(); ctx.arc(i*10*scale,6*scale,2*scale,0,7); ctx.fill(); }
+    }
+    ctx.restore();
+  }
+  function drawShip(){
+    var x=ship.x,y=ship.y,w=ship.w,h=ship.h;
+    ctx.save(); ctx.translate(x,y);
+    // 尾焰
+    var fl=rand(8,16)*scale;
+    var fg=ctx.createLinearGradient(0,h*0.3,0,h*0.5+fl); fg.addColorStop(0,FLAME.s); fg.addColorStop(1,"rgba(255,120,20,0)");
+    ctx.fillStyle=fg; ctx.beginPath(); ctx.moveTo(-8*scale,h*0.35); ctx.lineTo(0,h*0.5+fl); ctx.lineTo(8*scale,h*0.35); ctx.fill();
+    // 机身
+    var g=ctx.createLinearGradient(0,-h/2,0,h/2); g.addColorStop(0,SHIP.s); g.addColorStop(1,SHIP.e);
+    ctx.fillStyle=g; ctx.strokeStyle=SHIP.d; ctx.lineWidth=2.4*scale; ctx.lineJoin="round";
+    ctx.beginPath(); ctx.moveTo(0,-h*0.5); ctx.lineTo(w*0.3,h*0.3); ctx.lineTo(w*0.12,h*0.2);
+    ctx.lineTo(0,h*0.42); ctx.lineTo(-w*0.12,h*0.2); ctx.lineTo(-w*0.3,h*0.3); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // 机翼高光
+    ctx.fillStyle="rgba(255,255,255,.45)"; ctx.beginPath(); ctx.moveTo(0,-h*0.42); ctx.lineTo(w*0.1,h*0.06); ctx.lineTo(0,-h*0.02); ctx.closePath(); ctx.fill();
+    // 驾驶舱
+    ctx.fillStyle=SHIP2.s; ctx.strokeStyle=SHIP.d; ctx.lineWidth=1.6*scale;
+    ctx.beginPath(); ctx.ellipse(0,-h*0.08,w*0.13,h*0.16,0,0,7); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+  function roundRect(x,y,w,h,r){ r=Math.min(r,w/2,h/2); ctx.beginPath();
+    ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+  /* ---------- 输入：拖动飞船 ---------- */
+  function moveTo(clientX){ ship.target=clamp(clientX,ship.w/2,W-ship.w/2); }
+  cv.addEventListener("pointerdown",function(e){ e.preventDefault(); if(state==="playing")moveTo(e.clientX); },{passive:false});
+  cv.addEventListener("pointermove",function(e){ if(state==="playing"&&e.buttons){e.preventDefault();moveTo(e.clientX);} },{passive:false});
+  cv.addEventListener("touchmove",function(e){ if(state==="playing"){e.preventDefault();moveTo(e.touches[0].clientX);} },{passive:false});
+  document.addEventListener("keydown",function(e){
+    if(state!=="playing")return;
+    if(e.code==="ArrowLeft"||e.code==="KeyA") ship.target=clamp(ship.target-40,ship.w/2,W-ship.w/2);
+    if(e.code==="ArrowRight"||e.code==="KeyD") ship.target=clamp(ship.target+40,ship.w/2,W-ship.w/2);
+  });
+  window.addEventListener("resize",resize);
+  document.getElementById("startBtn").addEventListener("click",start);
+  document.addEventListener("visibilitychange",function(){ if(!document.hidden)lastT=performance.now(); });
+
+  if(window.GameQuiz){
+    GameQuiz.init({
+      speech:true,
+      isPlaying:function(){ return state==="playing"; },
+      onOpen:function(){ quizPaused=true; },
+      onClose:function(){ quizPaused=false; lastT=performance.now(); },
+      onReward:function(){ score+=10; updateHud(); toastMsg("+10 答对啦","#b6f0ff"); }
+    });
+  }
+  resize(); raf=requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

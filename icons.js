@@ -208,6 +208,38 @@
       '<circle cx="22" cy="10" r="3" fill="#ffd54f" stroke="#f9a825" stroke-width="1.4"/>'
     ),
 
+    /* ---------- 男孩向主题：恐龙 / 火箭 / 赛车 / 矿工 ---------- */
+    dino: wrap(
+      '<path d="M14 44c-6 1-9-3-8-8 2 3 6 3 8 0" fill="url(#gGreen)" stroke="#2e7d32" stroke-width="2" stroke-linejoin="round"/>' +
+      '<path d="M16 46c0-12 6-20 16-20 8 0 13 5 13 12 0 5-3 8-7 8z" fill="url(#gGreen)" stroke="#2e7d32" stroke-width="2.2" stroke-linejoin="round"/>' +
+      '<path d="M22 30l2-6 3 5m4-1 2-6 3 5" fill="#2e7d32"/>' +
+      '<path d="M44 30c6-3 12-1 13 4-4-1-7 0-9 3z" fill="url(#gGreen)" stroke="#2e7d32" stroke-width="2" stroke-linejoin="round"/>' +
+      '<circle cx="47" cy="30" r="1.8" fill="#fff"/><circle cx="47.6" cy="30" r="1" fill="#333"/>' +
+      '<path d="M20 46v8m14-8v8" stroke="#2e7d32" stroke-width="5" stroke-linecap="round"/>' +
+      '<ellipse cx="26" cy="30" rx="4" ry="2.4" fill="#fff" opacity=".45" transform="rotate(-25 26 30)"/>'
+    ),
+    rocket: wrap(
+      '<path d="M32 8c9 7 13 18 11 30l-11 8-11-8C19 26 23 15 32 8z" fill="url(#gBlue)" stroke="#3949ab" stroke-width="2.2" stroke-linejoin="round"/>' +
+      '<circle cx="32" cy="27" r="7" fill="#bff0ff" stroke="#3949ab" stroke-width="2"/><circle cx="32" cy="27" r="3.4" fill="#4a86e8"/>' +
+      '<path d="M23 36l-7 10 9-4m16-6 7 10-9-4" fill="url(#gRed)" stroke="#c62828" stroke-width="2" stroke-linejoin="round"/>' +
+      '<path d="M28 46l4 12 4-12z" fill="url(#gYellow)" stroke="#f57f17" stroke-width="1.8" stroke-linejoin="round"/>' +
+      '<ellipse cx="27" cy="19" rx="4" ry="2.4" fill="#fff" opacity=".5" transform="rotate(-30 27 19)"/>'
+    ),
+    car: wrap(
+      '<path d="M14 30l4-11c1-3 3-4 6-4h16c3 0 5 1 6 4l4 11" fill="url(#gRed)" stroke="#b71c1c" stroke-width="2.2" stroke-linejoin="round"/>' +
+      '<path d="M20 19h24l3 11H17z" fill="#bff0ff" stroke="#b71c1c" stroke-width="2" stroke-linejoin="round"/>' +
+      '<path d="M12 30h40c2 0 3 1 3 3v14c0 2-1 3-3 3H12c-2 0-3-1-3-3V33c0-2 1-3 3-3z" fill="url(#gRed)" stroke="#b71c1c" stroke-width="2.2"/>' +
+      '<circle cx="20" cy="50" r="6" fill="#424242" stroke="#212121" stroke-width="2"/><circle cx="44" cy="50" r="6" fill="#424242" stroke="#212121" stroke-width="2"/>' +
+      '<circle cx="20" cy="50" r="2.4" fill="#bdbdbd"/><circle cx="44" cy="50" r="2.4" fill="#bdbdbd"/>' +
+      '<path d="M15 35h8m18 0h8" stroke="#fff3a0" stroke-width="4" stroke-linecap="round"/>'
+    ),
+    pickaxe: wrap(
+      '<path d="M30 26l5 34" stroke="#8d5524" stroke-width="6" stroke-linecap="round"/>' +
+      '<path d="M12 24c8-10 32-10 40 0-6-3-11-3-15 1-1-4-3-6-5-6s-4 2-5 6c-4-4-9-4-15-1z" fill="url(#gBrown)" stroke="#5d4037" stroke-width="2.2" stroke-linejoin="round"/>' +
+      '<path d="M14 22c8-7 28-7 36 0" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".5"/>' +
+      '<circle cx="32" cy="20" r="3" fill="url(#gGold)" stroke="#f57f17" stroke-width="1.4"/>'
+    ),
+
     /* ---------- 特效小图标 ---------- */
     sparkle: wrap('<path d="M32 8l4 16 16 4-16 4-4 16-4-16-16-4 16-4z" fill="url(#gYellow)" stroke="#f9a825" stroke-width="1.6" stroke-linejoin="round"/>'),
     heart: wrap('<path d="M32 54C18 45 10 36 10 26c0-8 6-13 13-13 4 0 7 2 9 6 2-4 5-6 9-6 7 0 13 5 13 13 0 10-8 19-22 28z" fill="url(#gRed)" stroke="#c62828" stroke-width="2.2" stroke-linejoin="round"/><ellipse cx="24" cy="24" rx="5" ry="3" fill="#fff" opacity=".55" transform="rotate(-25 24 24)"/>')
@@ -268,7 +300,11 @@
     plus:      '<path d="M32 18v28M18 32h28" stroke="#fff" stroke-width="7" stroke-linecap="round"/>',
     minus:     '<path d="M18 32h28" stroke="#fff" stroke-width="7" stroke-linecap="round"/>',
     "stone-black": '<circle cx="32" cy="32" r="18" fill="#2f2b2b" stroke="#171212" stroke-width="2"/><ellipse cx="26" cy="25" rx="6" ry="3.6" fill="#fff" opacity=".28"/>',
-    "stone-white": '<circle cx="32" cy="32" r="18" fill="#fdfdfd" stroke="#c9c2b6" stroke-width="2"/><ellipse cx="26" cy="25" rx="6" ry="3.6" fill="#fff"/>'
+    "stone-white": '<circle cx="32" cy="32" r="18" fill="#fdfdfd" stroke="#c9c2b6" stroke-width="2"/><ellipse cx="26" cy="25" rx="6" ry="3.6" fill="#fff"/>',
+    dino:      '<path d="M16 46c0-12 6-20 16-20 8 0 13 5 13 12 0 5-3 8-7 8z" fill="#fff"/><path d="M22 30l2-6 3 5m4-1 2-6 3 5" fill="#000" opacity=".3"/><path d="M44 30c6-3 12-1 13 4-4-1-7 0-9 3z" fill="#fff"/><circle cx="47" cy="30" r="2" fill="#000" opacity=".45"/><path d="M20 46v8m14-8v8" stroke="#fff" stroke-width="5" stroke-linecap="round"/>',
+    rocket:    '<path d="M32 8c9 7 13 18 11 30l-11 8-11-8C19 26 23 15 32 8z" fill="#fff"/><circle cx="32" cy="27" r="6" fill="#000" opacity=".28"/><path d="M23 36l-7 10 9-4m16-6 7 10-9-4" fill="#fff"/><path d="M28 46l4 12 4-12z" fill="#fff"/>',
+    car:       '<path d="M14 30l4-11c1-3 3-4 6-4h16c3 0 5 1 6 4l4 11" fill="#fff"/><path d="M20 19h24l3 11H17z" fill="#000" opacity=".3"/><path d="M12 30h40c2 0 3 1 3 3v14c0 2-1 3-3 3H12c-2 0-3-1-3-3V33c0-2 1-3 3-3z" fill="#fff"/><circle cx="20" cy="50" r="6" fill="#000" opacity=".55"/><circle cx="44" cy="50" r="6" fill="#000" opacity=".55"/>',
+    pickaxe:   '<path d="M30 26l5 34" stroke="#fff" stroke-width="6" stroke-linecap="round"/><path d="M12 24c8-10 32-10 40 0-6-3-11-3-15 1-1-4-3-6-5-6s-4 2-5 6c-4-4-9-4-15-1z" fill="#fff"/>'
   };
 
   // 徽章底色映射：为 get() 生成的独立图标分配主色（统一深渐变，白符号始终清晰）
@@ -281,7 +317,7 @@
     party:"gPink", dizzy:"gOrange", boom:"gOrange", cloud:"gBlue", puzzle:"gPurple", gamepad:"gPurple",
     hash:"gOrange", hex:"gBlue", link:"gBlue", candy:"gPink", people:"gGreen", bell:"gGold",
     wind:"gBlue", lightning:"gGold", shield:"gBlue", walk:"gPurple", plus:"gGreen", minus:"gRed",
-    "stone-black":"gDark", "stone-white":"gBrown"
+    "stone-black":"gDark", "stone-white":"gBrown", dino:"gGreen", rocket:"gBlue", car:"gRed", pickaxe:"gGold"
   };
   function badge(name) {
     var g = BADGE_GRAD[name] || "gBlue";
@@ -354,6 +390,7 @@
     "💣":"bomb","🐹":"hamster","🐭":"hamster","🎈":"balloon","🍎":"apple",
     "🏓":"gamepad","📏":"target","🎊":"party","🥚":"star","💎":"star","🌈":"cloud",
     "➡️":"arrow","➡":"arrow","⬆️":"arrow","⬆":"arrow",
+    "🦖":"dino","🦕":"dino","🚀":"rocket","🏎️":"car","🏎":"car","🚗":"car","⛏️":"pickaxe","⛏":"pickaxe",
     "🔵":"bubble","🟢":"bubble","🔴":"heart","🟡":"star","🟣":"bubble","⬡":"hex","⬢":"hex"
   };
   var EMOJI_RE = null;
