@@ -16,6 +16,9 @@
     --sub: #8b7d7d;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  /* 装饰图标统一尺寸：icons.js 替换后的 SVG 跟随文字大小，避免被撑成巨图 */
+  [data-icon] { display: inline-flex; align-items: center; justify-content: center; vertical-align: -0.12em; }
+  [data-icon] svg { width: 1.15em; height: 1.15em; display: block; }
   html, body { margin: 0; padding: 0; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
@@ -46,17 +49,26 @@
     padding: calc(env(safe-area-inset-top) + 26px) 16px calc(env(safe-area-inset-bottom) + 28px);
   }
 
-  /* 顶部标题（紧凑） */
-  .hero { text-align: center; margin-bottom: 26px; animation: rise .5s ease both; }
-  .hero .logo {
-    font-size: 48px; line-height: 1;
-    filter: drop-shadow(0 6px 10px rgba(255, 150, 80, .35));
-    animation: bob 3s ease-in-out infinite;
+  /* 背景底图：大号游戏手柄水印，固定定位、不占布局空间（由 CSS 生成，不会被图标库替换） */
+  .bg-art {
+    position: fixed; inset: 0; z-index: 0;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none; overflow: hidden;
   }
-  @keyframes bob {
-    0%, 100% { transform: translateY(0) rotate(-4deg); }
-    50%      { transform: translateY(-7px) rotate(4deg); }
+  .bg-art::before {
+    content: "🎮";
+    font-size: min(68vmin, 400px);
+    line-height: 1;
+    opacity: .07;
+    transform: translateY(-4vh) rotate(-6deg);
+    filter: saturate(.55);
   }
+  @media (min-width: 700px) {
+    .bg-art::before { font-size: min(60vmin, 460px); }
+  }
+
+  /* 顶部标题（紧凑，不再放首图） */
+  .hero { text-align: center; margin-bottom: 22px; animation: rise .5s ease both; }
   .hero h1 {
     margin: 8px 0 4px;
     font-size: clamp(26px, 7vw, 34px);
@@ -168,11 +180,15 @@
     padding: 2px 7px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,.18);
   }
 
-  footer { text-align: center; margin-top: 30px; color: var(--sub); font-size: 12px; }
+  footer { text-align: center; margin-top: 26px; color: var(--sub); font-size: 12px; }
   footer .heart { color: #ff6b81; }
+  /* 页脚爱心跟随文字大小，不要撑成大图 */
+  footer [data-icon] svg { width: 1em; height: 1em; }
 </style>
 </head>
 <body>
+
+<div class="bg-art" aria-hidden="true"></div>
 
 <div class="floaties" aria-hidden="true">
   <span class="f1">⭐</span>
@@ -183,7 +199,6 @@
 
 <div class="page">
   <header class="hero">
-    <div class="logo">🎮</div>
     <h1>游戏盒子</h1>
     <p>选一个喜欢的游戏，点开就能玩啦！也可以做做题目练习 ✏️</p>
   </header>
