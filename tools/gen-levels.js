@@ -27,12 +27,12 @@ const OPP = [2, 3, 0, 1];
 
 // 六段难度曲线。棋盘按 cols(列) × rows(行)，宽小于高，贴合手机竖屏。
 const SEGMENTS = [
-  { from: 1,   to: 90,   cols: [6, 8],   rows: [7, 9],   arrows: [10, 18], bends: 1, time: 600,  fill: 0.66, name: '入门' },
-  { from: 91,  to: 325,  cols: [10, 14], rows: [12, 18], arrows: [18, 30], bends: 2, time: 600,  fill: 0.68, name: '进阶' },
-  { from: 326, to: 500,  cols: [16, 20], rows: [22, 26], arrows: [28, 40], bends: 3, time: 720,  fill: 0.70, name: '迷宫' },
-  { from: 501, to: 700,  cols: [20, 24], rows: [26, 30], arrows: [38, 48], bends: 3, time: 840,  fill: 0.72, name: '深迷宫A' },
-  { from: 701, to: 900,  cols: [24, 26], rows: [30, 34], arrows: [45, 55], bends: 3, time: 960,  fill: 0.74, name: '深迷宫B' },
-  { from: 901, to: 1000, cols: [26, 28], rows: [34, 37], arrows: [50, 60], bends: 4, time: 1080, fill: 0.76, name: '终极' }
+  { from: 1,   to: 90,   cols: [6, 8],   rows: [7, 9],   arrows: [10, 18], bends: 1, time: 600,  fill: 0.69, name: '入门' },
+  { from: 91,  to: 325,  cols: [10, 14], rows: [12, 18], arrows: [18, 30], bends: 2, time: 600,  fill: 0.71, name: '进阶' },
+  { from: 326, to: 500,  cols: [16, 20], rows: [22, 26], arrows: [28, 40], bends: 3, time: 720,  fill: 0.73, name: '迷宫' },
+  { from: 501, to: 700,  cols: [20, 24], rows: [26, 30], arrows: [38, 48], bends: 4, time: 840,  fill: 0.75, name: '深迷宫A' },
+  { from: 701, to: 900,  cols: [24, 26], rows: [30, 34], arrows: [45, 55], bends: 4, time: 960,  fill: 0.76, name: '深迷宫B' },
+  { from: 901, to: 1000, cols: [26, 28], rows: [34, 37], arrows: [50, 60], bends: 4, time: 1080, fill: 0.77, name: '终极' }
 ];
 
 /* ---------------- 可复现随机数 ---------------- */
@@ -95,7 +95,7 @@ function tryMakeArrow(R, C, grid, wantLen, maxBends) {
   for (let attempt = 0; attempt < 600; attempt++) {
     // 60% 概率从四条边界挑末端（射线天然短），40% 全盘随机
     let er, ec;
-    if (rng() < 0.6) {
+    if (rng() < 0.4) {
       const side = ri(0, 3);
       if (side === 0) { er = 0; ec = ri(0, C - 1); }
       else if (side === 1) { er = R - 1; ec = ri(0, C - 1); }
@@ -135,7 +135,7 @@ function tryMakeArrow(R, C, grid, wantLen, maxBends) {
     while (cells.length < len) {
       // 优先沿当前方向直行（深入棋盘），必要时才折弯，避免过早撞墙/自交而走不长
       let dirs;
-      if (rng() < 0.72) {
+      if (rng() < 0.65) {
         dirs = [lastBack].concat(shuffle([0, 1, 2, 3]).filter(function (d) { return d !== lastBack; }));
       } else {
         dirs = shuffle([0, 1, 2, 3]);
@@ -231,6 +231,39 @@ function debugSolvable(board) {
   return -1;
 }
 
+/* 难度度量：初始可消箭头数（少 = 要在一堆里找突破口）与依赖层数（多 = 层层嵌套）。 */
+function fillGrid(board) {
+  const grid = new Int32Array(board.R * board.C).fill(-1);
+  board.arrows.forEach(function (a, id) {
+    a.cells.forEach(function (p) { grid[p[0] * board.C + p[1]] = id; });
+  });
+  return grid;
+}
+function openness(board) {
+  const grid = fillGrid(board), R = board.R, C = board.C;
+  let n = 0;
+  for (let id = 0; id < board.arrows.length; id++) {
+    if (!arrowBlocked(board.arrows[id], grid, R, C, id)) n++;
+  }
+  return n;
+}
+function depth(board) {
+  const grid = fillGrid(board), R = board.R, C = board.C, arrows = board.arrows;
+  const alive = new Set(arrows.map(function (_, i) { return i; }));
+  let rounds = 0;
+  while (alive.size) {
+    const clear = [];
+    alive.forEach(function (id) { if (!arrowBlocked(arrows[id], grid, R, C, id)) clear.push(id); });
+    if (!clear.length) return -1; // 求解器已保证可解，兜底
+    clear.forEach(function (id) {
+      arrows[id].cells.forEach(function (p) { grid[p[0] * C + p[1]] = -1; });
+      alive.delete(id);
+    });
+    rounds++;
+  }
+  return rounds;
+}
+
 function encode(board) {
   return board.arrows.map(function (a) {
     return a.dir + ',' + a.cells.map(function (p) { return p[0] + ',' + p[1]; }).join(',');
@@ -240,10 +273,11 @@ function encode(board) {
 /* 拒绝采样：同一关换种子多生成几次，挑「可解 + 塞满率达标 + 箭头数达标」的最佳者。 */
 function generateLevel(level) {
   const p = paramsFor(level);
-  // 视觉上 65% 已足够密；66~76% 为目标带，略放宽下限避免大棋盘频繁降级
-  const fillLo = 0.655, fillHi = 0.77;
-  let best = null;
-  const TRIES = 140;
+  // 难度提升后目标带整体上移：66.5%~78.5%，只收达标候选再做难度优选
+  const fillLo = 0.665, fillHi = 0.785;
+  const TRIES = 280, MAX_CAND = 10;
+  let fallback = null;
+  const candidates = [];
   for (let t = 0; t < TRIES; t++) {
     rng = mulberry32((level * 2654435761 + t * 40503) >>> 0);
     const board = buildOnce(p, level);
@@ -260,9 +294,27 @@ function generateLevel(level) {
     const fill = board.used / (board.R * board.C);
     const full = board.arrows.length >= p.count;
     const inBand = fill >= fillLo && fill <= fillHi;
-    const score = (full ? 100 : 0) + (inBand ? 50 : 0) - Math.abs(fill - p.fill) * 100;
-    if (!best || score > best.score) best = { board: board, fill: fill, score: score, full: full, inBand: inBand };
-    if (full && inBand) break;
+    if (full && inBand) {
+      candidates.push({ board: board, fill: fill });
+      if (candidates.length >= MAX_CAND) break;
+    } else {
+      // 兜底候选：箭头数优先、塞满率次之；真生成不出达标关才用它
+      const s = (full ? 100 : 0) - Math.abs(fill - p.fill) * 100;
+      if (!fallback || s > fallback.s) fallback = { board: board, fill: fill, s: s, full: full, inBand: inBand };
+    }
+  }
+  let best = fallback;
+  if (candidates.length) {
+    // 在达标候选里挑「依赖层多、初始突破口少」的——这是难度体感的核心
+    let top = -Infinity;
+    candidates.forEach(function (c) {
+      const open = openness(c.board), dep = depth(c.board);
+      const s = dep * 5 - open * 3 - Math.abs(c.fill - p.fill) * 100;
+      if (s > top) {
+        top = s;
+        best = { board: c.board, fill: c.fill, score: s, full: true, inBand: true, open: open, dep: dep };
+      }
+    });
   }
   if (!best) throw new Error('关卡 ' + level + ' 无法生成可解布局');
 
@@ -270,7 +322,8 @@ function generateLevel(level) {
   return {
     data: { c: b.C, r: b.R, t: p.time, a: encode(b) },
     fill: best.fill, want: p.count, got: b.arrows.length,
-    name: p.name, full: best.full, inBand: best.inBand, level: level
+    name: p.name, full: best.full, inBand: best.inBand, level: level,
+    open: best.open, dep: best.dep
   };
 }
 
@@ -307,6 +360,7 @@ function main() {
         r.data.c + 'x' + r.data.r + ' 箭头 ' + r.got + '/' + r.want +
         ' 塞满 ' + (r.fill * 100).toFixed(1) + '%' +
         ' 折弯≤' + (lv <= 3 ? 0 : paramsFor(lv).bends) +
+        ' 可消' + (r.open == null ? '-' : r.open) + '/深' + (r.dep == null ? '-' : r.dep) +
         (r.full && r.inBand ? ' OK' : ' !降级')
       );
     } else if (lv % 100 === 0) {

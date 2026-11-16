@@ -90,6 +90,25 @@
   @keyframes born { 0%{transform:scale(.3);opacity:.4} 70%{transform:scale(1.12)} 100%{transform:scale(1);opacity:1} }
   .hex.hammer .in { animation:shake .3s; }
   @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+  /* 合并时被吸收的块：朝锚点吸附汇聚 */
+  .hex.pull { z-index:5; pointer-events:none;
+    transition:transform .3s cubic-bezier(.55,.02,.85,.4), opacity .3s ease;
+    transform:translate(var(--dx,0),var(--dy,0)) scale(.3); opacity:0; }
+  /* 锚点合并瞬间的果冻闪光 */
+  .hex.merging .in { animation:mergeGlow .3s ease; }
+  @keyframes mergeGlow { 0%{filter:brightness(1)} 50%{filter:brightness(1.45)} 100%{filter:brightness(1)} }
+  .hex.flash .in { animation:mergeFlash .44s ease; }
+  @keyframes mergeFlash { 0%{transform:scale(1)} 35%{transform:scale(1.28); filter:brightness(1.5)} 100%{transform:scale(1)} }
+  /* 从预览队列飞向目标格的球 */
+  .fly-ball { position:fixed; left:0; top:0; z-index:50; border-radius:50%; pointer-events:none;
+    display:flex; align-items:center; justify-content:center; color:#fff; font-weight:900;
+    text-shadow:0 1px 2px rgba(0,0,0,.28); box-shadow:inset 0 -3px 0 rgba(0,0,0,.14), 0 6px 14px rgba(0,0,0,.22);
+    will-change:transform,opacity; }
+  /* 落点涟漪 */
+  .ripple { position:fixed; z-index:49; border-radius:50%; pointer-events:none;
+    border:4px solid rgba(255,255,255,.92); box-shadow:0 0 0 2px rgba(255,178,60,.45);
+    transform:translate(-50%,-50%) scale(.35); animation:ripple .5s ease-out forwards; }
+  @keyframes ripple { to { transform:translate(-50%,-50%) scale(1.45); opacity:0; } }
   .hint { text-align:center; font-size:12px; color:#a98a63; margin-top:8px; min-height:16px; }
 
   .overlay { position:fixed; inset:0; z-index:40; display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -167,7 +186,7 @@
 
   var cells = [], cellMap = {}, queue = [], selected = 0;
   var score = 0, best = 0, swapLeft = 5, hammerLeft = 3;
-  var busy = false, finished = false, quizPaused = false, hammerMode = false;
+  var busy = false, finished = false, quizPaused = false, hammerMode = false, gen = 0;
   var DIRS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
   var SQ3 = Math.sqrt(3);
 
@@ -238,6 +257,52 @@
     }
   }
 
+  /* 数字球从预览队列沿弧线飞到目标格（移动端 fixed 定位，不受棋盘裁剪影响） */
+  function pixelCenter(el) {
+    var r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width };
+  }
+  function flyBall(from, cell, val, myGen, done) {
+    if (!from || !from.w) { done(); return; }
+    var to = pixelCenter(cell.el);
+    var el = document.createElement("div");
+    el.className = "fly-ball";
+    el.textContent = val;
+    el.style.width = el.style.height = Math.round(to.w * 0.82) + "px";
+    el.style.fontSize = Math.round(to.w * (String(val).length >= 3 ? .5 : .62)) + "px";
+    el.style.background = "linear-gradient(160deg, rgba(255,255,255,.45), rgba(0,0,0,.08)), " + colorOf(val);
+    document.body.appendChild(el);
+    var t0 = performance.now(), dur = 420;
+    var lift = -Math.max(46, Math.abs(to.y - from.y) * 0.26); // 向上拱起
+    function frame(now) {
+      if (myGen !== gen) { if (el.parentNode) el.parentNode.removeChild(el); return; }
+      var p = Math.min(1, (now - t0) / dur);
+      var e = 1 - Math.pow(1 - p, 2.2);                        // 缓出，落点稳
+      var x = from.x + (to.x - from.x) * e;
+      var y = from.y + (to.y - from.y) * e + lift * Math.sin(Math.PI * p);
+      var sc = 0.82 + 0.3 * Math.sin(Math.PI * p);
+      el.style.transform = "translate(-50%,-50%) translate(" + x + "px," + y + "px) scale(" + sc + ")";
+      el.style.opacity = p > 0.86 ? String((1 - p) / 0.14) : "1";
+      if (p < 1) {
+        requestAnimationFrame(frame);
+      } else {
+        if (el.parentNode) el.parentNode.removeChild(el);
+        ripple(cell);
+        done();
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+  function ripple(cell) {
+    var c = pixelCenter(cell.el);
+    var el = document.createElement("div");
+    el.className = "ripple";
+    el.style.left = c.x + "px"; el.style.top = c.y + "px";
+    el.style.width = el.style.height = Math.round(c.w * 1.25) + "px";
+    document.body.appendChild(el);
+    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 520);
+  }
+
   function renderQueue() {
     ballsEl.innerHTML = "";
     for (var i = 0; i < queue.length; i++) {
@@ -284,18 +349,32 @@
     var group = connected(anchor);
     if (group.length >= 3) {
       busy = true;
+      var myGen = gen;
       var nv = anchor.val * 2;
       hintEl.textContent = "合并 " + group.length + " 个 " + anchor.val + " → " + nv + "！";
-      for (var i = 0; i < group.length; i++) group[i].el.classList.add("pop");
+      var ac = pixelCenter(anchor.el);
+      for (var i = 0; i < group.length; i++) {
+        var g = group[i];
+        if (g === anchor) { g.el.classList.add("merging"); continue; }
+        var gc = pixelCenter(g.el);
+        g.el.style.setProperty("--dx", (ac.x - gc.x) + "px");
+        g.el.style.setProperty("--dy", (ac.y - gc.y) + "px");
+        g.el.classList.add("pull");
+      }
       setTimeout(function () {
+        if (myGen !== gen) return;
         for (var j = 0; j < group.length; j++) {
-          var g = group[j];
-          g.el.classList.remove("pop"); g.val = 0; paint(g);
+          var g2 = group[j];
+          g2.el.classList.remove("pull", "merging");
+          g2.el.style.removeProperty("--dx"); g2.el.style.removeProperty("--dy");
+          if (g2 !== anchor) { g2.val = 0; paint(g2); }
         }
-        anchor.val = nv; paint(anchor, true);
+        anchor.val = nv; paint(anchor);
+        anchor.el.classList.add("flash");
+        setTimeout(function () { anchor.el.classList.remove("flash"); }, 460);
         score += nv; updateScore();
-        setTimeout(function () { resolve(anchor); }, 200);
-      }, 280);
+        setTimeout(function () { if (myGen === gen) resolve(anchor); }, 200);
+      }, 310);
     } else {
       busy = false;
       checkEnd();
@@ -327,8 +406,9 @@
     if (hammerMode) {
       if (cell.val > 0 && hammerLeft > 0) {
         cell.el.classList.add("hammer");
-        var target = cell;
+        var target = cell, hGen = gen;
         setTimeout(function () {
+          if (hGen !== gen) return;
           target.el.classList.remove("hammer");
           target.val = 0; paint(target);
           hammerLeft--; hammerN.textContent = hammerLeft;
@@ -342,14 +422,24 @@
     if (cell.val !== 0) { hintEl.textContent = "这里已经有数字啦，选个空格放～"; return; }
 
     var v = queue[selected];
-    cell.val = v; paint(cell, true);
+    var srcBall = ballsEl.children[selected];
+    var srcPos = srcBall ? pixelCenter(srcBall) : null; // renderQueue 会重建 DOM，先存坐标
+    var myGen = gen;
+    busy = true;                                // 飞行期间锁住，避免连点错位
     queue.splice(selected, 1); fillQueue();
     if (selected >= queue.length) selected = queue.length - 1;
     renderQueue();
-    resolve(cell);
+    hintEl.textContent = "放下去，看看能不能连成 3 个～";
+    flyBall(srcPos, cell, v, myGen, function () {
+      if (myGen !== gen) return;
+      cell.val = v; paint(cell, true);
+      busy = false;
+      resolve(cell);
+    });
   }
 
   function reset() {
+    gen++; // 作废进行中的飞行/合并回调，避免重开后串局
     score = 0; swapLeft = 5; hammerLeft = 3;
     busy = false; finished = false; quizPaused = false; hammerMode = false;
     scoreEl.textContent = "0";
@@ -358,7 +448,13 @@
     hintEl.textContent = "3 个及以上相同数字连在一起就能合并变大！";
     swapBtn.classList.remove("dim"); hammerBtn.classList.remove("dim", "armed");
     queue = []; fillQueue(); selected = 0; renderQueue();
-    for (var i = 0; i < cells.length; i++) { cells[i].val = 0; paint(cells[i]); }
+    var temp = document.querySelectorAll(".fly-ball,.ripple");
+    for (var t = 0; t < temp.length; t++) if (temp[t].parentNode) temp[t].parentNode.removeChild(temp[t]);
+    for (var i = 0; i < cells.length; i++) {
+      cells[i].val = 0; paint(cells[i]);
+      cells[i].el.classList.remove("pull", "merging", "flash", "hammer");
+      cells[i].el.style.removeProperty("--dx"); cells[i].el.style.removeProperty("--dy");
+    }
   }
 
   document.getElementById("backBtn").addEventListener("click", function () { location.href = "../../"; });
