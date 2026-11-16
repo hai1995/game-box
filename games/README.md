@@ -37,14 +37,15 @@ games/
 ├── breakout/        # 打砖块
 ├── slide-puzzle/    # 数字华容道
 ├── find-difference/ # 火眼金睛找不同
-├── arrow-out/       # 箭头消除 1000 关（关卡预生成 + 求解器校验）
+├── arrow-out/       # 箭头消除·无限关卡（关卡预生成 + 求解器校验 + 运行时生成）
 │   ├── README.md
 │   ├── index.html
+│   ├── level-gen.js # 1001 关起按关号实时生成（浏览器端）
+│   └── levels/      # l001.js…l010.js，前 1000 关每块 100 关按需加载
 ├── dino-run/        # 恐龙快跑（横版跑酷跳跃）
 ├── space-shooter/   # 太空大战（竖版飞行射击）
 ├── car-race/        # 疯狂赛车（竖版躲避竞速）
 ├── gold-miner/      # 黄金矿工（钩爪抓取）
-│   └── levels/      # l001.js…l010.js，每块 100 关按需加载
 ├── puzzle/          # 拼图游戏
 │   ├── README.md
 │   └── ...

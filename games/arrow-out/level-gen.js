@@ -1,0 +1,253 @@
+/*!
+ * 箭头消除 · 无限关卡运行时生成器（浏览器端）
+ * ------------------------------------------------------------------
+ * 与 tools/gen-levels.js 同源的「反向构造法 + 求解器复核 + 拒绝采样」算法。
+ * 前 1000 关由预生成数据提供，本模块负责 1000 关之后的无限关卡：
+ *   - seed 仅由关号决定，同一关每次生成完全一致（可重试、可分享关号）。
+ *   - 棋盘尺寸封顶（30×40），避免手机上格子过小点不准；难度靠箭头数、
+ *     折弯预算、嵌套深度（初始可消箭头少 / 依赖层多）持续爬升。
+ *   - 反向构造天然保证可解，生成后再跑求解器复核一次才输出。
+ * 暴露：window.ArrowLevelGen.generate(level) -> { c, r, t, a } | null
+ *       window.ArrowLevelGen.paramsFor(level) -> 难度参数（调试用）
+ */
+(function (root, factory) {
+  var api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.ArrowLevelGen = api;
+})(typeof window !== 'undefined' ? window : globalThis, function () {
+  'use strict';
+
+  var DIRS = [[-1, 0], [0, 1], [1, 0], [0, -1]];
+  var OPP = [2, 3, 0, 1];
+
+  // 难度曲线：前 1000 关与 gen-levels.js 一致（供参考/自测），之后为扩展段。
+  var SEGMENTS = [
+    { from: 1,    to: 90,   cols: [6, 8],   rows: [7, 9],   arrows: [10, 18], bends: 1, time: 600,  fill: 0.69, name: '入门' },
+    { from: 91,   to: 325,  cols: [10, 14], rows: [12, 18], arrows: [18, 30], bends: 2, time: 600,  fill: 0.71, name: '进阶' },
+    { from: 326,  to: 500,  cols: [16, 20], rows: [22, 26], arrows: [28, 40], bends: 3, time: 720,  fill: 0.73, name: '迷宫' },
+    { from: 501,  to: 700,  cols: [20, 24], rows: [26, 30], arrows: [38, 48], bends: 4, time: 840,  fill: 0.75, name: '深迷宫A' },
+    { from: 701,  to: 900,  cols: [24, 26], rows: [30, 34], arrows: [45, 55], bends: 4, time: 960,  fill: 0.76, name: '深迷宫B' },
+    { from: 901,  to: 1000, cols: [26, 28], rows: [34, 37], arrows: [50, 60], bends: 4, time: 1080, fill: 0.77, name: '终极' },
+    // ===== 1000 关之后：面向成年人的无限进阶 =====
+    { from: 1001, to: 1500, cols: [28, 30], rows: [37, 40], arrows: [58, 66], bends: 5, time: 1200, fill: 0.78, name: '大师' },
+    { from: 1501, to: 2500, cols: [30, 30], rows: [40, 40], arrows: [66, 74], bends: 5, time: 1260, fill: 0.79, name: '宗师' },
+    { from: 2501, to: Infinity, cols: [30, 30], rows: [40, 40], arrows: [74, 80], bends: 6, time: 1260, fill: 0.80, name: '无尽' }
+  ];
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  var rng = mulberry32(1);
+  function ri(a, b) { return a + Math.floor(rng() * (b - a + 1)); }
+  function shuffle(arr) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(rng() * (i + 1)), t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+  function lerp(a, b, t) { return Math.round(a + (b - a) * t); }
+  function paramsFor(level) {
+    var seg = SEGMENTS[0];
+    for (var i = 0; i < SEGMENTS.length; i++) { if (level <= SEGMENTS[i].to) { seg = SEGMENTS[i]; break; } }
+    var span = seg.to === seg.from ? 1 : (seg.to - seg.from);
+    // 无尽段用平滑收敛：离 2501 越远，t 越接近 1（参数封顶）
+    var t = seg.to === Infinity ? Math.min(1, (level - seg.from) / 1500) : (level - seg.from) / span;
+    if (t < 0) t = 0;
+    return {
+      cols: lerp(seg.cols[0], seg.cols[1], t),
+      rows: lerp(seg.rows[0], seg.rows[1], t),
+      count: lerp(seg.arrows[0], seg.arrows[1], t),
+      bends: seg.bends, time: seg.time, fill: seg.fill, name: seg.name
+    };
+  }
+
+  function rayHit(r, c, dir, grid, R, C, ignoreId) {
+    var dr = DIRS[dir][0], dc = DIRS[dir][1];
+    r += dr; c += dc;
+    while (r >= 0 && r < R && c >= 0 && c < C) {
+      var v = grid[r * C + c];
+      if (v !== -1 && v !== ignoreId) return true;
+      r += dr; c += dc;
+    }
+    return false;
+  }
+  function arrowBlocked(a, grid, R, C, id) {
+    var h = a.cells[a.cells.length - 1];
+    return rayHit(h[0], h[1], a.dir, grid, R, C, id);
+  }
+  function tryMakeArrow(R, C, grid, wantLen, maxBends) {
+    for (var attempt = 0; attempt < 600; attempt++) {
+      var er, ec;
+      if (rng() < 0.4) {
+        var side = ri(0, 3);
+        if (side === 0) { er = 0; ec = ri(0, C - 1); }
+        else if (side === 1) { er = R - 1; ec = ri(0, C - 1); }
+        else if (side === 2) { er = ri(0, R - 1); ec = 0; }
+        else { er = ri(0, R - 1); ec = C - 1; }
+      } else { er = ri(0, R - 1); ec = ri(0, C - 1); }
+      if (grid[er * C + ec] !== -1) continue;
+      var dir;
+      if (attempt % 3 === 0) {
+        var outs = [];
+        if (er === 0) outs.push(0);
+        if (er === R - 1) outs.push(2);
+        if (ec === 0) outs.push(3);
+        if (ec === C - 1) outs.push(1);
+        dir = outs.length ? outs[ri(0, outs.length - 1)] : ri(0, 3);
+      } else { dir = ri(0, 3); }
+      if (rayHit(er, ec, dir, grid, R, C, -1)) continue;
+      var back = OPP[dir], depth = 0, rr = er, cc = ec;
+      while (true) {
+        rr += DIRS[back][0]; cc += DIRS[back][1];
+        if (rr < 0 || rr >= R || cc < 0 || cc >= C) break;
+        depth++;
+      }
+      if (depth < 1) continue;
+      var len = Math.max(2, Math.min(wantLen + ri(-1, 1), depth + 1));
+      var cells = [[er, ec]], r = er, c = ec, lastBack = back, bends = 0;
+      while (cells.length < len) {
+        var dirs = rng() < 0.65
+          ? [lastBack].concat(shuffle([0, 1, 2, 3]).filter(function (d) { return d !== lastBack; }))
+          : shuffle([0, 1, 2, 3]);
+        var moved = false;
+        for (var i = 0; i < dirs.length; i++) {
+          var d = dirs[i];
+          if (d === OPP[lastBack]) continue;
+          var nr = r + DIRS[d][0], nc = c + DIRS[d][1];
+          if (nr < 0 || nr >= R || nc < 0 || nc >= C) continue;
+          if (grid[nr * C + nc] !== -1) continue;
+          var dup = false;
+          for (var k = 0; k < cells.length; k++) if (cells[k][0] === nr && cells[k][1] === nc) { dup = true; break; }
+          if (dup) continue;
+          var nb = d !== lastBack ? bends + 1 : bends;
+          if (nb > maxBends) continue;
+          cells.push([nr, nc]);
+          if (d !== lastBack) bends = nb;
+          lastBack = d; r = nr; c = nc; moved = true;
+          break;
+        }
+        if (!moved) break;
+      }
+      if (cells.length < 2) continue;
+      cells.reverse();
+      return { cells: cells, dir: dir };
+    }
+    return null;
+  }
+  function buildOnce(p, level) {
+    var R = p.rows, C = p.cols, N = p.count;
+    var bends = level <= 3 ? 0 : p.bends;
+    var targetCells = Math.round(R * C * p.fill);
+    var grid = new Int32Array(R * C).fill(-1), arrows = [], used = 0;
+    for (var k = 0; k < N; k++) {
+      var remainArrows = N - k, remainCells = Math.max(2, targetCells - used);
+      var want0 = Math.max(3, Math.round(remainCells / remainArrows * 1.3));
+      var cap = Math.max(5, Math.floor(Math.max(R, C) * 0.9)), placed = false;
+      for (var relax = 0; relax < 9 && !placed; relax++) {
+        var want = Math.max(2, Math.min(cap, want0 - Math.floor(relax / 2)));
+        var a = tryMakeArrow(R, C, grid, want, bends);
+        if (!a) continue;
+        var id = arrows.length;
+        for (var i = 0; i < a.cells.length; i++) grid[a.cells[i][0] * C + a.cells[i][1]] = id;
+        arrows.push(a); used += a.cells.length; placed = true;
+      }
+      if (!placed) break;
+    }
+    return { R: R, C: C, arrows: arrows, used: used };
+  }
+  function solvable(board) {
+    var R = board.R, C = board.C, arrows = board.arrows;
+    var grid = new Int32Array(R * C).fill(-1);
+    for (var id = 0; id < arrows.length; id++) {
+      var cells = arrows[id].cells;
+      for (var i = 0; i < cells.length; i++) grid[cells[i][0] * C + cells[i][1]] = id;
+    }
+    for (var j = arrows.length - 1; j >= 0; j--) {
+      if (arrowBlocked(arrows[j], grid, R, C, j)) return false;
+      var cs = arrows[j].cells;
+      for (var m = 0; m < cs.length; m++) grid[cs[m][0] * C + cs[m][1]] = -1;
+    }
+    return true;
+  }
+  function fillGrid(board) {
+    var grid = new Int32Array(board.R * board.C).fill(-1);
+    board.arrows.forEach(function (a, id) { a.cells.forEach(function (p) { grid[p[0] * board.C + p[1]] = id; }); });
+    return grid;
+  }
+  function openness(board) {
+    var grid = fillGrid(board), R = board.R, C = board.C, n = 0;
+    for (var id = 0; id < board.arrows.length; id++) if (!arrowBlocked(board.arrows[id], grid, R, C, id)) n++;
+    return n;
+  }
+  function depth(board) {
+    var grid = fillGrid(board), R = board.R, C = board.C, arrows = board.arrows, alive = [], i;
+    for (i = 0; i < arrows.length; i++) alive.push(i);
+    var inAlive = new Uint8Array(arrows.length).fill(1), rounds = 0;
+    while (alive.length) {
+      var clear = [];
+      for (i = 0; i < alive.length; i++) { var id = alive[i]; if (!arrowBlocked(arrows[id], grid, R, C, id)) clear.push(id); }
+      if (!clear.length) return -1;
+      clear.forEach(function (id2) {
+        arrows[id2].cells.forEach(function (p) { grid[p[0] * C + p[1]] = -1; });
+        inAlive[id2] = 0;
+      });
+      alive = alive.filter(function (id3) { return inAlive[id3]; });
+      rounds++;
+    }
+    return rounds;
+  }
+  function encode(board) {
+    return board.arrows.map(function (a) {
+      return a.dir + ',' + a.cells.map(function (p) { return p[0] + ',' + p[1]; }).join(',');
+    });
+  }
+
+  /* 生成一关：换种子多次，挑「可解 + 箭头数达标 + 嵌套深/突破口少」的最佳者。
+   * 运行时性能优先，TRIES 比离线版小；反向构造保证任意候选可解，故绝不返回死局。 */
+  function generate(level) {
+    level = Math.floor(level);
+    var p = paramsFor(level);
+    var fillLo = 0.66, fillHi = 0.82;   // 运行时略放宽，优先保证快且可解
+    var TRIES = 68, MAX_CAND = 6;
+    var fallback = null, candidates = [];
+    for (var t = 0; t < TRIES; t++) {
+      rng = mulberry32((Math.imul(level, 2654435761) + Math.imul(t, 40503)) >>> 0);
+      var board = buildOnce(p, level);
+      if (!solvable(board)) continue;             // 反向构造下几乎不会发生，双保险
+      if (board.arrows.length === 0) continue;
+      var fill = board.used / (board.R * board.C);
+      var full = board.arrows.length >= p.count;
+      var inBand = fill >= fillLo && fill <= fillHi;
+      if (full && inBand) {
+        candidates.push({ board: board, fill: fill });
+        if (candidates.length >= MAX_CAND) break;
+      } else {
+        var s = (full ? 100 : 0) - Math.abs(fill - p.fill) * 100;
+        if (!fallback || s > fallback.s) fallback = { board: board, fill: fill, s: s };
+      }
+    }
+    var best = fallback;
+    if (candidates.length) {
+      var top = -Infinity;
+      candidates.forEach(function (c) {
+        var open = openness(c.board), dep = depth(c.board);
+        // 成年人难度：依赖层深、初始突破口少权重更高
+        var sc = dep * 6 - open * 4 - Math.abs(c.fill - p.fill) * 100;
+        if (sc > top) { top = sc; best = { board: c.board, fill: c.fill }; }
+      });
+    }
+    if (!best) return null;
+    return {
+      c: best.board.C, r: best.board.R, t: p.time,
+      a: encode(best.board),
+      _meta: { name: p.name, arrows: best.board.arrows.length, want: p.count, fill: +best.fill.toFixed(3) }
+    };
+  }
+
+  return { generate: generate, paramsFor: paramsFor, SEGMENTS: SEGMENTS };
+});

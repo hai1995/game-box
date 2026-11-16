@@ -99,6 +99,16 @@
   @keyframes mergeGlow { 0%{filter:brightness(1)} 50%{filter:brightness(1.45)} 100%{filter:brightness(1)} }
   .hex.flash .in { animation:mergeFlash .44s ease; }
   @keyframes mergeFlash { 0%{transform:scale(1)} 35%{transform:scale(1.28); filter:brightness(1.5)} 100%{transform:scale(1)} }
+  /* 被选中准备移动的块 */
+  .hex.moving { z-index:6; }
+  .hex.moving .in { box-shadow:inset 0 0 0 4px rgba(255,255,255,.95), inset 0 0 0 8px #ffb703,
+    0 0 14px rgba(255,183,3,.75); animation:movePulse .9s ease-in-out infinite; }
+  @keyframes movePulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
+  /* 沿空白路径滑行的块（六边形，用 clip-path 保持造型一致） */
+  .slide-hex { position:fixed; left:0; top:0; z-index:50; pointer-events:none;
+    display:flex; align-items:center; justify-content:center; color:#fff; font-weight:900;
+    text-shadow:0 1px 2px rgba(0,0,0,.28); box-shadow:inset 0 -3px 0 rgba(0,0,0,.14), 0 6px 14px rgba(0,0,0,.22);
+    clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); will-change:transform; }
   /* 从预览队列飞向目标格的球 */
   .fly-ball { position:fixed; left:0; top:0; z-index:50; border-radius:50%; pointer-events:none;
     display:flex; align-items:center; justify-content:center; color:#fff; font-weight:900;
@@ -141,7 +151,7 @@
   <div class="ctrl">
     <button class="cbtn back" id="backBtn" aria-label="返回主页"><span class="ic">←</span><span class="lb">主页</span></button>
     <div class="nextbox">
-      <div class="nt">下一组 · 点一个数字放到空格</div>
+      <div class="nt">下一组 · 点数字放到空格 / 点棋盘块再点空格移动</div>
       <div class="balls" id="balls"></div>
     </div>
     <button class="cbtn swap" id="swapBtn"><span class="n" id="swapN">5</span><span class="ic">🔄</span><span class="lb">换一组</span></button>
@@ -151,7 +161,7 @@
   <div class="boardwrap">
     <div class="board" id="board"></div>
   </div>
-  <div class="hint" id="hint">3 个及以上相同数字连在一起就能合并变大！</div>
+  <div class="hint" id="hint">点数字放到空格；也可点棋盘上的块→点空格移动它；3 个相同数字相连即合并！</div>
 </div>
 
 <div class="overlay hidden" id="overlay">
@@ -187,6 +197,7 @@
   var cells = [], cellMap = {}, queue = [], selected = 0;
   var score = 0, best = 0, swapLeft = 5, hammerLeft = 3;
   var busy = false, finished = false, quizPaused = false, hammerMode = false, gen = 0;
+  var movingFrom = null;                       // 已选中、准备移动的棋盘块
   var DIRS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
   var SQ3 = Math.sqrt(3);
 
@@ -303,6 +314,62 @@
     setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 520);
   }
 
+  /* ---------- 移动棋盘上已有块：选中 → 沿空白路径滑到目标空格 ---------- */
+  function clearMoving() {
+    if (movingFrom) { movingFrom.el.classList.remove("moving"); movingFrom = null; }
+  }
+  function selectMoving(cell) {
+    clearMoving();
+    movingFrom = cell;
+    cell.el.classList.add("moving");
+  }
+  // 六边形网格 BFS：从 src 出发，只经过空格，找到 dst 的最短路径（含首尾）；不通返回 null
+  function findPath(src, dst) {
+    var prev = {}, q = [src], head = 0, startK = key(src.q, src.r);
+    prev[startK] = null;
+    while (head < q.length) {
+      var cur = q[head++];
+      if (cur === dst) break;
+      for (var i = 0; i < DIRS.length; i++) {
+        var nq = cur.q + DIRS[i][0], nr = cur.r + DIRS[i][1], k = key(nq, nr);
+        var nb = cellMap[k];
+        if (!nb || prev[k] !== undefined || nb.val !== 0) continue; // 中间与终点都必须是空格
+        prev[k] = cur; q.push(nb);
+      }
+    }
+    var dstK = key(dst.q, dst.r);
+    if (prev[dstK] === undefined) return null;
+    var path = [], node = dst;
+    while (node) { path.push(node); node = prev[key(node.q, node.r)]; }
+    return path.reverse();
+  }
+  // 让块沿路径各格中心滑行，落地后回调
+  function slideCell(path, val, myGen, done) {
+    var pts = path.map(function (c) {
+      var r = c.el.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height };
+    });
+    var el = document.createElement("div");
+    el.className = "slide-hex";
+    el.textContent = val;
+    el.style.width = pts[0].w + "px"; el.style.height = pts[0].h + "px";
+    el.style.fontSize = Math.round(pts[0].w * (String(val).length >= 3 ? .5 : .62)) + "px";
+    el.style.background = "linear-gradient(160deg, rgba(255,255,255,.45), rgba(0,0,0,.08)), " + colorOf(val);
+    document.body.appendChild(el);
+    var segs = pts.length - 1, dur = Math.max(220, Math.min(640, segs * 120)), t0 = performance.now();
+    function frame(now) {
+      if (myGen !== gen) { if (el.parentNode) el.parentNode.removeChild(el); return; }
+      var p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 2);
+      var f = e * segs, si = Math.min(segs - 1, Math.floor(f)), sf = f - si;
+      var x = pts[si].x + (pts[si + 1].x - pts[si].x) * sf;
+      var y = pts[si].y + (pts[si + 1].y - pts[si].y) * sf;
+      el.style.transform = "translate(-50%,-50%) translate(" + x + "px," + y + "px)";
+      if (p < 1) requestAnimationFrame(frame);
+      else { if (el.parentNode) el.parentNode.removeChild(el); ripple(path[path.length - 1]); done(); }
+    }
+    requestAnimationFrame(frame);
+  }
+
   function renderQueue() {
     ballsEl.innerHTML = "";
     for (var i = 0; i < queue.length; i++) {
@@ -313,7 +380,9 @@
         b.textContent = queue[idx];
         b.addEventListener("click", function () {
           if (quizPaused || busy || finished) return;
+          clearMoving();                       // 改选队列数字时取消"移动已有块"选中
           selected = idx; renderQueue();
+          hintEl.textContent = "选好数字啦，点一个空格放下去～";
         });
         ballsEl.appendChild(b);
       })(i);
@@ -404,6 +473,7 @@
     if (quizPaused || busy || finished) return;
 
     if (hammerMode) {
+      clearMoving();
       if (cell.val > 0 && hammerLeft > 0) {
         cell.el.classList.add("hammer");
         var target = cell, hGen = gen;
@@ -419,7 +489,32 @@
       return;
     }
 
-    if (cell.val !== 0) { hintEl.textContent = "这里已经有数字啦，选个空格放～"; return; }
+    // 已选中棋盘块：点自身取消 / 点别的块改选 / 点空格沿空白路径移动过去
+    if (movingFrom) {
+      if (cell === movingFrom) { clearMoving(); hintEl.textContent = "已取消移动～"; return; }
+      if (cell.val > 0) { selectMoving(cell); hintEl.textContent = "改选这个块，再点空格让它滑过去～"; return; }
+      var path = findPath(movingFrom, cell);
+      if (!path) { hintEl.textContent = "顺着空格走不到那里，换个空地试试～"; return; }
+      var src = movingFrom, mv = src.val, mGen = gen;
+      clearMoving();
+      busy = true;
+      slideCell(path, mv, mGen, function () {
+        if (mGen !== gen) return;
+        src.val = 0; paint(src);
+        cell.val = mv; paint(cell, true);
+        busy = false;
+        hintEl.textContent = "移动成功！凑成 3 个相同数字就能合并～";
+        resolve(cell);
+      });
+      return;
+    }
+
+    // 未选中：点已有块 → 选中它准备移动；点空格 → 从队列放置新数字
+    if (cell.val > 0) {
+      selectMoving(cell);
+      hintEl.textContent = "选中啦！再点一个空格，它会沿空白路线滑过去～（点自己可取消）";
+      return;
+    }
 
     var v = queue[selected];
     var srcBall = ballsEl.children[selected];
@@ -439,20 +534,21 @@
   }
 
   function reset() {
-    gen++; // 作废进行中的飞行/合并回调，避免重开后串局
+    gen++; // 作废进行中的飞行/合并/滑行回调，避免重开后串局
     score = 0; swapLeft = 5; hammerLeft = 3;
     busy = false; finished = false; quizPaused = false; hammerMode = false;
+    movingFrom = null;
     scoreEl.textContent = "0";
     swapN.textContent = swapLeft; hammerN.textContent = hammerLeft;
     overlay.classList.add("hidden");
-    hintEl.textContent = "3 个及以上相同数字连在一起就能合并变大！";
+    hintEl.textContent = "点数字放到空格；也可点棋盘上的块→点空格移动它；3 个相同数字相连即合并！";
     swapBtn.classList.remove("dim"); hammerBtn.classList.remove("dim", "armed");
     queue = []; fillQueue(); selected = 0; renderQueue();
-    var temp = document.querySelectorAll(".fly-ball,.ripple");
+    var temp = document.querySelectorAll(".fly-ball,.ripple,.slide-hex");
     for (var t = 0; t < temp.length; t++) if (temp[t].parentNode) temp[t].parentNode.removeChild(temp[t]);
     for (var i = 0; i < cells.length; i++) {
       cells[i].val = 0; paint(cells[i]);
-      cells[i].el.classList.remove("pull", "merging", "flash", "hammer");
+      cells[i].el.classList.remove("pull", "merging", "flash", "hammer", "moving");
       cells[i].el.style.removeProperty("--dx"); cells[i].el.style.removeProperty("--dy");
     }
   }
@@ -460,6 +556,7 @@
   document.getElementById("backBtn").addEventListener("click", function () { location.href = "../../"; });
   swapBtn.addEventListener("click", function () {
     if (quizPaused || busy || finished || swapLeft <= 0) return;
+    clearMoving();
     queue = []; fillQueue(); selected = 0; renderQueue();
     swapLeft--; swapN.textContent = swapLeft;
     hintEl.textContent = "换了一组新数字～";
@@ -467,6 +564,7 @@
   });
   hammerBtn.addEventListener("click", function () {
     if (quizPaused || busy || finished || hammerLeft <= 0) return;
+    clearMoving();
     hammerMode = !hammerMode;
     hammerBtn.classList.toggle("armed", hammerMode);
     hintEl.textContent = hammerMode ? "点一个想敲掉的数字（锤子用一次少一次）" : "已取消锤子";
