@@ -1,0 +1,260 @@
+/* =====================================================================
+ * 🎮 GameBox 公共「定时做题」模块  quiz.js
+ * ---------------------------------------------------------------------
+ * 【维护说明】所有子游戏共用本文件，改这一处即可全站生效。
+ *   1) QUIZ_INTERVAL_SECONDS —— 弹题间隔（秒）
+ *   2) QUESTION_TYPES        —— 题型注册表，新增题型只写一个函数并加入数组
+ *   3) 下方样式字符串          —— 弹窗外观
+ *
+ * 【接入方式】每个游戏页面引入本文件后调用一次：
+ *   <script src="../../quiz.js"></script>
+ *   <script> GameQuiz.init({ ... }); </script>
+ *   init 可选参数：
+ *     interval   : 弹题间隔秒数（覆盖默认值）
+ *     isPlaying  : function()->bool，是否在游戏中（不在游戏中不弹题）
+ *     onOpen     : function()，弹窗打开时调用（用于暂停游戏）
+ *     onClose    : function()，弹窗关闭时调用（用于恢复游戏）
+ *     onReward   : function()，答对时调用（用于给游戏加分，可选）
+ *     speech     : 是否朗读题目（默认 true）
+ * 也暴露 GameQuiz.open() / GameQuiz.close() 供手动触发（调试用）。
+ * ===================================================================== */
+(function () {
+  "use strict";
+  if (window.GameQuiz) return;
+
+  /* ---------- 全局配置：维护这里即可 ---------- */
+  var QUIZ_INTERVAL_SECONDS = 300; // 每 5 分钟弹一道题
+  var OPTIONS_COUNT = 4;           // 每题选项数
+
+  /* ---------- 工具函数 ---------- */
+  function rnd(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+  function cn(n) {
+    var m = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
+    return (n >= 0 && n <= 10) ? m[n] : String(n);
+  }
+  function pickUnique(pool, exclude, count) {
+    var out = [], p = pool.slice();
+    shuffle(p);
+    for (var i = 0; i < p.length && out.length < count; i++) {
+      if (exclude.indexOf(p[i]) < 0 && out.indexOf(p[i]) < 0) out.push(p[i]);
+    }
+    return out;
+  }
+
+  /* ==================================================================
+   * 题型注册表：新增题型的唯一入口
+   * 每个函数返回 { title, text, speech, correct, options }
+   * ================================================================== */
+
+  // 题型 1：十以内加法
+  function additionQuestion() {
+    var a, b;
+    do { a = rnd(1, 9); b = rnd(1, 9); } while (a + b > 10);
+    var correct = a + b;
+    var pool = [];
+    for (var i = 0; i <= 10; i++) pool.push(i);
+    var opts = [correct].concat(pickUnique(pool, [correct], OPTIONS_COUNT - 1));
+    return {
+      title: "来做一道加法题吧！",
+      text: a + " + " + b + " = ?",
+      speech: "来做一道加法题，" + cn(a) + "加" + cn(b) + "等于几？",
+      correct: correct,
+      options: shuffle(opts)
+    };
+  }
+
+  // 题型 2：顺位数字填空（等差数列挖空，如 2、4、_、8）
+  function sequenceQuestion() {
+    var step = rnd(1, 3);                       // 公差：1~3
+    var start = rnd(1, 6);                      // 起始数
+    var len = 4;                                // 共 4 个数
+    var seq = [];
+    for (var i = 0; i < len; i++) seq.push(start + step * i);
+    var blank = rnd(1, len - 2);                // 挖中间某项（有前后参照）
+    var correct = seq[blank];
+
+    // 干扰项：正确值 ± 公差 / ±1 / ±2 等接近的数
+    var pool = [];
+    var deltas = [-step, step, -1, 1, -2, 2, -step * 2, step * 2];
+    for (var d = 0; d < deltas.length; d++) {
+      var v = correct + deltas[d];
+      if (v >= 0) pool.push(v);
+    }
+    var opts = [correct].concat(pickUnique(pool, [correct], OPTIONS_COUNT - 1));
+    while (opts.length < OPTIONS_COUNT) {       // 兜底补足
+      var x = correct + rnd(-4, 4);
+      if (x >= 0 && opts.indexOf(x) < 0) opts.push(x);
+    }
+
+    var parts = seq.map(function (n, idx) { return idx === blank ? "_" : n; });
+    var spoken = seq.map(function (n, idx) { return idx === blank ? "空" : cn(n); }).join("、");
+    return {
+      title: "看一看顺序，填数字！",
+      text: parts.join("、"),
+      speech: "看一看数字的顺序，" + spoken + "，空格里应该填几？",
+      correct: correct,
+      options: shuffle(opts)
+    };
+  }
+
+  var QUESTION_TYPES = [additionQuestion, sequenceQuestion];
+
+  /* ---------- 语音 & 音效（公共自带，不依赖各游戏） ---------- */
+  function speak(text, on) {
+    if (on === false) return;
+    try {
+      if (!window.speechSynthesis) return;
+      var u = new SpeechSynthesisUtterance(text);
+      u.lang = "zh-CN"; u.rate = 0.95; u.pitch = 1.2;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+  var actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        actx = new AC();
+      }
+      if (actx.state === "suspended") actx.resume();
+      var o = actx.createOscillator(), g = actx.createGain();
+      o.type = type || "sine"; o.frequency.value = freq;
+      o.connect(g).connect(actx.destination);
+      var t = actx.currentTime;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.22, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.start(t); o.stop(t + dur + 0.02);
+    } catch (e) {}
+  }
+  function chimeOK() { beep(660, .14, "sine"); setTimeout(function () { beep(880, .14, "sine"); }, 130); setTimeout(function () { beep(1320, .22, "triangle"); }, 260); }
+  function buzz() { beep(240, .18, "sine"); }
+
+  /* ---------- 弹窗样式（维护这里可改外观） ---------- */
+  var CSS = [
+    ".gq-mask{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;",
+    "  background:rgba(18,28,48,.62);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);padding:18px;}",
+    ".gq-card{background:#fff;border-radius:28px;padding:24px 22px 26px;width:min(92vw,460px);text-align:center;",
+    "  box-shadow:0 16px 44px rgba(0,0,0,.4);animation:gqIn .3s cubic-bezier(.2,1.3,.4,1);}",
+    "@keyframes gqIn{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}",
+    ".gq-emoji{font-size:46px;line-height:1;margin-bottom:4px;}",
+    ".gq-title{font-size:clamp(20px,5.5vw,26px);color:#3a6ea5;margin:2px 0 10px;font-weight:800;}",
+    ".gq-q{font-size:clamp(38px,11vw,58px);font-weight:900;color:#FB8C00;letter-spacing:3px;margin:8px 0 18px;}",
+    ".gq-opts{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;}",
+    ".gq-opt{width:88px;height:88px;font-size:38px;font-weight:900;color:#fff;border:none;border-radius:22px;",
+    "  cursor:pointer;box-shadow:0 7px 0 rgba(0,0,0,.18);transition:transform .08s;}",
+    ".gq-opt:active{transform:translateY(4px);box-shadow:0 3px 0 rgba(0,0,0,.18);}",
+    ".gq-opt:disabled{opacity:.65;}",
+    ".gq-opt.c0{background:linear-gradient(180deg,#4FC3F7,#29B6F6);}",
+    ".gq-opt.c1{background:linear-gradient(180deg,#81C784,#66BB6A);}",
+    ".gq-opt.c2{background:linear-gradient(180deg,#FFB74D,#FFA726);}",
+    ".gq-opt.c3{background:linear-gradient(180deg,#BA68C8,#AB47BC);}",
+    ".gq-opt.shake{animation:gqShake .4s;}",
+    "@keyframes gqShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-9px)}75%{transform:translateX(9px)}}",
+    ".gq-msg{font-size:20px;font-weight:800;margin-top:18px;min-height:28px;color:#4a7ab0;}"
+  ].join("");
+
+  /* ---------- 状态 ---------- */
+  var cfg = {}, opened = false, elapsed = 0, current = null, mask = null, timer = null;
+
+  function injectDOM() {
+    if (document.getElementById("gqMask")) { mask = document.getElementById("gqMask"); return; }
+    var st = document.createElement("style");
+    st.textContent = CSS;
+    document.head.appendChild(st);
+    mask = document.createElement("div");
+    mask.id = "gqMask";
+    mask.className = "gq-mask";
+    mask.style.display = "none";
+    mask.innerHTML =
+      '<div class="gq-card">' +
+      '  <div class="gq-emoji">📝 🧠</div>' +
+      '  <div class="gq-title" id="gqTitle">来做一道题吧！</div>' +
+      '  <div class="gq-q" id="gqQ">?</div>' +
+      '  <div class="gq-opts" id="gqOpts"></div>' +
+      '  <div class="gq-msg" id="gqMsg"></div>' +
+      '</div>';
+    document.body.appendChild(mask);
+  }
+
+  function open() {
+    if (opened) return;
+    injectDOM();
+    opened = true;
+    if (typeof cfg.onOpen === "function") cfg.onOpen();
+
+    var maker = QUESTION_TYPES[Math.floor(Math.random() * QUESTION_TYPES.length)];
+    current = maker();
+    document.getElementById("gqTitle").textContent = current.title;
+    document.getElementById("gqQ").textContent = current.text;
+    var msg = document.getElementById("gqMsg");
+    msg.textContent = ""; msg.style.color = "#4a7ab0";
+
+    var box = document.getElementById("gqOpts");
+    box.innerHTML = "";
+    current.options.forEach(function (v, i) {
+      var b = document.createElement("button");
+      b.className = "gq-opt c" + i;
+      b.textContent = v;
+      b.addEventListener("click", function () { answer(v, b); });
+      box.appendChild(b);
+    });
+    mask.style.display = "flex";
+    speak(current.speech, cfg.speech);
+  }
+
+  function answer(val, btn) {
+    if (!opened || !current) return;
+    var msg = document.getElementById("gqMsg");
+    var buttons = document.getElementById("gqOpts").children;
+    if (val === current.correct) {
+      msg.style.color = "#2E7D32";
+      msg.textContent = "✅ 答对啦！你真棒 🎉";
+      chimeOK(); speak("答对啦，你真棒！", cfg.speech);
+      if (typeof cfg.onReward === "function") cfg.onReward();
+      for (var i = 0; i < buttons.length; i++) buttons[i].disabled = true;
+      setTimeout(close, 1400);
+    } else {
+      msg.style.color = "#EF6C00";
+      msg.textContent = "❌ 不对哦，再想想～";
+      buzz(); speak("再想一想哦", cfg.speech);
+      btn.classList.remove("shake"); void btn.offsetWidth; btn.classList.add("shake");
+    }
+  }
+
+  function close() {
+    if (!opened) return;
+    opened = false;
+    if (mask) mask.style.display = "none";
+    if (typeof cfg.onClose === "function") cfg.onClose();
+    elapsed = 0;
+  }
+
+  function tick() {
+    if (opened) return;
+    if (typeof cfg.isPlaying === "function" && !cfg.isPlaying()) return;
+    elapsed++;
+    if (elapsed >= (cfg.interval || QUIZ_INTERVAL_SECONDS)) open();
+  }
+
+  /* ---------- 对外 API ---------- */
+  window.GameQuiz = {
+    init: function (options) {
+      cfg = options || {};
+      injectDOM();
+      if (timer) clearInterval(timer);
+      timer = setInterval(tick, 1000);
+    },
+    open: open,
+    close: close
+  };
+})();

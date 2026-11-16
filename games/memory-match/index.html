@@ -71,6 +71,7 @@
   <button class="btn" id="againBtn">再玩一次 🔄</button>
 </div>
 
+<script src="../../quiz.js"></script>
 <script>
 (function () {
   "use strict";
@@ -143,6 +144,15 @@
 
   document.getElementById("againBtn").addEventListener("click", reset);
   reset();
+
+  // 接入公共定时做题模块：游戏未通关时才弹题
+  if (window.GameQuiz) {
+    GameQuiz.init({
+      isPlaying: function () { return pairs < deck.length / 2 && winScreen.classList.contains("hidden"); },
+      onOpen: function () {},
+      onClose: function () {}
+    });
+  }
 })();
 </script>
 </body>

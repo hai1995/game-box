@@ -111,6 +111,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../../quiz.js"></script>
 <script>
 (function () {
   "use strict";
@@ -865,7 +866,7 @@
   function animate() {
     requestAnimationFrame(animate);
     const dt = Math.min(clock.getDelta(), 0.05);
-    update(dt);
+    if (!state.quizPaused) update(dt); // 做题弹窗时暂停游戏逻辑
     renderer.render(scene, camera);
   }
 
@@ -890,6 +891,15 @@
   resetGame();
   state.running = true;
   animate();
+
+  // 接入公共定时做题模块：弹窗时暂停游戏逻辑，答对不计入打怪数（学习为主）
+  if (window.GameQuiz) {
+    GameQuiz.init({
+      isPlaying: function () { return state.running; },
+      onOpen: function () { state.quizPaused = true; },
+      onClose: function () { state.quizPaused = false; }
+    });
+  }
 
   // 浏览器要求用户手势后才能播放声音：首次触摸/按键时启动音乐
   function ensureAudio() {

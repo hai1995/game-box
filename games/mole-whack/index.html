@@ -73,6 +73,7 @@
   <button class="btn" id="againBtn">再玩一次 🔄</button>
 </div>
 
+<script src="../../quiz.js"></script>
 <script>
 (function () {
   "use strict";
@@ -192,6 +193,21 @@
 
   document.getElementById("startBtn").addEventListener("click", start);
   document.getElementById("againBtn").addEventListener("click", start);
+
+  // 接入公共定时做题模块：弹窗时冻结倒计时与地鼠，关闭后恢复
+  if (window.GameQuiz) {
+    GameQuiz.init({
+      isPlaying: function () { return playing; },
+      onOpen: function () {
+        clearTimeout(popTimer);
+        clearInterval(tickTimer);
+        clearMoles();
+      },
+      onClose: function () {
+        if (playing) { popOne(); tickTimer = setInterval(tick, 1000); }
+      }
+    });
+  }
   build();
 })();
 </script>

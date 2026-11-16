@@ -53,6 +53,7 @@
 <div id="field"></div>
 <div class="toast" id="toast">太棒啦！</div>
 
+<script src="../../quiz.js"></script>
 <script>
 (function () {
   "use strict";
@@ -168,6 +169,16 @@
 
   window.addEventListener("resize", function () { if (!busy) spawn(); });
   spawn();
+
+  // 接入公共定时做题模块：答对额外奖励分数
+  if (window.GameQuiz) {
+    GameQuiz.init({
+      isPlaying: function () { return true; },
+      onOpen: function () {},
+      onClose: function () {},
+      onReward: function () { score += 5; scoreEl.textContent = score; }
+    });
+  }
 })();
 </script>
 </body>

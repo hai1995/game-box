@@ -72,6 +72,7 @@
 
   <a class="home-btn" href="../../" aria-label="返回主页" title="返回主页">🏠</a>
 
+<script src="../../quiz.js"></script>
 <script>
 (function () {
   "use strict";
@@ -283,7 +284,7 @@
   var HEAD_D = 16, CAR_GAP = .9; // 火车整体推远，视觉上更小、遮挡更少，露出更多轨道
   var SLEEPER = 1.05;
 
-  var running=false, distance=0, score=0;
+  var running=false, distance=0, score=0, quizPaused=false;
   var baseSpeed=.30, speed=baseSpeed, fast=false, offset=0, wheelAngle=0;
   var currentTrack=1, trainX=TRACK_X[1];
   var carX=[0,0,0,0,0,0,0,0,0,0]; // 10 节车厢各自的横向位置，用于蛇形转弯
@@ -516,6 +517,7 @@
   function animate() {
     if (!running) return;
     requestAnimationFrame(animate);
+    if (quizPaused) return; // 做题弹窗时暂停
     var realSpeed = fast ? speed*2.9 : speed;
     offset += realSpeed;
     distance += realSpeed*.5;
@@ -700,6 +702,16 @@
   if (!running) { running=true; initScene(); animate(); }
   // 玩法提示先展示几秒再淡出，避免一直挡住画面
   setTimeout(function () { document.getElementById("hint").classList.add("hidden"); }, 5000);
+
+  // 接入公共定时做题模块：弹窗时暂停
+  if (window.GameQuiz) {
+    GameQuiz.init({
+      isPlaying: function () { return running; },
+      onOpen: function () { quizPaused = true; },
+      onClose: function () { quizPaused = false; },
+      onReward: function () { score += 5; document.getElementById("score").textContent = score; }
+    });
+  }
 })();
 </script>
 </body>

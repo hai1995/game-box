@@ -29,18 +29,6 @@
     color: #3a6ea5;
   }
   .overlay.hidden { display: none; }
-  #quizScreen {
-    z-index: 999;   /* 做题弹窗层级最高，盖住所有界面元素 */
-    background: rgba(18,28,48,.62);   /* 空白区域半透明深色遮罩 */
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
-  }
-  #quizScreen .quiz-card {
-    background: #fff; border-radius: 28px; padding: 22px 34px 26px;
-    box-shadow: 0 12px 36px rgba(0,0,0,.4);
-    display: flex; flex-direction: column; align-items: center;
-    max-width: 90vw;
-  }
   .overlay h1 { font-size: 40px; margin-bottom: 10px; text-shadow: 0 2px 0 #fff; }
   .overlay p { font-size: 20px; margin: 6px 20px; line-height: 1.6; color: #4a7ab0; }
   .btn {
@@ -55,16 +43,6 @@
   .tip { font-size: 16px; color: #6f9bc9; margin-top: 14px; }
   #popLayer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
   .pop { position: absolute; font-size: 28px; font-weight: bold; text-shadow: 0 2px 4px rgba(255,255,255,.8); transform: translate(-50%,-50%); transition: all .9s ease-out; }
-  #quizOpts { display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; max-width: 440px; margin-top: 8px; }
-  .qbtn { width: 120px; height: 120px; font-size: 46px; font-weight: bold; color: #fff; border: none; border-radius: 26px; cursor: pointer; box-shadow: 0 7px 0 rgba(0,0,0,.18); transition: transform .08s; }
-  .qbtn:active { transform: translateY(4px); box-shadow: 0 3px 0 rgba(0,0,0,.18); }
-  .qbtn.c0 { background: linear-gradient(180deg,#4FC3F7,#29B6F6); }
-  .qbtn.c1 { background: linear-gradient(180deg,#81C784,#66BB6A); }
-  .qbtn.c2 { background: linear-gradient(180deg,#FFB74D,#FFA726); }
-  .qbtn.c3 { background: linear-gradient(180deg,#BA68C8,#AB47BC); }
-  .qbtn.shake { animation: shake .4s; }
-  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
-  #quizMsg { font-size: 26px; margin-top: 20px; font-weight: bold; min-height: 32px; }
   .skill-btn {
     position: absolute; right: 18px; z-index: 5;
     width: 92px; height: 92px; border-radius: 50%; border: none;
@@ -165,18 +143,10 @@
 
   <div id="popLayer"></div>
 
-  <div id="quizScreen" class="overlay hidden">
-    <div class="quiz-card">
-      <div class="emoji-row">📝 ➕ 🧠</div>
-      <h1 id="quizTitle">来做一道算术题吧！</h1>
-      <p id="quizQ" style="font-size:54px;font-weight:bold;color:#FB8C00;letter-spacing:4px;">3 + 4 = ?</p>
-      <div id="quizOpts"></div>
-      <p id="quizMsg"></p>
-    </div>
-  </div>
 </div>
 
 <script src="./three.min.js"></script>
+<script src="../../quiz.js"></script>
 <script>
 (function () {
   const cv = document.getElementById('cv');
@@ -561,7 +531,7 @@
 
   let running = false, score = 0, last = 0, spawnStar = 0, spawnCloud = 0, spawnFruit = 0, spawnStorm = 0;
   let missiles = [], missileCooldown = 0;
-  let elapsed = 0, nextQuiz = 300, quizOpen = false, quizCorrect = 0;
+  let quizOpen = false; // 做题弹窗打开时暂停游戏（由公共 quiz.js 接管）
 
   // ---- 输入：往哪滑就往哪飞（顺向）----
   let dragging = false, lastX = 0, lastY = 0;
@@ -704,7 +674,7 @@
     yaw = 0; pitch = 0; updateFlyDir();
     [stars, fruits, clouds, stormClouds, bgClouds, missiles].forEach(arr => arr.forEach(o => scene.remove(o.mesh)));
     stars = []; fruits = []; clouds = []; stormClouds = []; bgClouds = []; missiles = []; spawnStar = 0; spawnCloud = 0; spawnFruit = 0; spawnStorm = 0; missileCooldown = 0;
-    elapsed = 0; nextQuiz = 300; quizOpen = false; quizScreen.classList.add('hidden');
+    quizOpen = false;
     stealthActive = false; stealthTimer = 0; stealthCooldown = 0;
     shield.visible = false; setPlaneOpacity(1);
     stealthBtn.classList.remove('active', 'cooling'); stealthState.textContent = '就绪';
@@ -954,12 +924,7 @@
   // J 键也可发射
   window.addEventListener('keydown', e => { if (e.key === 'j' || e.key === 'J') fireMissile(); });
 
-  // ---- 算术题弹窗 ----
-  const quizScreen = document.getElementById('quizScreen');
-  const quizQ = document.getElementById('quizQ');
-  const quizOpts = document.getElementById('quizOpts');
-  const quizMsg = document.getElementById('quizMsg');
-
+  // ---- 定时做题（公共 quiz.js 驱动） ----
   function speak(text) {
     try {
       if (!window.speechSynthesis) return;
@@ -967,60 +932,6 @@
       u.lang = 'zh-CN'; u.rate = 0.95; u.pitch = 1.2;
       window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
     } catch (e) {}
-  }
-  function happyChime() {
-    beep(660, 0.14, 'sine'); setTimeout(() => beep(880, 0.14, 'sine'), 130);
-    setTimeout(() => beep(1320, 0.22, 'triangle'), 260);
-  }
-  function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; }
-
-  function openQuiz() {
-    quizOpen = true;
-    // 十以内的加法：a,b 在 1..9 且 a+b<=10
-    let a, b;
-    do { a = 1 + ((Math.random() * 9) | 0); b = 1 + ((Math.random() * 9) | 0); } while (a + b > 10);
-    quizCorrect = a + b;
-    quizQ.textContent = a + ' + ' + b + ' = ?';
-    quizMsg.textContent = ''; quizMsg.style.color = '#4a7ab0';
-    // 选项：正确答案 + 3 个干扰项
-    const opts = [quizCorrect];
-    while (opts.length < 4) {
-      const w = (Math.random() * 11) | 0;
-      if (w !== quizCorrect && !opts.includes(w)) opts.push(w);
-    }
-    shuffle(opts);
-    quizOpts.innerHTML = '';
-    opts.forEach((v, i) => {
-      const btn = document.createElement('button');
-      btn.className = 'qbtn c' + i;
-      btn.textContent = v;
-      btn.addEventListener('click', () => checkAnswer(v, btn));
-      quizOpts.appendChild(btn);
-    });
-    quizScreen.classList.remove('hidden');
-    speak('来做一道加法题吧，' + a + '加' + b + '等于多少');
-  }
-
-  function checkAnswer(val, btn) {
-    if (val === quizCorrect) {
-      score += 5; scoreEl.textContent = '⭐ ' + score;
-      quizMsg.style.color = '#2E7D32';
-      quizMsg.textContent = '✅ 正确！太棒啦，奖励 +5 分 🎉';
-      happyChime(); speak('你真棒，加五分！');
-      Array.from(quizOpts.children).forEach(b => b.disabled = true);
-      setTimeout(closeQuiz, 1400);
-    } else {
-      score = Math.max(0, score - 1); scoreEl.textContent = '⭐ ' + score;
-      quizMsg.style.color = '#EF6C00';
-      quizMsg.textContent = '❌ 不对哦，再想想，加油！';
-      btn.classList.remove('shake'); void btn.offsetWidth; btn.classList.add('shake');
-      beep(240, 0.18, 'sine'); speak('加油，再试一次');
-    }
-  }
-
-  function closeQuiz() {
-    quizOpen = false;
-    quizScreen.classList.add('hidden');
   }
 
   function start() {
@@ -1033,10 +944,6 @@
   function loop(now) {
     if (!running) return;
     const dt = Math.min((now - last) / 1000, 0.05); last = now;
-    if (!quizOpen && !helpOpen) {
-      elapsed += dt;
-      if (elapsed >= nextQuiz) { nextQuiz += 300; openQuiz(); }
-    }
     if (!quizOpen && !helpOpen) { update(dt); updateStealth(dt); updateBoost(dt); updateMissiles(dt); updateGround(dt); updateMonsters(dt); }
     renderer.render(scene, camera); requestAnimationFrame(loop);
   }
@@ -1237,6 +1144,16 @@
   start();
   plane.lookAt(0, 0, 10); camera.position.set(0, 3.5, 10); camera.lookAt(0, 0, 0);
   renderer.render(scene, camera);
+
+  // 接入公共定时做题模块：暂停游戏用 quizOpen，答对奖励 +5 分
+  if (window.GameQuiz) {
+    GameQuiz.init({
+      isPlaying: function () { return running; },
+      onOpen: function () { quizOpen = true; },
+      onClose: function () { quizOpen = false; },
+      onReward: function () { score += 5; scoreEl.textContent = '⭐ ' + score; }
+    });
+  }
 })();
 </script>
 </body>

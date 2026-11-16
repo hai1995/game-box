@@ -61,6 +61,7 @@
   <button class="btn" id="nextBtn">下一关 ➡️</button>
 </div>
 
+<script src="../../quiz.js"></script>
 <script>
 (function () {
   "use strict";
@@ -219,6 +220,15 @@
   document.getElementById("nextBtn").addEventListener("click", function () { loadLevel(level + 1); });
   window.addEventListener("resize", resize);
   loadLevel(1);
+
+  // 接入公共定时做题模块：过关弹窗显示时不弹题；遮罩会拦截误操作，无需暂停
+  if (window.GameQuiz) {
+    GameQuiz.init({
+      isPlaying: function () { return winScreen.classList.contains("hidden"); },
+      onOpen: function () {},
+      onClose: function () {}
+    });
+  }
 })();
 </script>
 </body>
