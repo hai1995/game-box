@@ -201,6 +201,82 @@
     }
     return rounds;
   }
+  /* 空隙填补：反向构造做到后期，空腔里的格子几乎都被四周箭头的射线「遮住」，
+   * 无法再当新箭头的末端（末端射线必须畅通），于是留下大块空白。
+   * 关键性质：把箭头放到消除序列的「最前面」（数组头部，最后才被消除）时，
+   *   1) 它 id 最小、没有更低 id 的箭头挡它 —— 最后必然能飞出；
+   *   2) 只要它的格子不落在其它任何箭头的射线上，就不会挡住别人。
+   * 因此反复在「不在任何射线上」的安全空格里补箭头并头插，既能吃掉空腔，
+   * 又不破坏可解性。方向挑选时避开会遮蔽更多安全格的朝向，尽量多填。 */
+  function fillCavities(board, level) {
+    var R = board.R, C = board.C, arrows = board.arrows.slice();
+    var rnd = mulberry32((Math.imul(level, 2246822519) ^ 0x9e3779b9) >>> 0);
+    function ri(a, b) { return a + Math.floor(rnd() * (b - a + 1)); }
+    function shuf(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+    var target = Math.round(R * C * 0.79);
+    for (var iter = 0; iter < 400; iter++) {
+      var grid = fillGrid({ R: R, C: C, arrows: arrows }), used = 0;
+      for (var z = 0; z < R * C; z++) if (grid[z] !== -1) used++;
+      if (used >= target) break;
+      // 所有箭头射线覆盖到的空格（不含箭头自身格）标记为「不可用」
+      var forb = new Uint8Array(R * C);
+      arrows.forEach(function (a) {
+        var h = a.cells[a.cells.length - 1], v = DIRS[a.dir];
+        var r = h[0] + v[0], c = h[1] + v[1];
+        while (r >= 0 && r < R && c >= 0 && c < C) {
+          if (grid[r * C + c] === -1) forb[r * C + c] = 1;
+          r += v[0]; c += v[1];
+        }
+      });
+      var safe = new Uint8Array(R * C), sc = 0;
+      for (var q = 0; q < R * C; q++) if (grid[q] === -1 && !forb[q]) { safe[q] = 1; sc++; }
+      if (sc < 2) break;
+      var best = null;
+      for (var att = 0; att < 260; att++) {
+        var hr = ri(0, R - 1), hc = ri(0, C - 1);
+        if (!safe[hr * C + hc]) continue;
+        var dirs = shuf([0, 1, 2, 3]);
+        for (var di = 0; di < 4; di++) {
+          var dir = dirs[di], back = OPP[dir];
+          var cells = [[hr, hc]], r = hr, c = hc, lb = back, bends = 0, want = ri(8, 22);
+          while (cells.length < want) {
+            var order = rnd() < 0.7
+              ? [lb].concat(shuf([0, 1, 2, 3]).filter(function (d) { return d !== lb; }))
+              : shuf([0, 1, 2, 3]);
+            var moved = false;
+            for (var o = 0; o < order.length; o++) {
+              var d = order[o];
+              if (d === OPP[lb]) continue;
+              var nr = r + DIRS[d][0], nc = c + DIRS[d][1];
+              if (nr < 0 || nr >= R || nc < 0 || nc >= C || !safe[nr * C + nc]) continue;
+              var dup = false;
+              for (var k = 0; k < cells.length; k++) if (cells[k][0] === nr && cells[k][1] === nc) { dup = true; break; }
+              if (dup) continue;
+              var nb = d !== lb ? bends + 1 : bends;
+              if (nb > 3) continue;
+              cells.push([nr, nc]);
+              if (d !== lb) bends = nb;
+              lb = d; r = nr; c = nc; moved = true; break;
+            }
+            if (!moved) break;
+          }
+          if (cells.length < 2) continue;
+          // 该填充箭头射线上还会遮蔽多少安全格（越少越好）
+          var shadow = 0, rr = hr + DIRS[dir][0], cc = hc + DIRS[dir][1], own = {};
+          cells.forEach(function (p) { own[p[0] * C + p[1]] = 1; });
+          while (rr >= 0 && rr < R && cc >= 0 && cc < C) {
+            if (safe[rr * C + cc] && !own[rr * C + cc]) shadow++;
+            rr += DIRS[dir][0]; cc += DIRS[dir][1];
+          }
+          var score = cells.length * 3 - shadow * 2;
+          if (!best || score > best.score) best = { cells: cells, dir: dir, score: score };
+        }
+      }
+      if (!best) break;
+      arrows.unshift({ cells: best.cells, dir: best.dir });
+    }
+    return { R: R, C: C, arrows: arrows };
+  }
   function encode(board) {
     return board.arrows.map(function (a) {
       return a.dir + ',' + a.cells.map(function (p) { return p[0] + ',' + p[1]; }).join(',');
@@ -242,10 +318,15 @@
       });
     }
     if (!best) return null;
+    // 填补反向构造留下的空腔，再复核一次可解性（失败则回退到未填补版本）
+    var filled = fillCavities(best.board, level);
+    if (!solvable(filled)) filled = best.board;
+    var fg = fillGrid(filled), fused = 0;
+    for (var fi = 0; fi < fg.length; fi++) if (fg[fi] !== -1) fused++;
     return {
-      c: best.board.C, r: best.board.R, t: p.time,
-      a: encode(best.board),
-      _meta: { name: p.name, arrows: best.board.arrows.length, want: p.count, fill: +best.fill.toFixed(3) }
+      c: filled.C, r: filled.R, t: p.time,
+      a: encode(filled),
+      _meta: { name: p.name, arrows: filled.arrows.length, want: p.count, fill: +(fused / (filled.R * filled.C)).toFixed(3) }
     };
   }
 

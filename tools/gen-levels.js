@@ -264,6 +264,79 @@ function depth(board) {
   return rounds;
 }
 
+/* 空隙填补：反向构造后期空腔里的格子几乎都被四周射线遮住，无法再当新箭头末端，
+ * 于是留下大块空白。把箭头放到消除序列最前（数组头部、最后消除）时：
+ *   1) 它 id 最小、没有更低 id 的箭头挡它——最后必能飞出；
+ *   2) 只要格子不落在其它任何箭头的射线上，就不挡别人。
+ * 反复在「不在任何射线上」的安全空格补箭头并头插，既吃空腔又不破坏可解性。*/
+function fillCavities(board, level, rngRef) {
+  const R = board.R, C = board.C, arrows = board.arrows.slice();
+  const rnd = mulberry32((Math.imul(level, 2246822519) ^ 0x9e3779b9) >>> 0);
+  const ri = (a, b) => a + Math.floor(rnd() * (b - a + 1));
+  const shuf = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; };
+  const target = Math.round(R * C * 0.79);
+  for (let iter = 0; iter < 400; iter++) {
+    const grid = fillGrid({ R, C, arrows });
+    let used = 0; for (let z = 0; z < R * C; z++) if (grid[z] !== -1) used++;
+    if (used >= target) break;
+    const forb = new Uint8Array(R * C);
+    arrows.forEach(function (a) {
+      const h = a.cells[a.cells.length - 1], v = DIRS[a.dir];
+      let r = h[0] + v[0], c = h[1] + v[1];
+      while (r >= 0 && r < R && c >= 0 && c < C) {
+        if (grid[r * C + c] === -1) forb[r * C + c] = 1;
+        r += v[0]; c += v[1];
+      }
+    });
+    const safe = new Uint8Array(R * C); let sc = 0;
+    for (let q = 0; q < R * C; q++) if (grid[q] === -1 && !forb[q]) { safe[q] = 1; sc++; }
+    if (sc < 2) break;
+    let best = null;
+    for (let att = 0; att < 260; att++) {
+      const hr = ri(0, R - 1), hc = ri(0, C - 1);
+      if (!safe[hr * C + hc]) continue;
+      const dirs = shuf([0, 1, 2, 3]);
+      for (let di = 0; di < 4; di++) {
+        const dir = dirs[di], back = OPP[dir];
+        const cells = [[hr, hc]]; let r = hr, c = hc, lb = back, bends = 0, want = ri(8, 22);
+        while (cells.length < want) {
+          const order = rnd() < 0.7
+            ? [lb].concat(shuf([0, 1, 2, 3]).filter((d) => d !== lb))
+            : shuf([0, 1, 2, 3]);
+          let moved = false;
+          for (let o = 0; o < order.length; o++) {
+            const d = order[o];
+            if (d === OPP[lb]) continue;
+            const nr = r + DIRS[d][0], nc = c + DIRS[d][1];
+            if (nr < 0 || nr >= R || nc < 0 || nc >= C || !safe[nr * C + nc]) continue;
+            let dup = false;
+            for (let k = 0; k < cells.length; k++) if (cells[k][0] === nr && cells[k][1] === nc) { dup = true; break; }
+            if (dup) continue;
+            const nb = d !== lb ? bends + 1 : bends;
+            if (nb > 3) continue;
+            cells.push([nr, nc]);
+            if (d !== lb) bends = nb;
+            lb = d; r = nr; c = nc; moved = true; break;
+          }
+          if (!moved) break;
+        }
+        if (cells.length < 2) continue;
+        let shadow = 0, rr = hr + DIRS[dir][0], cc = hc + DIRS[dir][1];
+        const own = {}; cells.forEach((p) => { own[p[0] * C + p[1]] = 1; });
+        while (rr >= 0 && rr < R && cc >= 0 && cc < C) {
+          if (safe[rr * C + cc] && !own[rr * C + cc]) shadow++;
+          rr += DIRS[dir][0]; cc += DIRS[dir][1];
+        }
+        const score = cells.length * 3 - shadow * 2;
+        if (!best || score > best.score) best = { cells, dir, score };
+      }
+    }
+    if (!best) break;
+    arrows.unshift({ cells: best.cells, dir: best.dir });
+  }
+  return { R, C, arrows };
+}
+
 function encode(board) {
   return board.arrows.map(function (a) {
     return a.dir + ',' + a.cells.map(function (p) { return p[0] + ',' + p[1]; }).join(',');
@@ -318,11 +391,15 @@ function generateLevel(level) {
   }
   if (!best) throw new Error('关卡 ' + level + ' 无法生成可解布局');
 
-  const b = best.board;
+  let b = fillCavities(best.board, level);
+  if (!solvable(b)) b = best.board; // 填补后复核可解，失败回退
+  const fg = fillGrid(b); let fused = 0; for (let i = 0; i < fg.length; i++) if (fg[i] !== -1) fused++;
+  const realFill = fused / (b.R * b.C);
   return {
     data: { c: b.C, r: b.R, t: p.time, a: encode(b) },
-    fill: best.fill, want: p.count, got: b.arrows.length,
-    name: p.name, full: best.full, inBand: best.inBand, level: level,
+    fill: realFill, want: p.count, got: b.arrows.length,
+    name: p.name, full: b.arrows.length >= p.count,
+    inBand: realFill >= 0.66 && realFill <= 0.93, level: level,
     open: best.open, dep: best.dep
   };
 }
