@@ -230,6 +230,7 @@
     bulb:      '<path d="M32 13a16 16 0 0 0-9 29c2 1 3 3 3 5h12c0-2 1-4 3-5a16 16 0 0 0-9-29z" fill="#fff"/><path d="M27 52h10" stroke="#fff" stroke-width="4" stroke-linecap="round"/>',
     shuffle:   '<path d="M14 22h8c12 0 12 20 24 20h4m-6-6 6 6-6 6M14 42h8c5 0 8-4 10-8m8-12h4l-6-6m6 6-6 6" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>',
     play:      '<path d="M24 17 51 32 24 47z" fill="#fff"/>',
+    arrow:     '<path d="M16 28h20v-9l16 13-16 13v-9H16z" fill="#fff"/>',
     sound:     '<path d="M14 26h8l11-9v30l-11-9h-8z" fill="#fff"/><path d="M41 24c4 4 4 12 0 16m4-22c8 8 8 20 0 28" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>',
     mute:      '<path d="M14 26h8l11-9v30l-11-9h-8z" fill="#fff"/><path d="M42 26l12 12m0-12L42 38" stroke="#fff" stroke-width="4" stroke-linecap="round"/>',
     train:     '<rect x="18" y="12" width="28" height="32" rx="7" fill="#fff"/><rect x="23" y="19" width="18" height="12" rx="3" fill="#000" opacity=".22"/><circle cx="26" cy="50" r="4" fill="#fff"/><circle cx="38" cy="50" r="4" fill="#fff"/><path d="M25 39h14" stroke="#000" stroke-width="3" opacity=".25"/>',
@@ -274,7 +275,7 @@
   var BADGE_GRAD = {
     home:"gRed", refresh:"gBlue", trophy:"gGold", clock:"gBlue", target:"gRed", foot:"gGreen",
     fire:"gOrange", robot:"gPurple", undo:"gBlue", bulb:"gOrange", shuffle:"gPurple", play:"gGreen",
-    sound:"gBlue", mute:"gDark", train:"gBlue", plane:"gBlue", crown:"gGold", sword:"gBlue",
+    sound:"gBlue", mute:"gDark", train:"gBlue", plane:"gBlue", arrow:"gBlue", crown:"gGold", sword:"gBlue",
     brick:"gOrange", snake:"gGreen", bubble:"gBlue", hammer:"gDark", map:"gGreen", eye:"gPurple",
     brain:"gPink", pencil:"gGold", medal:"gGold", sprout:"gGreen", note:"gBlue", check:"gGreen",
     party:"gPink", dizzy:"gOrange", boom:"gOrange", cloud:"gBlue", puzzle:"gPurple", gamepad:"gPurple",
@@ -352,6 +353,7 @@
     "☁️":"cloud","☁":"cloud","🌟":"sparkle","✨":"sparkle","🍓":"strawberry","👥":"people","👆":"target",
     "💣":"bomb","🐹":"hamster","🐭":"hamster","🎈":"balloon","🍎":"apple",
     "🏓":"gamepad","📏":"target","🎊":"party","🥚":"star","💎":"star","🌈":"cloud",
+    "➡️":"arrow","➡":"arrow","⬆️":"arrow","⬆":"arrow",
     "🔵":"bubble","🟢":"bubble","🔴":"heart","🟡":"star","🟣":"bubble","⬡":"hex","⬢":"hex"
   };
   var EMOJI_RE = null;

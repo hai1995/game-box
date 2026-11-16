@@ -103,6 +103,7 @@
   .app:nth-child(15) { animation-delay: .75s; }
   .app:nth-child(16) { animation-delay: .80s; }
   .app:nth-child(17) { animation-delay: .85s; }
+  .app:nth-child(18) { animation-delay: .90s; }
   @keyframes rise {
     from { opacity: 0; transform: translateY(14px); }
     to   { opacity: 1; transform: translateY(0); }
@@ -157,6 +158,7 @@
   .c-break   { background: linear-gradient(135deg, #f06292 0%, #3949ab 100%); }
   .c-slide   { background: linear-gradient(135deg, #5c7cfa 0%, #3949ab 100%); }
   .c-find    { background: linear-gradient(135deg, #ba68c8 0%, #8e24aa 100%); }
+  .c-arrow   { background: linear-gradient(135deg, #4facfe 0%, #2f6fe4 100%); }
   .c-quiz    { background: linear-gradient(135deg, #ff6b9d 0%, #ff9f43 100%); }
   /* 题目练习入口：加个「练习」小角标，与其他游戏区分 */
   .app-icon.quiz-icon { position: relative; }
@@ -265,6 +267,11 @@
     <a class="app" href="games/find-difference/index.html" aria-label="打开 火眼金睛找不同">
       <div class="app-icon c-find"><span class="em">👀</span></div>
       <div class="app-name">火眼<br>金睛</div>
+    </a>
+
+    <a class="app" href="games/arrow-out/index.html" aria-label="打开 箭头消除">
+      <div class="app-icon c-arrow"><span class="em">➡️</span></div>
+      <div class="app-name">箭头<br>消除</div>
     </a>
 
     <a class="app" href="practice/index.html" aria-label="打开 题目练习">

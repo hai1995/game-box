@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#fff6e5" />
+<link rel="icon" href="data:," />
+<title>➡️ 箭头消除 1000 关</title>
+<link rel="stylesheet" href="../../theme.css">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { width:100%; min-height:100%; overflow:hidden;
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif; color:var(--gb-ink); }
+  body { background:var(--gb-bg); background-attachment:fixed;
+    display:flex; flex-direction:column; align-items:center; }
+
+  /* 顶栏 */
+  .top { width:100%; max-width:600px; padding:calc(10px + env(safe-area-inset-top)) 12px 6px 64px; }
+  .title { display:flex; align-items:center; justify-content:center; gap:8px;
+    font-size:clamp(18px,5vw,24px); font-weight:900; color:#e8684c; margin-bottom:8px; letter-spacing:1px; }
+  .title [data-icon] svg { width:1.1em; height:1.1em; }
+  .bar { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
+  .bar .pill { padding:6px 12px; font-size:14px; }
+  .bar .pill small { font-size:11px; opacity:.7; font-weight:700; margin-right:3px; }
+  .bar .pill.lv { cursor:pointer; }
+  .bar .pill.lives { color:#e8384f; }
+  .bar .pill.left { color:#3d9be9; }
+  .bar .pill.time.danger { color:#fff; background:linear-gradient(180deg,#ff7b7b,#e8384f);
+    border-color:#ff9b9b; animation:tpulse .8s ease-in-out infinite; }
+  @keyframes tpulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+  .bar .pill.bump { animation:bump .35s; }
+  @keyframes bump { 0%,100%{transform:scale(1)} 40%{transform:scale(1.25) rotate(-6deg)} }
+
+  /* 棋盘 */
+  .boardwrap { flex:1; width:100%; display:flex; align-items:center; justify-content:center;
+    padding:6px 12px 4px; min-height:0; }
+  canvas { display:block; touch-action:none; border-radius:18px;
+    box-shadow:0 8px 0 rgba(210,150,120,.22), 0 16px 30px rgba(150,100,90,.18),
+      inset 0 0 0 4px #fff; background:rgba(255,255,255,.55); }
+
+  /* 底部控制 */
+  .ctrl { width:100%; max-width:600px; display:flex; gap:10px; justify-content:center;
+    padding:6px 12px calc(14px + env(safe-area-inset-bottom)); }
+  .ctrl .btn { font-size:14px; padding:9px 18px; }
+
+  /* 提示气泡 */
+  .toast { position:fixed; left:50%; top:calc(96px + env(safe-area-inset-top)); transform:translateX(-50%) translateY(-8px);
+    z-index:60; background:rgba(74,59,52,.92); color:#fff; font-weight:800; font-size:14px;
+    padding:9px 18px; border-radius:999px; opacity:0; transition:.25s; pointer-events:none; white-space:nowrap; }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* 载入遮罩 */
+  .loading { position:fixed; inset:0; z-index:70; display:flex; align-items:center; justify-content:center;
+    background:rgba(255,247,232,.85); font-size:18px; font-weight:900; color:#e8684c; }
+  .loading.hidden { display:none; }
+
+  /* 通关/失败弹层复用 theme.css 的 .overlay + .btn */
+  .overlay.hidden { display:none; }
+  .overlay .card h2 { font-size:clamp(24px,7vw,34px); margin-bottom:6px; }
+  .overlay .card p { color:var(--gb-ink-soft); font-weight:700; line-height:1.7; margin-bottom:8px; }
+  .overlay .badge-ico { font-size:52px; margin-bottom:2px; }
+  .overlay .badge-ico [data-icon] svg { width:60px; height:60px; }
+  .overlay .row { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin-top:6px; }
+</style>
+</head>
+<body>
+
+<a class="home-btn" href="../../" aria-label="返回主页" title="返回主页">🏠</a>
+
+<div class="top">
+  <div class="title"><span data-icon="wind"></span> 箭头消除 · 1000 关</div>
+  <div class="bar">
+    <div class="pill lv" id="lvPill" title="点击选关"><small>关卡</small><b id="lvNum">1</b></div>
+    <div class="pill time" id="timePill"><small>时间</small><b id="timeNum">10:00</b></div>
+    <div class="pill lives" id="livesPill"><small>机会</small><b id="livesNum">❤❤❤</b></div>
+    <div class="pill left"><small>剩余</small><b id="leftNum">0</b></div>
+  </div>
+</div>
+
+<div class="boardwrap"><canvas id="cv"></canvas></div>
+
+<div class="ctrl">
+  <button class="btn yellow" id="replayBtn"><span data-icon="refresh"></span> 重玩本关</button>
+  <button class="btn blue" id="pickBtn"><span data-icon="target"></span> 选关</button>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="loading" id="loading">正在准备关卡…</div>
+
+<div class="overlay hidden" id="overlay">
+  <div class="card">
+    <div class="badge-ico" id="ovIco"></div>
+    <h2 id="ovTitle">通关啦！</h2>
+    <p id="ovMsg"></p>
+    <div class="row" id="ovBtns"></div>
+  </div>
+</div>
+
+<script src="../../icons.js"></script>
+<script src="../../quiz.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- DOM ---------- */
+  var cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+  var lvNum = document.getElementById("lvNum"), timeNum = document.getElementById("timeNum");
+  var timePill = document.getElementById("timePill"), livesNum = document.getElementById("livesNum");
+  var livesPill = document.getElementById("livesPill"), leftNum = document.getElementById("leftNum");
+  var lvPill = document.getElementById("lvPill"), loading = document.getElementById("loading");
+  var overlay = document.getElementById("overlay"), ovIco = document.getElementById("ovIco");
+  var ovTitle = document.getElementById("ovTitle"), ovMsg = document.getElementById("ovMsg");
+  var ovBtns = document.getElementById("ovBtns"), toastEl = document.getElementById("toast");
+
+  /* ---------- 果冻色板（左上光源统一高光） ---------- */
+  var PALETTE = [
+    { s: "#ff9bb8", e: "#f2567f", d: "#c62f5f" }, // 草莓粉
+    { s: "#ffd182", e: "#f5a623", d: "#c07d0a" }, // 糖果橙
+    { s: "#ffe98a", e: "#f2c022", d: "#b9930a" }, // 柠檬黄
+    { s: "#a7e6a0", e: "#45bf6c", d: "#2c8f4c" }, // 青草绿
+    { s: "#8fe0e6", e: "#2bb7c4", d: "#188a94" }, // 湖水青
+    { s: "#9fc6ff", e: "#4a86e8", d: "#2c5fbd" }, // 天空蓝
+    { s: "#c9a8ff", e: "#8b5cf6", d: "#6437c4" }, // 葡萄紫
+    { s: "#ffb08a", e: "#f2703a", d: "#c04e1c" }  // 蜜桃橙
+  ];
+
+  /* ---------- 游戏状态 ---------- */
+  var DIRS = [[-1, 0], [0, 1], [1, 0], [0, -1]]; // 0上 1右 2下 3左
+  var level = 1, board = null, occ = null, cell = 30, ox = 0, oy = 0;
+  var remaining = 0, lives = 3, timeLeft = 600, bonusTime = 0, streak = 0;
+  var started = false, running = false, won = false, lost = false, quizPaused = false;
+  var flying = [], flash = null, shake = null, timerId = null;
+  var rafId = null, dirty = true, dpr = 1;
+
+  /* ---------- 关卡加载（按需分块，避免手机首屏卡顿） ---------- */
+  function decodeLevel(data) {
+    var arrows = data.a.map(function (s) {
+      var p = s.split(",").map(Number), cells = [];
+      for (var i = 1; i < p.length; i += 2) cells.push([p[i], p[i + 1]]);
+      return { dir: p[0], cells: cells };
+    });
+    return { r: data.r, c: data.c, t: data.t, arrows: arrows };
+  }
+  function loadLevel(n, done) {
+    var chunk = Math.ceil(n / 100), idx = (n - 1) % 100;
+    function use() {
+      var arr = window.GB_LEVEL_CHUNKS && window.GB_LEVEL_CHUNKS[chunk];
+      done(arr && arr[idx] ? decodeLevel(arr[idx]) : null);
+    }
+    if (window.GB_LEVEL_CHUNKS && window.GB_LEVEL_CHUNKS[chunk]) { use(); return; }
+    var s = document.createElement("script");
+    s.src = "levels/l" + String(chunk).padStart(3, "0") + ".js";
+    s.onload = use; s.onerror = function () { done(null); };
+    document.head.appendChild(s);
+  }
+
+  function startLevel(n) {
+    level = Math.max(1, Math.min(1000, n));
+    loading.classList.remove("hidden");
+    hideOverlay();
+    loadLevel(level, function (data) {
+      if (!data) { toast("关卡载入失败，请重试"); loading.classList.add("hidden"); return; }
+      board = data;
+      occ = new Int32Array(board.r * board.c).fill(-1);
+      board.arrows.forEach(function (a, id) {
+        a.cells.forEach(function (p) { occ[p[0] * board.c + p[1]] = id; });
+      });
+      remaining = board.arrows.length;
+      lives = 3; timeLeft = board.t; bonusTime = 0; streak = 0;
+      started = false; running = false; won = false; lost = false; quizPaused = false;
+      flying = []; flash = null; shake = null;
+      localStorage.setItem("gb-arrow-level", String(level));
+      resize();
+      syncHud();
+      loading.classList.add("hidden");
+    });
+  }
+
+  /* ---------- 尺寸/绘制 ---------- */
+  function resize() {
+    if (!board) return;
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var topH = document.querySelector(".top").offsetHeight || 120;
+    var ctrlH = document.querySelector(".ctrl").offsetHeight || 60;
+    var availW = Math.min(vw - 24, 560), availH = vh - topH - ctrlH - 20;
+    cell = Math.floor(Math.min(availW / board.c, availH / board.r));
+    cell = Math.max(8, Math.min(cell, 72));
+    var w = cell * board.c, h = cell * board.r;
+    cv.style.width = w + "px"; cv.style.height = h + "px";
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ox = 0; oy = 0;
+    invalidate();
+  }
+  function center(r, c) { return { x: c * cell + cell / 2, y: r * cell + cell / 2 }; }
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
+  }
+  function pathOf(cells) {
+    ctx.beginPath();
+    for (var i = 0; i < cells.length; i++) {
+      var p = center(cells[i][0], cells[i][1]);
+      if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+    }
+  }
+  function drawArrow(a, pal, dx, dy, alpha, sh) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.lineJoin = "round"; ctx.lineCap = "round";
+    ctx.translate(dx + sh, dy);
+    // 路径阴影描边
+    pathOf(a.cells); ctx.lineWidth = cell * 0.66; ctx.strokeStyle = pal.d; ctx.stroke();
+    // 渐变主体
+    var p0 = center(a.cells[0][0], a.cells[0][1]);
+    var pe = center(a.cells[a.cells.length - 1][0], a.cells[a.cells.length - 1][1]);
+    var g = ctx.createLinearGradient(p0.x, p0.y, pe.x, pe.y);
+    g.addColorStop(0, pal.s); g.addColorStop(1, pal.e);
+    pathOf(a.cells); ctx.lineWidth = cell * 0.5; ctx.strokeStyle = g; ctx.stroke();
+    // 左上高光
+    ctx.save(); ctx.translate(-cell * 0.06, -cell * 0.1);
+    pathOf(a.cells); ctx.lineWidth = cell * 0.12; ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.stroke();
+    ctx.restore();
+    // 末端箭头三角
+    var end = center(a.cells[a.cells.length - 1][0], a.cells[a.cells.length - 1][1]);
+    var v = DIRS[a.dir], vx = v[1], vy = v[0];       // 列=x 行=y
+    var bx = end.x + vx * cell * 0.02, by = end.y + vy * cell * 0.02;
+    var tipx = end.x + vx * cell * 0.5, tipy = end.y + vy * cell * 0.5;
+    var px = -vy, py = vx, half = cell * 0.34;
+    function tri() { ctx.beginPath(); ctx.moveTo(tipx, tipy);
+      ctx.lineTo(bx + px * half, by + py * half); ctx.lineTo(bx - px * half, by - py * half); ctx.closePath(); }
+    tri(); ctx.lineWidth = cell * 0.12; ctx.strokeStyle = pal.d; ctx.stroke();
+    tri(); ctx.fillStyle = pal.e; ctx.fill();
+    // 起点尾巴圆点
+    var st = center(a.cells[0][0], a.cells[0][1]);
+    ctx.beginPath(); ctx.arc(st.x, st.y, cell * 0.12, 0, Math.PI * 2); ctx.fillStyle = pal.d; ctx.fill();
+    ctx.restore();
+  }
+  function draw() {
+    if (!board) return;
+    var w = cell * board.c, h = cell * board.r;
+    ctx.clearRect(0, 0, w, h);
+    // 棋盘底 + 网格
+    ctx.save(); roundRect(2, 2, w - 4, h - 4, 16); ctx.clip();
+    ctx.fillStyle = "rgba(255,253,247,.72)"; ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = "rgba(210,180,150,.16)"; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (var c = 1; c < board.c; c++) { ctx.moveTo(c * cell, 0); ctx.lineTo(c * cell, h); }
+    for (var r = 1; r < board.r; r++) { ctx.moveTo(0, r * cell); ctx.lineTo(w, r * cell); }
+    ctx.stroke();
+    ctx.restore();
+    // 未消除箭头
+    board.arrows.forEach(function (a, id) {
+      if (occ[a.cells[0][0] * board.c + a.cells[0][1]] === -1) return; // 已消除
+      if (flying.some(function (f) { return f.id === id; })) return;   // 飞出中由下方绘制
+      var sh = (shake && shake.id === id) ? Math.sin(shake.p * 28) * cell * 0.12 * (1 - shake.p) : 0;
+      drawArrow(a, PALETTE[id % PALETTE.length], 0, 0, 1, sh);
+    });
+    // 飞出动画
+    flying.forEach(function (f) {
+      var dist = (Math.max(board.r, board.c) + 3) * cell * f.e;
+      var dx = DIRS[f.a.dir][1] * dist, dy = DIRS[f.a.dir][0] * dist;
+      drawArrow(f.a, PALETTE[f.id % PALETTE.length], dx, dy, 1 - f.p, 0);
+    });
+    // 被挡射线红色反馈
+    if (flash) {
+      ctx.save(); ctx.globalAlpha = (1 - flash.p) * 0.85;
+      var h2 = flash.cells[flash.cells.length - 1], v = DIRS[flash.dir];
+      var s = center(h2[0], h2[1]);
+      ctx.strokeStyle = "#e8384f"; ctx.lineWidth = cell * 0.24; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(s.x, s.y);
+      ctx.lineTo(s.x + v[1] * (Math.max(board.r, board.c) + 2) * cell,
+                 s.y + v[0] * (Math.max(board.r, board.c) + 2) * cell);
+      ctx.stroke(); ctx.restore();
+    }
+  }
+  function invalidate() { dirty = true; if (rafId == null) rafId = requestAnimationFrame(tick); }
+  function tick(ts) {
+    rafId = null;
+    var active = false, now = ts || performance.now();
+    flying = flying.filter(function (f) {
+      f.p = (now - f.t0) / 480; f.e = 1 - Math.pow(1 - Math.min(f.p, 1), 3);
+      return f.p < 1;
+    });
+    if (flying.length) active = true;
+    if (flash) { flash.p = (now - flash.t0) / 420; if (flash.p >= 1) flash = null; else active = true; }
+    if (shake) { shake.p = (now - shake.t0) / 380; if (shake.p >= 1) shake = null; else active = true; }
+    if (dirty || active) { draw(); dirty = false; }
+    if (active) schedule();
+  }
+  function schedule() { if (rafId == null) rafId = requestAnimationFrame(tick); }
+
+  /* ---------- 射线判定 ---------- */
+  function isClear(a, id) {
+    var h = a.cells[a.cells.length - 1], v = DIRS[a.dir];
+    var r = h[0] + v[0], c = h[1] + v[1];
+    while (r >= 0 && r < board.r && c >= 0 && c < board.c) {
+      var o = occ[r * board.c + c];
+      if (o !== -1 && o !== id) return false;
+      r += v[0]; c += v[1];
+    }
+    return true;
+  }
+
+  /* ---------- 交互 ---------- */
+  function beginTimer() {
+    if (started) return;
+    started = true; running = true;
+    if (timerId) clearInterval(timerId);
+    timerId = setInterval(function () {
+      if (!running || quizPaused || won || lost) return;
+      timeLeft--;
+      if (timeLeft <= 0) { timeLeft = 0; syncHud(); lose("时间到啦！"); return; }
+      syncHud();
+    }, 1000);
+  }
+  function onTap(e) {
+    if (!board || won || lost || quizPaused) return;
+    var rect = cv.getBoundingClientRect();
+    var pt = e.touches && e.touches[0] ? e.touches[0] : e;
+    var x = pt.clientX - rect.left, y = pt.clientY - rect.top;
+    var c = Math.floor(x / cell), r = Math.floor(y / cell);
+    if (r < 0 || r >= board.r || c < 0 || c >= board.c) return;
+    var id = occ[r * board.c + c];
+    if (id === -1) return;
+    beginTimer();
+    var a = board.arrows[id];
+    if (isClear(a, id)) {
+      // 消除
+      a.cells.forEach(function (p) { occ[p[0] * board.c + p[1]] = -1; });
+      remaining--; streak++;
+      flying.push({ id: id, a: a, t0: performance.now(), p: 0, e: 0 });
+      if (streak > 0 && streak % 5 === 0 && bonusTime < 30) {
+        bonusTime = Math.min(30, bonusTime + 5); timeLeft += 5;
+        toast("连消 " + streak + " 个，奖励 +5 秒！");
+      }
+      syncHud(); invalidate();
+      if (remaining <= 0) setTimeout(function () { win(); }, 420);
+    } else {
+      // 被挡：扣机会 + 视觉反馈
+      lives--; streak = 0;
+      flash = { cells: a.cells, dir: a.dir, t0: performance.now(), p: 0 };
+      shake = { id: id, t0: performance.now(), p: 0 };
+      pulse(livesPill);
+      toast("被挡住啦！还剩 " + lives + " 次机会");
+      syncHud(); invalidate();
+      if (lives <= 0) setTimeout(function () { lose("机会用完啦！"); }, 380);
+    }
+  }
+
+  /* ---------- HUD / 弹层 ---------- */
+  function fmt(t) { var m = Math.floor(t / 60), s = t % 60; return m + ":" + (s < 10 ? "0" : "") + s; }
+  function syncHud() {
+    lvNum.textContent = level;
+    timeNum.textContent = fmt(timeLeft);
+    if (timeLeft <= 30 && !won && !lost) timePill.classList.add("danger");
+    else timePill.classList.remove("danger");
+    livesNum.textContent = lives > 0 ? new Array(lives + 1).join("❤") : "—";
+    leftNum.textContent = remaining;
+  }
+  function pulse(el) { el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); }
+  var toastTid = null;
+  function toast(msg) {
+    toastEl.textContent = msg; toastEl.classList.add("show");
+    clearTimeout(toastTid); toastTid = setTimeout(function () { toastEl.classList.remove("show"); }, 1500);
+  }
+  function hideOverlay() { overlay.classList.add("hidden"); }
+  function btn(label, cls, fn) {
+    var b = document.createElement("button"); b.className = "btn " + cls; b.textContent = label;
+    b.addEventListener("click", fn); return b;
+  }
+  function win() {
+    if (won) return; won = true; running = false;
+    if (timerId) { clearInterval(timerId); timerId = null; }
+    var used = board.t - timeLeft;
+    ovIco.innerHTML = window.GameIcons ? GameIcons.badge("trophy") : "🏆";
+    ovTitle.textContent = "第 " + level + " 关通关！";
+    ovMsg.innerHTML = "全部箭头都消除啦，真棒！<br>用时 " + fmt(Math.max(0, used)) +
+      " · 剩余机会 " + lives + (bonusTime ? " · 加时 +" + bonusTime + "s" : "");
+    ovBtns.innerHTML = "";
+    if (level < 1000) ovBtns.appendChild(btn("下一关", "primary", function () { startLevel(level + 1); }));
+    ovBtns.appendChild(btn("重玩本关", "blue", function () { startLevel(level); }));
+    var h = document.createElement("button"); h.className = "btn"; h.style.background = "#fff";
+    h.style.color = "#e8684c"; h.textContent = "返回主页";
+    h.addEventListener("click", function () { location.href = "../../"; }); ovBtns.appendChild(h);
+    overlay.classList.remove("hidden");
+  }
+  function lose(reason) {
+    if (lost) return; lost = true; running = false;
+    if (timerId) { clearInterval(timerId); timerId = null; }
+    ovIco.innerHTML = window.GameIcons ? GameIcons.badge("dizzy") : "😵";
+    ovTitle.textContent = "再试一次吧！";
+    ovMsg.textContent = reason + " 还剩 " + remaining + " 个箭头没消除。";
+    ovBtns.innerHTML = "";
+    ovBtns.appendChild(btn("重试本关", "red", function () { startLevel(level); }));
+    ovBtns.appendChild(btn("返回主页", "blue", function () { location.href = "../../"; }));
+    overlay.classList.remove("hidden");
+  }
+
+  /* ---------- 事件绑定 ---------- */
+  cv.addEventListener("pointerdown", function (e) { e.preventDefault(); onTap(e); });
+  window.addEventListener("resize", resize);
+  document.getElementById("replayBtn").addEventListener("click", function () { startLevel(level); });
+  function pick() {
+    var n = parseInt(prompt("输入要挑战的关卡（1–1000）：", String(level)), 10);
+    if (n >= 1 && n <= 1000) startLevel(n);
+  }
+  document.getElementById("pickBtn").addEventListener("click", pick);
+  lvPill.addEventListener("click", pick);
+
+  /* ---------- 公共题库（定时弹题，暂停倒计时） ---------- */
+  if (window.GameQuiz) {
+    GameQuiz.init({
+      isPlaying: function () { return running && !won && !lost && started; },
+      onOpen: function () { quizPaused = true; },
+      onClose: function () { quizPaused = false; }
+    });
+  }
+
+  /* ---------- 启动 ---------- */
+  var saved = parseInt(localStorage.getItem("gb-arrow-level"), 10);
+  startLevel(saved >= 1 && saved <= 1000 ? saved : 1);
+})();
+</script>
+</body>
+</html>

@@ -37,6 +37,10 @@ games/
 ├── breakout/        # 打砖块
 ├── slide-puzzle/    # 数字华容道
 ├── find-difference/ # 火眼金睛找不同
+├── arrow-out/       # 箭头消除 1000 关（关卡预生成 + 求解器校验）
+│   ├── README.md
+│   ├── index.html
+│   └── levels/      # l001.js…l010.js，每块 100 关按需加载
 ├── puzzle/          # 拼图游戏
 │   ├── README.md
 │   └── ...
