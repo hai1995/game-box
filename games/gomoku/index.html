@@ -78,10 +78,12 @@
 
 <script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
+<script src="../../save.js"></script>
 <script>
 (function () {
   "use strict";
   var N = 15, DIRS = [[0,1],[1,0],[1,1],[1,-1]];
+  var SAVE_KEY = "gomoku";
   var canvas = document.getElementById("board"), ctx = canvas.getContext("2d");
   var turnPill = document.getElementById("turnPill"), stepsEl = document.getElementById("steps");
   var modeBtn = document.getElementById("modeBtn");
@@ -89,6 +91,32 @@
   var board = [], moves = [], current = 1, finished = false, quizPaused = false, cell = 0, size = 0;
   var mode = "ai";                 // "ai"=对战电脑(默认)，"pvp"=双人对战
   var aiTimer = null, aiThinking = false;
+
+  function saveGame() {
+    if (!window.GameSave) return;
+    GameSave.save(SAVE_KEY, { board: board, moves: moves, current: current, mode: mode });
+  }
+  function validBoard(b) {
+    if (!Array.isArray(b) || b.length !== N) return false;
+    for (var r = 0; r < N; r++) {
+      if (!Array.isArray(b[r]) || b[r].length !== N) return false;
+      for (var c = 0; c < N; c++) {
+        var v = b[r][c];
+        if (v !== 0 && v !== 1 && v !== 2) return false;
+      }
+    }
+    return true;
+  }
+  function validMoves(mv) {
+    if (!Array.isArray(mv)) return false;
+    for (var i = 0; i < mv.length; i++) {
+      var m = mv[i];
+      if (!m || typeof m.r !== "number" || m.r % 1 !== 0 || m.r < 0 || m.r >= N ||
+          typeof m.c !== "number" || m.c % 1 !== 0 || m.c < 0 || m.c >= N ||
+          (m.color !== 1 && m.color !== 2)) return false;
+    }
+    return true;
+  }
 
   function setup() {
     var cssSize = Math.min(500 - 20, window.innerWidth - 60, 460);
@@ -184,16 +212,17 @@
     moves.push({ r: r, c: c, color: color });
     stepsEl.textContent = moves.length;
     draw();
-    if (isWin(r, c, color)) { showResult(color); return; }
+    if (isWin(r, c, color)) { showResult(color); if (window.GameSave) GameSave.clear(SAVE_KEY); return; }
     if (moves.length >= N * N) {
       finished = true;
       document.getElementById("ovIcon").textContent = "🤝";
       document.getElementById("ovTitle").textContent = "平局！";
       document.getElementById("ovText").textContent = "棋盘下满啦，你们都很棒！";
-      refreshTurn(); overlay.classList.remove("hidden"); return;
+      refreshTurn(); overlay.classList.remove("hidden"); if (window.GameSave) GameSave.clear(SAVE_KEY); return;
     }
     current = color === 1 ? 2 : 1;
     refreshTurn();
+    saveGame();
   }
   function humanPlace(r, c) {
     if (finished || quizPaused || board[r][c]) return;
@@ -272,26 +301,40 @@
     }
     stepsEl.textContent = moves.length;
     refreshTurn(); draw();
+    saveGame();
   }
   function clearAITimer() { if (aiTimer) { clearTimeout(aiTimer); aiTimer = null; } aiThinking = false; }
-  function restart() {
+  function restart(fresh) {
+    var saved = fresh ? null : (window.GameSave ? GameSave.load(SAVE_KEY, null) : null);
     clearAITimer();
     board = []; moves = []; current = 1; finished = false;
     for (var r = 0; r < N; r++) { board[r] = []; for (var c = 0; c < N; c++) board[r][c] = 0; }
-    stepsEl.textContent = "0"; refreshTurn();
+    if (saved && validBoard(saved.board) && validMoves(saved.moves)) {
+      board = saved.board;
+      moves = saved.moves;
+      current = (saved.current === 1 || saved.current === 2) ? saved.current : 1;
+      mode = (saved.mode === "ai" || saved.mode === "pvp") ? saved.mode : "ai";
+      modeBtn.textContent = (mode === "ai") ? "🤖 对战电脑" : "👥 双人对战";
+      modeBtn.title = (mode === "ai") ? "点击切换为双人对战" : "点击切换为对战电脑";
+    }
+    stepsEl.textContent = moves.length;
+    refreshTurn();
     overlay.classList.add("hidden"); draw();
+    if (fresh && window.GameSave) GameSave.clear(SAVE_KEY);
+    else saveGame();
+    if (mode === "ai" && current === 2) maybeAI();
   }
   function setMode(m) {
     mode = m;
     modeBtn.textContent = (mode === "ai") ? "🤖 对战电脑" : "👥 双人对战";
     modeBtn.title = (mode === "ai") ? "点击切换为双人对战" : "点击切换为对战电脑";
-    restart();
+    restart(true);
   }
 
   modeBtn.addEventListener("click", function () { setMode(mode === "ai" ? "pvp" : "ai"); });
   document.getElementById("undoBtn").addEventListener("click", undo);
-  document.getElementById("restartBtn").addEventListener("click", restart);
-  document.getElementById("ovBtn").addEventListener("click", restart);
+  document.getElementById("restartBtn").addEventListener("click", function () { restart(true); });
+  document.getElementById("ovBtn").addEventListener("click", function () { restart(true); });
   canvas.addEventListener("click", function (e) {
     var rect = canvas.getBoundingClientRect();
     var c = Math.round((e.clientX - rect.left) / cell) - 1;
@@ -301,7 +344,7 @@
   });
   window.addEventListener("resize", setup);
 
-  restart(); setup();
+  restart(false); setup();
 
   if (window.GameQuiz) {
     GameQuiz.init({

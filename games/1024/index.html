@@ -112,6 +112,7 @@
 
 <script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
+<script src="../../save.js"></script>
 <script>
 (function () {
   "use strict";
@@ -124,6 +125,7 @@
   var grid = [], tileSeq = 0, score = 0, best = 0;
   var gameActive = true, quizPaused = false, won = false;
   var ovAction = null;
+  var SAVE_KEY = "game1024";
 
   try { best = parseInt(localStorage.getItem("gb1024best") || "0", 10) || 0; } catch (e) {}
   bestEl.textContent = best;
@@ -172,6 +174,15 @@
       try { localStorage.setItem("gb1024best", String(best)); } catch (e) {}
     }
   }
+  function saveGame() {
+    if (!window.GameSave) return;
+    var g = [];
+    for (var r = 0; r < SIZE; r++) {
+      g[r] = [];
+      for (var c = 0; c < SIZE; c++) g[r][c] = grid[r][c] ? grid[r][c].value : 0;
+    }
+    GameSave.save(SAVE_KEY, { grid: g, score: score, won: won });
+  }
   function lineCells(dir, idx) {
     var arr = [];
     for (var k = 0; k < SIZE; k++) {
@@ -218,6 +229,7 @@
     if (moved) {
       updateScore();
       spawn();
+      saveGame();
       checkState();
     }
   }
@@ -248,15 +260,30 @@
         overlay.classList.add("hidden"); gameActive = true;
       });
     } else if (!canMove()) {
-      showOverlay("dizzy", "没有位置啦", "最终得分 " + score + "，再挑战一次吧！", "再玩一次", reset);
+      showOverlay("dizzy", "没有位置啦", "最终得分 " + score + "，再挑战一次吧！", "再玩一次", function () { reset(true); });
     }
   }
-  function reset() {
+  function reset(fresh) {
+    var saved = fresh ? null : (window.GameSave ? GameSave.load(SAVE_KEY, null) : null);
     var tiles = boardEl.querySelectorAll(".tile");
     for (var i = 0; i < tiles.length; i++) tiles[i].parentNode.removeChild(tiles[i]);
-    resetGrid(); score = 0; won = false; scoreEl.textContent = "0";
-    overlay.classList.add("hidden"); gameActive = true;
-    spawn(); spawn();
+    resetGrid();
+    overlay.classList.add("hidden"); gameActive = true; quizPaused = false; ovAction = null;
+    if (saved && saved.grid && saved.grid.length === SIZE) {
+      score = saved.score || 0; won = !!saved.won;
+      for (var r = 0; r < SIZE; r++) {
+        if (!saved.grid[r] || saved.grid[r].length !== SIZE) continue;
+        for (var c = 0; c < SIZE; c++) {
+          var v = saved.grid[r][c] || 0;
+          if (v > 0) makeTile(r, c, v);
+        }
+      }
+      updateScore();
+    } else {
+      score = 0; won = false; scoreEl.textContent = "0";
+      spawn(); spawn();
+    }
+    if (fresh && window.GameSave) GameSave.clear(SAVE_KEY);
   }
 
   ovBtn.addEventListener("click", function () {
@@ -264,7 +291,7 @@
     gameActive = true;
     if (typeof ovAction === "function") { var a = ovAction; ovAction = null; a(); }
   });
-  document.getElementById("newBtn").addEventListener("click", reset);
+  document.getElementById("newBtn").addEventListener("click", function () { reset(true); });
 
   var padBtns = document.querySelectorAll(".pad button");
   for (var p = 0; p < padBtns.length; p++) {
@@ -296,7 +323,7 @@
     }
   });
 
-  reset();
+  reset(false);
 
   if (window.GameQuiz) {
     GameQuiz.init({

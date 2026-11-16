@@ -49,6 +49,7 @@
 <div class="hud">
   <div class="pill">⭐ <span id="score">0</span> 分</div>
   <div class="pill">🔥 连对 <span id="combo">0</span></div>
+  <div class="pill">🏅 最高 <span id="best">0</span> 分</div>
 </div>
 <div class="question" id="question">3 + 4 = ?</div>
 <div id="field"></div>
@@ -56,6 +57,7 @@
 
 <script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
+<script src="../../save.js"></script>
 <script>
 (function () {
   "use strict";
@@ -65,6 +67,22 @@
   var comboEl = document.getElementById("combo");
   var toast = document.getElementById("toast");
   var score = 0, combo = 0, answer = 0, busy = false;
+
+  // 最高分持久化（无尽模式，随时刷新都保留历史最高）
+  var SAVE_KEY = "number-bubbles";
+  var bestEl = document.getElementById("best");
+  var best = 0;
+  var _bs = window.GameSave ? GameSave.load(SAVE_KEY, null) : null;
+  if (_bs && typeof _bs.best === "number" && _bs.best >= 0) best = Math.floor(_bs.best);
+  if (bestEl) bestEl.textContent = String(best);
+  function updateBest() {
+    if (score > best) {
+      best = score;
+      if (window.GameSave) GameSave.save(SAVE_KEY, { best: best });
+      if (bestEl) bestEl.textContent = String(best);
+    }
+  }
+
   var colors = ["#ff6b6b","#ffa62b","#4d96ff","#6bcb77","#c77dff","#26c6da","#ef476f","#ffb703"];
   var emojis = ["⭐","🍎","✨","🎈","🍓","🌟"];
 
@@ -143,6 +161,7 @@
       score += 1 + Math.min(combo, 5);
       scoreEl.textContent = score;
       comboEl.textContent = combo;
+      updateBest();
       el.classList.add("pop");
       showToast(combo >= 3 ? "连对 " + combo + "！🔥" : "答对啦！⭐", "#f97316");
       burst(el);
@@ -178,7 +197,7 @@
       isPlaying: function () { return true; },
       onOpen: function () {},
       onClose: function () {},
-      onReward: function () { score += 5; scoreEl.textContent = score; }
+      onReward: function () { score += 5; scoreEl.textContent = score; updateBest(); }
     });
   }
 })();

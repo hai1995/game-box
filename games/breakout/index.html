@@ -78,6 +78,7 @@
 
 <script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
+<script src="../../save.js"></script>
 <script>
 (function () {
   "use strict";
@@ -89,8 +90,17 @@
   var COLORS = ["#ff5252","#ff9100","#ffd600","#69f0ae","#40c4ff","#b388ff"];
   var ROWS = 5, COLS = 7, brickW = 0, brickH = 22, padW = 64, padH = 12;
   var bricks = [], ball = { x: W/2, y: H-40, vx: 2.6, vy: -3.4, r: 6 };
-  var padX = W/2, score = 0, lives = 3, level = 1, playing = false, quizPaused = false, won = false;
+  var SAVE_KEY = "breakout";
+  var saved = window.GameSave ? GameSave.load(SAVE_KEY, null) : null;
+  var startLevel = saved && saved.level > 0 ? Math.floor(saved.level) : 1;
+  var startScore = saved && saved.score > 0 ? Math.floor(saved.score) : 0;
+  var padX = W/2, score = startScore, lives = 3, level = startLevel, playing = false, quizPaused = false, won = false;
   var raf = null, lastT = 0, pointerX = null;
+
+  function saveProgress() {
+    startLevel = level; startScore = score;
+    if (window.GameSave) GameSave.save(SAVE_KEY, { level: level, score: score });
+  }
 
   function setup() {
     var dpr = window.devicePixelRatio || 1;
@@ -175,6 +185,7 @@
         var overlapY = Math.min(ball.y + ball.r - b.y, b.y + b.h - (ball.y - ball.r));
         if (overlapX < overlapY) ball.vx = -ball.vx; else ball.vy = -ball.vy;
         score += 10; scoreEl.textContent = score;
+        saveProgress();
         break;
       }
     }
@@ -211,13 +222,14 @@
   }
   function newLevel() {
     level++; levelEl.textContent = level;
+    saveProgress();
     buildBricks(); resetBall(); won = false;
     overlay.classList.add("hidden");
   }
   function start() {
-    score = 0; scoreEl.textContent = score;
+    score = startScore; scoreEl.textContent = score;
     lives = 3; livesEl.textContent = lives;
-    level = 1; levelEl.textContent = level;
+    level = startLevel; levelEl.textContent = level;
     buildBricks(); resetBall(); won = false; playing = true; quizPaused = false;
     startScreen.classList.add("hidden"); overlay.classList.add("hidden");
   }
@@ -239,6 +251,7 @@
   document.getElementById("newBtn").addEventListener("click", start);
   window.addEventListener("resize", setup);
 
+  scoreEl.textContent = score; levelEl.textContent = level;
   setup();
   raf = requestAnimationFrame(loop);
 

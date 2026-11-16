@@ -75,9 +75,11 @@
 
 <script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
+<script src="../../save.js"></script>
 <script>
 (function () {
   "use strict";
+  var SAVE_KEY = "memoryMatch";
   var animals = ["dog","cat","fox","panda","lion","frog","rabbit","bear"];
   var emojis = animals.slice(0, 6);
   var deck = emojis.concat(emojis);
@@ -87,6 +89,19 @@
   var winScreen = document.getElementById("winScreen");
   var first = null, lock = false, pairs = 0, moves = 0;
 
+  // 存档：保留牌序、已配对下标、翻牌数与配对数；刷新后接着玩
+  function saveGame() {
+    if (window.GameSave) GameSave.save(SAVE_KEY, {
+      deck: deck, matched: matchedIdx(), pairs: pairs, moves: moves
+    });
+  }
+  function matchedIdx() {
+    var idx = [];
+    var cards = board.children;
+    for (var i = 0; i < cards.length; i++) if (cards[i].classList.contains("matched")) idx.push(i);
+    return idx;
+  }
+
   function shuffle(a) {
     for (var i = a.length - 1; i > 0; i--) {
       var j = Math.floor(Math.random() * (i + 1));
@@ -95,9 +110,13 @@
     return a;
   }
 
-  function build() {
+  function build(saved) {
     board.innerHTML = "";
-    shuffle(deck);
+    if (saved && saved.deck && saved.deck.length === deck.length) {
+      deck = saved.deck.slice();                       // 恢复上次的牌序
+    } else {
+      shuffle(deck);
+    }
     deck.forEach(function (em, i) {
       var c = document.createElement("div");
       c.className = "card";
@@ -107,6 +126,13 @@
       c.addEventListener("click", function () { flip(c); });
       board.appendChild(c);
     });
+    // 恢复已配对的牌
+    if (saved && saved.matched) {
+      saved.matched.forEach(function (i) {
+        var c = board.children[i];
+        if (c) c.classList.add("matched");
+      });
+    }
   }
 
   function flip(card) {
@@ -114,6 +140,7 @@
     card.classList.add("flipped");
     if (!first) { first = card; return; }
     moves++; movesEl.textContent = moves;
+    saveGame();
     var second = card;
     if (first.dataset.emoji === second.dataset.emoji) {
       first.classList.add("matched");
@@ -124,7 +151,10 @@
         setTimeout(function () {
           winScreen.classList.remove("hidden");
           document.getElementById("winText").textContent = "你用了 " + moves + " 次翻牌，太棒啦！";
+          if (window.GameSave) GameSave.clear(SAVE_KEY);   // 通关清档
         }, 500);
+      } else {
+        saveGame();
       }
     } else {
       lock = true;
@@ -138,15 +168,19 @@
     }
   }
 
-  function reset() {
-    first = null; lock = false; pairs = 0; moves = 0;
-    pairsEl.textContent = "0"; movesEl.textContent = "0";
+  function reset(fresh) {
+    var saved = fresh ? null : (window.GameSave ? GameSave.load(SAVE_KEY, null) : null);
+    first = null; lock = false;
+    pairs = saved ? (saved.pairs || 0) : 0;
+    moves = saved ? (saved.moves || 0) : 0;
+    pairsEl.textContent = String(pairs); movesEl.textContent = String(moves);
     winScreen.classList.add("hidden");
-    build();
+    if (fresh && window.GameSave) GameSave.clear(SAVE_KEY);
+    build(saved);
   }
 
-  document.getElementById("againBtn").addEventListener("click", reset);
-  reset();
+  document.getElementById("againBtn").addEventListener("click", function () { reset(true); });
+  reset(false);   // 启动：优先恢复上次进度
 
   // 接入公共定时做题模块：游戏未通关时才弹题
   if (window.GameQuiz) {

@@ -69,6 +69,7 @@
 
 <script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
+<script src="../../save.js"></script>
 <script>
 (function(){
   "use strict";
@@ -82,6 +83,18 @@
   var W=0,H=0,dpr=1,scale=1,groundY=0,pivotX=0,pivotY=0;
   var state="menu",quizPaused=false,lastT=0,raf=0;
   var level=1,score=0,goal=650,timeLeft=60;
+
+  // 存档：跨刷新保留关卡与累计分数（goal/time 由 level 重算）
+  var SAVE_KEY="gold-miner",checkpoint=null;
+  var _sv=window.GameSave?GameSave.load(SAVE_KEY,null):null;
+  if(_sv&&typeof _sv.level==="number"&&_sv.level>=1){
+    checkpoint={level:Math.floor(_sv.level),score:(typeof _sv.score==="number"&&_sv.score>=0)?_sv.score:0};
+  }
+  function saveGame(){
+    checkpoint={level:level,score:score};
+    if(window.GameSave)GameSave.save(SAVE_KEY,checkpoint);
+  }
+
   var hook={angle:Math.PI/2,dir:1,len:0,state:"swing",grab:null,speed:0};
   var items=[],particles=[],floaters=[];
   var BASE_LEN=34;
@@ -165,8 +178,12 @@
     timeNum.textContent=Math.ceil(timeLeft);
     timePill.classList.toggle("urgent",timeLeft<=30 && state==="playing");
   }
-  function start(){ resetLevel(true);state="playing";overlay.classList.add("hidden");lastT=performance.now(); }
-  function nextLevel(){ level++;resetLevel(false);state="playing";overlay.classList.add("hidden");lastT=performance.now(); }
+  function start(){
+    if(checkpoint){level=checkpoint.level;score=checkpoint.score;}else{level=1;score=0;}
+    resetLevel(false);saveGame();
+    state="playing";overlay.classList.add("hidden");lastT=performance.now();
+  }
+  function nextLevel(){ level++;resetLevel(false);saveGame();state="playing";overlay.classList.add("hidden");lastT=performance.now(); }
   function fail(){
     state="over";
     setTimeout(function(){

@@ -88,6 +88,7 @@
 
 <script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
+<script src="../../save.js"></script>
 <script>
 (function () {
   "use strict";
@@ -100,6 +101,7 @@
   var cell = 0, snake = [], dir = { x: 1, y: 0 }, nextDir = { x: 1, y: 0 };
   var food = null, score = 0, best = 0, playing = false, quizPaused = false;
   var loopTimer = null, tickMs = 150, ts = null;
+  var SAVE_KEY = "snake";
 
   try { best = parseInt(localStorage.getItem("gbSnakeBest") || "0", 10) || 0; } catch (e) {}
   bestEl.textContent = best;
@@ -122,6 +124,13 @@
       if (!occupied) free.push({ x: c, y: r });
     }
     food = free.length ? free[Math.floor(Math.random() * free.length)] : null;
+  }
+  function saveGame() {
+    if (!window.GameSave) return;
+    GameSave.save(SAVE_KEY, {
+      snake: snake, food: food, dir: dir, nextDir: nextDir,
+      score: score, tickMs: tickMs
+    });
   }
   function draw() {
     ctx.fillStyle = "#f4fff4"; ctx.fillRect(0, 0, COLS * cell, ROWS * cell);
@@ -183,23 +192,47 @@
       snake.pop();
     }
     draw();
+    saveGame();
   }
   function schedule() {
     if (loopTimer) clearTimeout(loopTimer);
     loopTimer = null;
     if (playing && !quizPaused) loopTimer = setTimeout(function () { tick(); schedule(); }, tickMs);
   }
-  function start() {
+  function freshState() {
     snake = [{ x: 6, y: 8 }, { x: 5, y: 8 }, { x: 4, y: 8 }];
     dir = { x: 1, y: 0 }; nextDir = { x: 1, y: 0 };
     score = 0; scoreEl.textContent = score; tickMs = 150;
+    placeFood();
+  }
+  function begin() {
     playing = true; quizPaused = false;
     startScreen.classList.add("hidden"); endScreen.classList.add("hidden");
-    placeFood(); draw(); schedule();
+    draw(); schedule();
+  }
+  function reset(fresh) {
+    var saved = fresh ? null : (window.GameSave ? GameSave.load(SAVE_KEY, null) : null);
+    if (saved && saved.snake && saved.snake.length && saved.snake[0] && typeof saved.snake[0].x === "number"
+        && saved.food && typeof saved.food.x === "number" && saved.dir && typeof saved.dir.x === "number") {
+      snake = saved.snake;
+      food = saved.food;
+      dir = saved.dir;
+      nextDir = saved.nextDir || saved.dir;
+      score = saved.score || 0;
+      tickMs = saved.tickMs || 150;
+      scoreEl.textContent = score;
+      begin();
+    } else {
+      freshState();
+      if (fresh) begin();
+      else { draw(); startScreen.classList.remove("hidden"); }
+    }
+    if (fresh && window.GameSave) GameSave.clear(SAVE_KEY);
   }
   function end() {
     playing = false;
     if (loopTimer) { clearTimeout(loopTimer); loopTimer = null; }
+    if (window.GameSave) GameSave.clear(SAVE_KEY);
     document.getElementById("endText").textContent = "这次吃了 " + score + " 个苹果，得分 " + score + "！";
     endScreen.classList.remove("hidden");
   }
@@ -227,12 +260,13 @@
     if (Math.abs(dx) > Math.abs(dy)) setDir(dx > 0 ? 1 : -1, 0);
     else setDir(0, dy > 0 ? 1 : -1);
   }, { passive: true });
-  document.getElementById("startBtn").addEventListener("click", start);
-  document.getElementById("againBtn").addEventListener("click", start);
-  document.getElementById("newBtn").addEventListener("click", start);
+  document.getElementById("startBtn").addEventListener("click", function () { reset(true); });
+  document.getElementById("againBtn").addEventListener("click", function () { reset(true); });
+  document.getElementById("newBtn").addEventListener("click", function () { reset(true); });
   window.addEventListener("resize", setup);
 
   setup();
+  reset(false);
 
   if (window.GameQuiz) {
     GameQuiz.init({

@@ -57,6 +57,7 @@
 <div class="hud">
   <div class="pill">⭐ <span id="score">0</span> 分</div>
   <div class="pill time">⏱ <span id="time">60</span> 秒</div>
+  <div class="pill">🏅 最高 <span id="best">0</span> 分</div>
 </div>
 
 <div class="field" id="field"></div>
@@ -77,6 +78,7 @@
 
 <script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
+<script src="../../save.js"></script>
 <script>
 (function () {
   "use strict";
@@ -89,6 +91,14 @@
   var ROUND_SECONDS = 60;
   var score = 0, time = ROUND_SECONDS, playing = false;
   var popTimer = null, tickTimer = null;
+
+  // 最高分持久化（每局独立，仅记录历史最高，不恢复局面）
+  var SAVE_KEY = "mole-whack";
+  var bestEl = document.getElementById("best");
+  var best = 0;
+  var _bs = window.GameSave ? GameSave.load(SAVE_KEY, null) : null;
+  if (_bs && typeof _bs.best === "number" && _bs.best >= 0) best = Math.floor(_bs.best);
+  if (bestEl) bestEl.textContent = String(best);
 
   function build() {
     field.innerHTML = "";
@@ -191,8 +201,13 @@
     clearTimeout(popTimer);
     clearInterval(tickTimer);
     clearMoles();
+    if (score > best) {
+      best = score;
+      if (window.GameSave) GameSave.save(SAVE_KEY, { best: best });
+      if (bestEl) bestEl.textContent = String(best);
+    }
     endScreen.classList.remove("hidden");
-    document.getElementById("endText").textContent = "你打到了 " + score + " 分！";
+    document.getElementById("endText").textContent = "你打到了 " + score + " 分！最高 " + best + " 分！";
   }
 
   document.getElementById("startBtn").addEventListener("click", start);

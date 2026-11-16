@@ -67,6 +67,7 @@
 
 <script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
+<script src="../../save.js"></script>
 <script>
 (function () {
   "use strict";
@@ -76,6 +77,11 @@
   var ovTitle = document.getElementById("ovTitle"), ovMsg = document.getElementById("ovMsg");
   var ovScore = document.getElementById("ovScore"), ovBigScore = document.getElementById("ovBigScore");
   var ovBtns = document.getElementById("ovBtns"), toast = document.getElementById("toast");
+
+  var SAVE_KEY = "space-shooter";
+  var saved = window.GameSave ? GameSave.load(SAVE_KEY, null) : null;
+  var bestScore = saved && saved.bestScore > 0 ? Math.floor(saved.bestScore) : 0;
+  var bestWave = saved && saved.bestWave > 0 ? Math.floor(saved.bestWave) : 0;
 
   var W=0,H=0,dpr=1,scale=1;
   var state="menu", quizPaused=false, lastT=0, raf=0;
@@ -124,14 +130,21 @@
     reset(); state="playing"; overlay.classList.add("hidden");
     lastT=performance.now();
   }
+  function saveAchievement(){
+    var s=Math.floor(score);
+    if(s>bestScore) bestScore=s;
+    if(wave>bestWave) bestWave=wave;
+    if(window.GameSave) GameSave.save(SAVE_KEY,{ bestScore:bestScore, bestWave:bestWave });
+  }
   function gameOver(){
     state="over";
+    saveAchievement();
     burst(ship.x,ship.y,SHIP,20);
     setTimeout(function(){
       ovEmoji.innerHTML='<span data-icon="dizzy"></span>';
       if(window.GameIcons) GameIcons.decorate();
       ovTitle.textContent="飞船需要修理！";
-      ovMsg.innerHTML="你击落了 <b>"+killed+"</b> 个敌人，冲到了第 <b>"+wave+"</b> 关！<br>再来一次，保护地球吧～";
+      ovMsg.innerHTML="你击落了 <b>"+killed+"</b> 个敌人，冲到了第 <b>"+wave+"</b> 关！<br>🏆 历史最高 "+bestScore+" 分 · 第 "+bestWave+" 关<br>再来一次，保护地球吧～";
       ovScore.classList.remove("hidden"); ovBigScore.textContent=Math.floor(score);
       ovBtns.innerHTML='<button class="btn blue" id="againBtn">▶ 再战一次</button>';
       document.getElementById("againBtn").addEventListener("click",start);
@@ -352,6 +365,9 @@
       onClose:function(){ quizPaused=false; lastT=performance.now(); },
       onReward:function(){ score+=10; updateHud(); toastMsg("+10 答对啦","#b6f0ff"); }
     });
+  }
+  if(bestScore>0){
+    ovMsg.innerHTML="驾驶飞船消灭入侵的外星人和陨石！<br>手指左右拖动来移动飞船，子弹会自动发射～<br>🏆 历史最高 "+bestScore+" 分 · 第 "+bestWave+" 关";
   }
   resize(); raf=requestAnimationFrame(loop);
 })();

@@ -85,6 +85,7 @@
 
 <script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
+<script src="../../save.js"></script>
 <script>
 (function () {
   "use strict";
@@ -95,6 +96,11 @@
   var ovTitle = document.getElementById("ovTitle"), ovMsg = document.getElementById("ovMsg");
   var ovScore = document.getElementById("ovScore"), ovBigScore = document.getElementById("ovBigScore");
   var ovBtns = document.getElementById("ovBtns"), tip = document.getElementById("tip"), toast = document.getElementById("toast");
+
+  var SAVE_KEY = "dino-run";
+  var saved = window.GameSave ? GameSave.load(SAVE_KEY, null) : null;
+  var bestScore = saved && saved.bestScore > 0 ? Math.floor(saved.bestScore) : 0;
+  var bestDistance = saved && saved.bestDistance > 0 ? Math.floor(saved.bestDistance) : 0;
 
   var W = 0, H = 0, dpr = 1, groundY = 0, scale = 1;
   var state = "menu"; // menu | playing | over
@@ -157,14 +163,22 @@
     lastT = performance.now();
   }
 
+  function saveAchievement() {
+    var s = Math.floor(score), d = Math.floor(distance);
+    if (s > bestScore) bestScore = s;
+    if (d > bestDistance) bestDistance = d;
+    if (window.GameSave) GameSave.save(SAVE_KEY, { bestScore: bestScore, bestDistance: bestDistance });
+  }
+
   function gameOver() {
     state = "over";
+    saveAchievement();
     burst(dino.x, dino.y - 26, DINO_G, 16);
     setTimeout(function () {
       ovEmoji.innerHTML = '<span data-icon="dizzy"></span>';
       if (window.GameIcons) GameIcons.decorate();
       ovTitle.textContent = "再试一次吧！";
-      ovMsg.innerHTML = "小恐龙跑累了～<br>这次跑了 <b>" + Math.floor(distance) + "</b> 米，攒了 <b>" + score + "</b> 分！";
+      ovMsg.innerHTML = "小恐龙跑累了～<br>这次跑了 <b>" + Math.floor(distance) + "</b> 米，攒了 <b>" + score + "</b> 分！<br>🏆 历史最高 " + bestScore + " 分（最远 " + bestDistance + " 米）";
       ovScore.classList.remove("hidden");
       ovBigScore.textContent = score;
       ovBtns.innerHTML = '<button class="btn green" id="againBtn">▶ 再跑一次</button>';
@@ -511,6 +525,10 @@
       onClose: function () { quizPaused = false; lastT = performance.now(); },
       onReward: function () { score += 10; updateHud(); floatText("+10 答对啦", "#c8ffcf"); }
     });
+  }
+
+  if (bestScore > 0) {
+    ovMsg.innerHTML = "帮小恐龙跳过仙人掌和飞鸟，收集恐龙蛋！<br>轻点屏幕就能跳，跳得越远越厉害～<br>🏆 历史最高 " + bestScore + " 分（最远 " + bestDistance + " 米）";
   }
 
   resize();

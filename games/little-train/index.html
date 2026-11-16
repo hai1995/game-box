@@ -59,6 +59,7 @@
   <div id="hud">
     <div class="badge">⭐ <span id="score">0</span></div>
     <div class="badge">📏 <span id="dist">0</span>米</div>
+    <div class="badge">🏆 最佳 <span id="best">0</span></div>
   </div>
 
   <div class="trackBtn" id="btnLeft">◀</div>
@@ -77,9 +78,11 @@
 
 <script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
+<script src="../../save.js"></script>
 <script>
 (function () {
   "use strict";
+  var SAVE_KEY = "little-train";
   window.addEventListener("error", function (e) {
     var el = document.getElementById("err");
     el.style.display = "block";
@@ -296,6 +299,30 @@
   var lastPick=0, lastTunnel=0, lastMilestone=0;
 
   var trees=[], clouds=[], pickups=[], smoke=[], fireworks=[], tunnel=null, flash=0;
+
+  /* ================= 存档：只持久化最高分 / 最远距离，不恢复运行中的火车位置 ================= */
+  var bestScore = 0, bestDist = 0;
+  function _loadBest() {
+    var s = (window.GameSave && GameSave.load(SAVE_KEY, null)) || null;
+    if (s) {
+      bestScore = +s.bestScore || 0;
+      bestDist  = +s.bestDist  || 0;
+    }
+  }
+  function _renderBest() {
+    var el = document.getElementById("best");
+    if (el) el.textContent = bestScore + "分·" + bestDist + "米";
+  }
+  function _tickBest() {
+    var changed = false;
+    if (score > bestScore) { bestScore = score; changed = true; }
+    var d = Math.floor(distance / 10) * 10; // 每 10 米记一次，避免每帧写存储
+    if (d > bestDist) { bestDist = d; changed = true; }
+    if (changed && window.GameSave) {
+      GameSave.save(SAVE_KEY, { bestScore: bestScore, bestDist: bestDist });
+      _renderBest();
+    }
+  }
 
   function initScene() {
     trees=[]; clouds=[]; pickups=[]; smoke=[]; fireworks=[]; tunnel=null; flash=0;
@@ -597,6 +624,7 @@
     smoke=smoke.filter(function (p) { return p.life>0; });
 
     document.getElementById("dist").textContent=Math.floor(distance);
+    _tickBest(); // 记录最高分 / 最远距离（刷新后保留）
 
     /* ---- 绘制 ---- */
     drawSky(night);
@@ -721,6 +749,7 @@
 
   // 进入即直接开始游戏（音频受浏览器策略限制，首次触摸时自动恢复）
   ensureAudio(); startEngine();
+  _loadBest(); _renderBest(); // 启动显示历史最高记录
   if (!running) { running=true; initScene(); animate(); }
   // 玩法提示先展示几秒再淡出，避免一直挡住画面
   setTimeout(function () { document.getElementById("hint").classList.add("hidden"); }, 5000);

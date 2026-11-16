@@ -85,6 +85,7 @@
 
 <script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
+<script src="../../save.js"></script>
 <script>
 (function () {
   "use strict";
@@ -93,8 +94,17 @@
   var levelEl = document.getElementById("level"), scoreEl = document.getElementById("score"), timeEl = document.getElementById("time");
   var startScreen = document.getElementById("startScreen"), overlay = document.getElementById("overlay");
   var ovIcon = document.getElementById("ovIcon"), ovTitle = document.getElementById("ovTitle"), ovText = document.getElementById("ovText"), ovBtn = document.getElementById("ovBtn");
-  var level = 1, score = 0, timeLeft = 20, timer = null, diffIdx = -1, diffKey = "", cells = [];
+  var SAVE_KEY = "find-difference";
+  var saved = window.GameSave ? GameSave.load(SAVE_KEY, null) : null;
+  var startLevel = saved && saved.level > 0 ? Math.floor(saved.level) : 1;
+  var startScore = saved && saved.score > 0 ? Math.floor(saved.score) : 0;
+  var level = startLevel, score = startScore, timeLeft = 20, timer = null, diffIdx = -1, diffKey = "", cells = [];
   var playing = false, quizPaused = false, locked = false;
+
+  function saveProgress() {
+    startLevel = level; startScore = score;
+    if (window.GameSave) GameSave.save(SAVE_KEY, { level: level, score: score });
+  }
 
   function gridSize() { return Math.min(3 + level - 1, 6); }  // 3x3 起，每关+1，最多 6x6
   function roundSeconds() { return Math.max(10, 22 - Math.floor(level / 2)); } // 时间随关卡略减，下限 10 秒
@@ -123,6 +133,7 @@
       locked = true;
       el.classList.add("right");
       score += 10 + level * 2; scoreEl.textContent = score;
+      saveProgress();
       clearInterval(timer);
       setTimeout(function () {
         locked = false;
@@ -150,12 +161,13 @@
   }
   function nextLevel() {
     level++; levelEl.textContent = level;
+    saveProgress();
     build(); startTimer();
     overlay.classList.add("hidden");
   }
   function start() {
-    level = 1; score = 0;
-    levelEl.textContent = "1"; scoreEl.textContent = "0";
+    level = startLevel; score = startScore;
+    levelEl.textContent = level; scoreEl.textContent = score;
     playing = true; quizPaused = false; locked = false;
     startScreen.classList.add("hidden"); overlay.classList.add("hidden");
     build(); startTimer();
@@ -167,8 +179,9 @@
   document.getElementById("startBtn").addEventListener("click", start);
   document.getElementById("newBtn").addEventListener("click", start);
 
-  // 初始先摆一盘作为背景
-  level = 1; build();
+  // 初始先摆一盘作为背景，并显示已恢复的关卡/得分
+  levelEl.textContent = level; scoreEl.textContent = score;
+  build();
 
   if (window.GameQuiz) {
     GameQuiz.init({

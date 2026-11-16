@@ -62,9 +62,11 @@
 
 <script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
+<script src="../../save.js"></script>
 <script>
 (function () {
   "use strict";
+  var SAVE_KEY = "maze-escape";
   var kidImg = GameIcons.image("kid", function () { draw(); });
   var flagImg = GameIcons.image("flag", function () { draw(); });
   var cv = document.getElementById("cv");
@@ -155,6 +157,42 @@
     ctx.closePath();
   }
 
+  // 存档：保存迷宫布局与位置，刷新后原样恢复继续走
+  function saveGame() {
+    if (!grid) return;
+    if (window.GameSave) GameSave.save(SAVE_KEY, {
+      level: level, cols: cols, rows: rows,
+      grid: grid, px: px, py: py, steps: steps
+    });
+  }
+
+  function validSave(s) {
+    return s && Array.isArray(s.grid) &&
+      typeof s.level === "number" && s.level >= 1 &&
+      typeof s.cols === "number" && typeof s.rows === "number" &&
+      s.grid.length === s.rows && Array.isArray(s.grid[0]) && s.grid[0].length === s.cols &&
+      typeof s.px === "number" && typeof s.py === "number" &&
+      s.px >= 0 && s.py >= 0 && s.px < s.cols && s.py < s.rows &&
+      typeof s.steps === "number" && s.steps >= 0 &&
+      s.grid[s.py] && s.grid[s.py][s.px] === 0;
+  }
+
+  function restoreLevel(s) {
+    level = s.level; steps = s.steps; cols = s.cols; rows = s.rows;
+    grid = s.grid; px = s.px; py = s.py;
+    stepsEl.textContent = String(steps);
+    levelEl.textContent = String(level);
+    moving = false;
+    resize();
+    if (px === cols - 2 && py === rows - 2) {
+      moving = true;
+      winScreen.classList.remove("hidden");
+      document.getElementById("winText").textContent = "第 " + level + " 关用了 " + steps + " 步，真厉害！";
+    } else {
+      winScreen.classList.add("hidden");
+    }
+  }
+
   function loadLevel(n) {
     level = n;
     steps = 0;
@@ -170,6 +208,7 @@
     winScreen.classList.add("hidden");
     moving = false;
     resize();
+    saveGame();
   }
 
   function move(dx, dy) {
@@ -180,6 +219,7 @@
     px = nx; py = ny;
     steps++; stepsEl.textContent = String(steps);
     draw();
+    saveGame();
     if (px === cols - 2 && py === rows - 2) {
       moving = true;
       setTimeout(function () {
@@ -223,7 +263,9 @@
 
   document.getElementById("nextBtn").addEventListener("click", function () { loadLevel(level + 1); });
   window.addEventListener("resize", resize);
-  loadLevel(1);
+  var saved = window.GameSave ? GameSave.load(SAVE_KEY, null) : null;
+  if (validSave(saved)) restoreLevel(saved);
+  else loadLevel(1);
 
   // 接入公共定时做题模块：过关弹窗显示时不弹题；遮罩会拦截误操作，无需暂停
   if (window.GameQuiz) {

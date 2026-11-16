@@ -67,9 +67,11 @@
 
 <script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
+<script src="../../save.js"></script>
 <script>
 (function () {
   "use strict";
+  var SAVE_KEY="carRaceBest";
   var cv=document.getElementById("cv"),ctx=cv.getContext("2d");
   var scorePill=document.getElementById("scorePill"),coinPill=document.getElementById("coinPill"),lifePill=document.getElementById("lifePill");
   var overlay=document.getElementById("overlay"),ovEmoji=document.getElementById("ovEmoji");
@@ -123,6 +125,12 @@
   function start(){ reset();state="playing";overlay.classList.add("hidden");lastT=performance.now(); }
   function gameOver(){
     state="over"; burst(car.x,car.y,MYCAR,20);
+    // 存档历史最高分/最远距离
+    if(window.GameSave){
+      var bestS=Math.floor(score),bestD=Math.floor(distance);
+      var rec=GameSave.load(SAVE_KEY,{score:0,distance:0});
+      GameSave.save(SAVE_KEY,{score:Math.max(bestS,rec.score||0),distance:Math.max(bestD,rec.distance||0)});
+    }
     setTimeout(function(){
       ovEmoji.innerHTML='<span data-icon="dizzy"></span>';
       if(window.GameIcons)GameIcons.decorate();
@@ -301,6 +309,13 @@
       onClose:function(){quizPaused=false;lastT=performance.now();},
       onReward:function(){score+=10;updateHud();toastMsg("+10 答对啦","#c8ffcf");}
     });
+  }
+  // 启动：显示历史最佳（刷新不丢记录）
+  if(window.GameSave){
+    var rec=GameSave.load(SAVE_KEY,{score:0,distance:0});
+    if((rec.score||0)>0||(rec.distance||0)>0){
+      document.getElementById("ovMsg").innerHTML="左右拖动你的赛车，躲开迎面来的车！<br>捡金币能加分，开得越远越厉害～<br><b style='color:#ffb703'>历史最佳 "+Math.floor(rec.score)+" 分 · "+Math.floor(rec.distance)+" 米</b>";
+    }
   }
   resize();raf=requestAnimationFrame(loop);
 })();

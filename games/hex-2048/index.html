@@ -55,7 +55,6 @@
   .cbtn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,.18); }
   .cbtn .ic { font-size:22px; }
   .cbtn .lb { font-size:10px; margin-top:2px; }
-  .cbtn.back { background:linear-gradient(180deg,#ff9a5a,#f2713a); min-width:52px; }
   .cbtn.hammer { background:linear-gradient(180deg,#ff6b6b,#e8384f); position:relative; }
   .cbtn.swap { background:linear-gradient(180deg,#ffffff,#f0e7d8); color:#c66f34; border:3px solid #efe3cf; box-shadow:0 4px 0 rgba(180,140,90,.3); }
   .cbtn .n { position:absolute; top:-5px; right:0; background:#fff; color:#e8384f;
@@ -162,7 +161,6 @@
 
 <div class="wrap">
   <div class="ctrl">
-    <button class="cbtn back" id="backBtn" aria-label="返回主页"><span class="ic">←</span><span class="lb">主页</span></button>
     <div class="nextbox">
       <div class="nt">下一组 · 点数字放空格 / 点棋盘块再点空格移动（每块限一次）</div>
       <div class="balls" id="balls"></div>
@@ -186,9 +184,12 @@
 
 <script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
+<script src="../../save.js"></script>
 <script>
 (function () {
   "use strict";
+
+  var SAVE_KEY = "hex2048";
 
   // 数字 -> 主色（覆盖 1 起递增的 2 的幂，×4 合成后延伸到大数）
   var COLORS = {
@@ -216,6 +217,17 @@
   var SQ3 = Math.sqrt(3);
 
   try { best = parseInt(localStorage.getItem("hex2048best"), 10) || 0; } catch (e) { best = 0; }
+
+  // 存档：棋盘各格的值与移动标记、队列、选中、分数、道具、结束态
+  function saveGame() {
+    if (!window.GameSave) return;
+    var vals = [], moves = [];
+    for (var i = 0; i < cells.length; i++) { vals.push(cells[i].val); moves.push(cells[i].moved ? 1 : 0); }
+    GameSave.save(SAVE_KEY, {
+      vals: vals, moves: moves, queue: queue, selected: selected,
+      score: score, swapLeft: swapLeft, hammerLeft: hammerLeft, finished: finished
+    });
+  }
 
   function key(q, r) { return q + "," + r; }
   function colorOf(v) { return COLORS[v] || "#ffb62e"; }
@@ -464,10 +476,12 @@
         setTimeout(function () { anchor.el.classList.remove("flash"); }, 460);
         score += gained; updateScore();
         floatScore(ac.x, ac.y, gained);
+        saveGame();
         setTimeout(function () { if (myGen === gen) resolve(anchor, chain + 1); }, 200);
       }, 310);
     } else {
       busy = false;
+      saveGame();
       checkEnd();
     }
   }
@@ -569,27 +583,38 @@
     });
   }
 
-  function reset() {
+  function reset(fresh) {
     gen++; // 作废进行中的飞行/合并/滑行回调，避免重开后串局
-    score = 0; swapLeft = 5; hammerLeft = 3;
-    busy = false; finished = false; quizPaused = false; hammerMode = false;
+    var saved = fresh ? null : (window.GameSave ? GameSave.load(SAVE_KEY, null) : null);
+    score = saved ? (saved.score || 0) : 0;
+    swapLeft = saved && typeof saved.swapLeft === "number" ? saved.swapLeft : 5;
+    hammerLeft = saved && typeof saved.hammerLeft === "number" ? saved.hammerLeft : 3;
+    finished = saved ? !!saved.finished : false;
+    busy = false; quizPaused = false; hammerMode = false;
     movingFrom = null;
-    scoreEl.textContent = "0";
+    scoreEl.textContent = String(score);
     swapN.textContent = swapLeft; hammerN.textContent = hammerLeft;
     overlay.classList.add("hidden");
     hintEl.textContent = "点数字放到空格；也可点棋盘块→点空格移动（每块限移动一次）；3 个相同数字相连合成 4 倍大数字！";
-    swapBtn.classList.remove("dim"); hammerBtn.classList.remove("dim", "armed");
-    queue = []; fillQueue(); selected = 0; renderQueue();
+    swapBtn.classList.toggle("dim", swapLeft <= 0); hammerBtn.classList.toggle("dim", hammerLeft <= 0);
+    hammerBtn.classList.remove("armed");
+    queue = saved && saved.queue && saved.queue.length ? saved.queue.slice() : [];
+    fillQueue();
+    selected = saved && typeof saved.selected === "number" ? Math.min(saved.selected, queue.length - 1) : 0;
+    if (selected < 0) selected = 0;
+    renderQueue();
     var temp = document.querySelectorAll(".fly-ball,.ripple,.slide-hex,.float-score");
     for (var t = 0; t < temp.length; t++) if (temp[t].parentNode) temp[t].parentNode.removeChild(temp[t]);
     for (var i = 0; i < cells.length; i++) {
-      cells[i].val = 0; paint(cells[i]);
+      cells[i].val = saved && saved.vals && i < saved.vals.length ? (saved.vals[i] || 0) : 0;
+      cells[i].moved = !!(saved && saved.moves && saved.moves[i]);
+      paint(cells[i]);
       cells[i].el.classList.remove("pull", "merging", "flash", "hammer", "moving");
       cells[i].el.style.removeProperty("--dx"); cells[i].el.style.removeProperty("--dy");
     }
+    if (fresh && window.GameSave) GameSave.clear(SAVE_KEY);
   }
 
-  document.getElementById("backBtn").addEventListener("click", function () { location.href = "../../"; });
   swapBtn.addEventListener("click", function () {
     if (quizPaused || busy || finished || swapLeft <= 0) return;
     clearMoving();
@@ -605,11 +630,11 @@
     hammerBtn.classList.toggle("armed", hammerMode);
     hintEl.textContent = hammerMode ? "点一个想敲掉的数字（锤子用一次少一次）" : "已取消锤子";
   });
-  document.getElementById("ovBtn").addEventListener("click", reset);
+  document.getElementById("ovBtn").addEventListener("click", function () { reset(true); });
 
   buildBoard();
   layout();
-  reset();
+  reset(false);   // 启动：优先恢复上次进度
   window.addEventListener("resize", layout);
 
   if (window.GameQuiz) {

@@ -17,6 +17,13 @@
     background: rgba(255,255,255,.25); padding: 6px 22px; border-radius: 30px;
     pointer-events: none;
   }
+  #bestScore {
+    position: absolute; top: 52px; left: 50%; transform: translateX(-50%);
+    font-size: 16px; font-weight: bold; color: #fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,.45);
+    background: rgba(0,0,0,.25); padding: 3px 14px; border-radius: 16px;
+    pointer-events: none; white-space: nowrap;
+  }
   #hint {
     position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
     font-size: 17px; color: #fff; background: rgba(0,0,0,.28);
@@ -110,6 +117,7 @@
 <div id="game">
   <canvas id="cv"></canvas>
   <div id="score">⭐ 0</div>
+  <div id="bestScore">🏆 最高 0</div>
   <button id="gyroBtn" class="mini-btn">📱<span id="gyroState">关</span></button>
   <button id="helpBtn" class="help-btn">?</button>
   <a class="home-btn" href="../../" aria-label="返回主页" title="返回主页">🏠</a>
@@ -147,8 +155,10 @@
 
 <script src="./three.min.js"></script>
 <script src="../../quiz.js"></script>
+<script src="../../save.js"></script>
 <script>
 (function () {
+  const SAVE_KEY = 'flight-adventure';
   const cv = document.getElementById('cv');
   const scoreEl = document.getElementById('score');
   const endScreen = document.getElementById('endScreen');
@@ -532,6 +542,25 @@
   let running = false, score = 0, last = 0, spawnStar = 0, spawnCloud = 0, spawnFruit = 0, spawnStorm = 0;
   let missiles = [], missileCooldown = 0;
   let quizOpen = false; // 做题弹窗打开时暂停游戏（由公共 quiz.js 接管）
+
+  // ---- 存档：只持久化最高分，不恢复飞行中的场景/物理状态 ----
+  const bestScoreEl = document.getElementById('bestScore');
+  let bestScore = 0;
+  function loadBest() {
+    const s = (window.GameSave && GameSave.load(SAVE_KEY, null)) || null;
+    if (s) bestScore = +s.best || 0;
+    renderBest();
+  }
+  function renderBest() {
+    if (bestScoreEl) bestScoreEl.textContent = '🏆 最高 ' + bestScore;
+  }
+  function tickBest() {
+    if (score > bestScore) {
+      bestScore = score;
+      if (window.GameSave) GameSave.save(SAVE_KEY, { best: bestScore });
+      renderBest();
+    }
+  }
 
   // ---- 输入：往哪滑就往哪飞（顺向）----
   let dragging = false, lastX = 0, lastY = 0;
@@ -945,6 +974,7 @@
     if (!running) return;
     const dt = Math.min((now - last) / 1000, 0.05); last = now;
     if (!quizOpen && !helpOpen) { update(dt); updateStealth(dt); updateBoost(dt); updateMissiles(dt); updateGround(dt); updateMonsters(dt); }
+    tickBest(); // 刷新后保留最高分
     renderer.render(scene, camera); requestAnimationFrame(loop);
   }
 
@@ -1142,6 +1172,7 @@
   // 默认进入直接开始游戏
   againBtn.addEventListener('click', start);
   start();
+  loadBest(); // 启动显示历史最高分
   plane.lookAt(0, 0, 10); camera.position.set(0, 3.5, 10); camera.lookAt(0, 0, 0);
   renderer.render(scene, camera);
 

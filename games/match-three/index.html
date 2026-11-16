@@ -113,10 +113,12 @@
 
 <script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
+<script src="../../save.js"></script>
 <script>
 (function () {
   "use strict";
   var R = 8, C = 8, TARGET = 1200, STEPS = 45, PER = 20;
+  var SAVE_KEY = "matchThree";
 
   // 手绘果冻质感水果，全套统一：圆润 Q 版 / 左上光源 / 柔和渐变 + 高光 / 统一描边。
   // 6 种主色覆盖红橙黄绿紫蓝，剪影各不相同，48px 下也能一眼区分。
@@ -169,6 +171,22 @@
   var overlay = document.getElementById("overlay");
   var grid = [], cells = [], sel = null, score = 0, steps = STEPS;
   var busy = false, finished = false, quizPaused = false;
+
+  function saveGame() {
+    if (!window.GameSave) return;
+    GameSave.save(SAVE_KEY, { grid: grid, score: score, steps: steps });
+  }
+  function validGrid(g) {
+    if (!Array.isArray(g) || g.length !== R) return false;
+    for (var r = 0; r < R; r++) {
+      if (!Array.isArray(g[r]) || g[r].length !== C) return false;
+      for (var c = 0; c < C; c++) {
+        var v = g[r][c];
+        if (v !== null && (typeof v !== "number" || v % 1 !== 0 || v < 0 || v >= FRUIT_SVG.length)) return false;
+      }
+    }
+    return true;
+  }
 
   function shuffle(a) {
     for (var i = a.length - 1; i > 0; i--) {
@@ -297,20 +315,21 @@
       document.getElementById("ovIcon").textContent = "🏆";
       document.getElementById("ovTitle").textContent = "过关啦！";
       document.getElementById("ovText").textContent = "你得了 " + score + " 分，还剩 " + steps + " 步，太棒了！";
-      overlay.classList.remove("hidden"); return;
+      overlay.classList.remove("hidden"); if (window.GameSave) GameSave.clear(SAVE_KEY); return;
     }
     if (steps <= 0) {
       finished = true;
       document.getElementById("ovIcon").textContent = "😵";
       document.getElementById("ovTitle").textContent = "步数用完啦";
       document.getElementById("ovText").textContent = "这次得了 " + score + " 分，再挑战一次吧！";
-      overlay.classList.remove("hidden"); return;
+      overlay.classList.remove("hidden"); if (window.GameSave) GameSave.clear(SAVE_KEY); return;
     }
     if (!hasPossible()) {
       buildGrid(); renderAll({});
       comboEl.textContent = "没有可消的啦，重新洗牌～";
       comboEl.classList.remove("show"); void comboEl.offsetWidth; comboEl.classList.add("show");
     }
+    saveGame();
   }
   function clearSel() {
     if (sel) { cells[sel.r][sel.c].classList.remove("sel"); sel = null; }
@@ -336,11 +355,23 @@
       }, 320);
     }
   }
-  function reset() {
+  function reset(fresh) {
+    var saved = fresh ? null : (window.GameSave ? GameSave.load(SAVE_KEY, null) : null);
     score = 0; steps = STEPS; busy = false; finished = false;
     scoreEl.textContent = "0"; stepsEl.textContent = STEPS; barEl.style.width = "0%";
     overlay.classList.add("hidden"); clearSel(); comboEl.classList.remove("show");
-    buildGrid(); renderAll({});
+    if (saved && validGrid(saved.grid)) {
+      grid = saved.grid;
+      score = (typeof saved.score === "number" && isFinite(saved.score) && saved.score >= 0) ? saved.score : 0;
+      steps = (typeof saved.steps === "number" && isFinite(saved.steps) && saved.steps >= 0) ? saved.steps : STEPS;
+      scoreEl.textContent = score; stepsEl.textContent = steps;
+      barEl.style.width = Math.min(100, score / TARGET * 100) + "%";
+      renderAll({});
+    } else {
+      buildGrid(); renderAll({});
+    }
+    if (fresh && window.GameSave) GameSave.clear(SAVE_KEY);
+    else saveGame();
   }
 
   // 生成棋盘 DOM
@@ -353,10 +384,10 @@
       boardEl.appendChild(d); cells[r][c] = d;
     }
   }
-  document.getElementById("restartBtn").addEventListener("click", reset);
-  document.getElementById("ovBtn").addEventListener("click", reset);
+  document.getElementById("restartBtn").addEventListener("click", function () { reset(true); });
+  document.getElementById("ovBtn").addEventListener("click", function () { reset(true); });
 
-  reset();
+  reset(false);
 
   if (window.GameQuiz) {
     GameQuiz.init({

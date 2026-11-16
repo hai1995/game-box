@@ -82,6 +82,7 @@
 
 <script src="../../icons.js"></script>
 <script src="../../quiz.js"></script>
+<script src="../../save.js"></script>
 <script>
 (function () {
   "use strict";
@@ -91,10 +92,17 @@
   var SOLVED = [1,2,3,4,5,6,7,8,0];
   var tiles = [], steps = 0, elapsed = 0, timer = null;
   var finished = false, quizPaused = false;
+  var SAVE_KEY = "slidePuzzle";
 
   function fmt(t) {
     var m = Math.floor(t / 60), s = t % 60;
     return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+  }
+  function saveGame() {
+    if (!window.GameSave) return;
+    GameSave.save(SAVE_KEY, {
+      tiles: tiles, steps: steps, elapsed: elapsed, finished: finished
+    });
   }
   function render() {
     boardEl.innerHTML = "";
@@ -127,6 +135,7 @@
     steps++; stepsEl.textContent = steps;
     render();
     if (isSolved()) win();
+    saveGame();
   }
   function isSolved() {
     for (var i = 0; i < 9; i++) if (tiles[i] !== SOLVED[i]) return false;
@@ -149,6 +158,7 @@
     timer = setInterval(function () {
       if (finished || quizPaused) return;
       elapsed++; timeEl.textContent = fmt(elapsed);
+      saveGame();
     }, 1000);
   }
   function win() {
@@ -156,18 +166,39 @@
     document.getElementById("ovText").textContent = "你用了 " + steps + " 步、" + fmt(elapsed) + " 排好了，太棒啦！";
     overlay.classList.remove("hidden");
   }
-  function reset() {
-    shuffle(); steps = 0; elapsed = 0; finished = false;
-    stepsEl.textContent = "0"; timeEl.textContent = "00:00";
-    overlay.classList.add("hidden");
-    render(); startTimer();
+  function reset(fresh) {
+    var saved = fresh ? null : (window.GameSave ? GameSave.load(SAVE_KEY, null) : null);
+    var valid = saved && saved.tiles && saved.tiles.length === 9;
+    if (valid) {
+      for (var i = 0; i < 9; i++) {
+        if (typeof saved.tiles[i] !== "number" || saved.tiles[i] < 0 || saved.tiles[i] > 8) { valid = false; break; }
+      }
+    }
+    if (valid) {
+      tiles = saved.tiles.slice();
+      steps = saved.steps || 0;
+      elapsed = saved.elapsed || 0;
+      finished = !!saved.finished;
+    } else {
+      shuffle(); steps = 0; elapsed = 0; finished = false;
+    }
+    stepsEl.textContent = steps; timeEl.textContent = fmt(elapsed);
+    render();
+    if (finished) {
+      overlay.classList.remove("hidden");
+      if (timer) { clearInterval(timer); timer = null; }
+    } else {
+      overlay.classList.add("hidden");
+      startTimer();
+    }
+    if (fresh && window.GameSave) GameSave.clear(SAVE_KEY);
   }
 
-  document.getElementById("shuffleBtn").addEventListener("click", function () { if (!finished && !quizPaused) reset(); });
-  document.getElementById("newBtn").addEventListener("click", reset);
-  document.getElementById("ovBtn").addEventListener("click", reset);
+  document.getElementById("shuffleBtn").addEventListener("click", function () { if (!finished && !quizPaused) reset(true); });
+  document.getElementById("newBtn").addEventListener("click", function () { reset(true); });
+  document.getElementById("ovBtn").addEventListener("click", function () { reset(true); });
 
-  reset();
+  reset(false);
 
   if (window.GameQuiz) {
     GameQuiz.init({
