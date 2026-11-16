@@ -6,7 +6,7 @@
  *   2) QUESTION_TYPES        —— 题型注册表，新增题型只写一个函数并加入数组
  *      · 选择题：返回 { ..., options: [4 个选项] }，玩家点选
  *      · 输入题：返回 { ..., input: true }，玩家自己输入数字（如顺位填空）
- *      当前题型：十以内加法 / 十以内减法 / 顺位填空（随机出现）
+ *      当前题型：十以内加法 / 十以内减法 / 奇数·偶数顺数填空（随机出现）
  *   3) 下方样式字符串          —— 弹窗外观
  *
  * 【接入方式】每个游戏页面引入本文件后调用一次：
@@ -90,22 +90,26 @@
     };
   }
 
-  // 题型 3：顺位数字填空（等差数列挖空，如 2、4、_、8）—— 输入题，不提供选项
+  // 题型 3：奇数/偶数顺数填空（输入题，不提供选项）
+  // 贴合小朋友学习进度：只出 10 以内的单数(1,3,5,7,9)或双数(2,4,6,8,10)顺数，
+  // 公差固定为 2。如 1、3、_、7 或 2、4、6、_
   function sequenceQuestion() {
-    var step = rnd(1, 3);                       // 公差：1~3
-    var start = rnd(1, 6);                      // 起始数
+    var isOdd = Math.random() < 0.5;            // 单数 or 双数
+    // 起始值限定，保证 4 项都在 10 以内：奇数 1/3，偶数 2/4
+    var start = isOdd ? (Math.random() < 0.5 ? 1 : 3) : (Math.random() < 0.5 ? 2 : 4);
     var len = 4;                                // 共 4 个数
     var seq = [];
-    for (var i = 0; i < len; i++) seq.push(start + step * i);
-    var blank = rnd(1, len - 2);                // 挖中间某项（有前后参照）
+    for (var i = 0; i < len; i++) seq.push(start + 2 * i);   // 公差 2
+    var blank = rnd(1, len - 1);                // 挖空位置 1~3（末尾也可，如 2、4、6、_）
     var correct = seq[blank];
 
     var parts = seq.map(function (n, idx) { return idx === blank ? "_" : n; });
     var spoken = seq.map(function (n, idx) { return idx === blank ? "空" : cn(n); }).join("、");
+    var kind = isOdd ? "单数" : "双数";          // 口语化，配合学习进度
     return {
-      title: "看一看顺序，填数字！",
+      title: "找规律：" + kind + "排排队",
       text: parts.join("、"),
-      speech: "看一看数字的顺序，" + spoken + "，空格里应该填几？",
+      speech: "看一看" + kind + "的顺序，" + spoken + "，空格里应该填几？",
       correct: correct,
       input: true   // 输入题：不显示选项，让小朋友自己输入数字
     };
