@@ -104,6 +104,19 @@
   .hex.moving .in { box-shadow:inset 0 0 0 4px rgba(255,255,255,.95), inset 0 0 0 8px #ffb703,
     0 0 14px rgba(255,183,3,.75); animation:movePulse .9s ease-in-out infinite; }
   @keyframes movePulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
+  /* 已经移动过一次的块：变暗淡+右上角对勾，表示不能再移动 */
+  .hex.used .in { filter:saturate(.5) brightness(.82); }
+  .hex.used::after { content:"✓"; position:absolute; top:4%; right:8%; z-index:3;
+    width:16px; height:16px; border-radius:50%; background:rgba(90,70,50,.55); color:#fff;
+    font-size:11px; font-weight:900; display:flex; align-items:center; justify-content:center;
+    pointer-events:none; }
+  /* 合并时的飘分反馈 */
+  .float-score { position:fixed; z-index:60; pointer-events:none; font-weight:900;
+    font-size:20px; color:#fff; text-shadow:0 2px 0 #e8384f, 0 3px 8px rgba(0,0,0,.25);
+    transform:translate(-50%,-50%); animation:floatUp .9s ease-out forwards; }
+  @keyframes floatUp { 0%{opacity:0; transform:translate(-50%,-30%) scale(.6)}
+    22%{opacity:1; transform:translate(-50%,-60%) scale(1.15)}
+    100%{opacity:0; transform:translate(-50%,-170%) scale(1)} }
   /* 沿空白路径滑行的块（六边形，用 clip-path 保持造型一致） */
   .slide-hex { position:fixed; left:0; top:0; z-index:50; pointer-events:none;
     display:flex; align-items:center; justify-content:center; color:#fff; font-weight:900;
@@ -151,7 +164,7 @@
   <div class="ctrl">
     <button class="cbtn back" id="backBtn" aria-label="返回主页"><span class="ic">←</span><span class="lb">主页</span></button>
     <div class="nextbox">
-      <div class="nt">下一组 · 点数字放到空格 / 点棋盘块再点空格移动</div>
+      <div class="nt">下一组 · 点数字放空格 / 点棋盘块再点空格移动（每块限一次）</div>
       <div class="balls" id="balls"></div>
     </div>
     <button class="cbtn swap" id="swapBtn"><span class="n" id="swapN">5</span><span class="ic">🔄</span><span class="lb">换一组</span></button>
@@ -161,7 +174,7 @@
   <div class="boardwrap">
     <div class="board" id="board"></div>
   </div>
-  <div class="hint" id="hint">点数字放到空格；也可点棋盘上的块→点空格移动它；3 个相同数字相连即合并！</div>
+  <div class="hint" id="hint">点数字放到空格；也可点棋盘块→点空格移动（每块限移动一次）；3 个相同数字相连合成 4 倍大数字！</div>
 </div>
 
 <div class="overlay hidden" id="overlay">
@@ -177,11 +190,12 @@
 (function () {
   "use strict";
 
-  // 数字 -> 主色（覆盖 1 起递增的 2 的幂）
+  // 数字 -> 主色（覆盖 1 起递增的 2 的幂，×4 合成后延伸到大数）
   var COLORS = {
     1:"#6ec6f5", 2:"#ff8fb1", 4:"#a86ff0", 8:"#ff5d73", 16:"#ffa53a",
     32:"#43c97b", 64:"#f6c945", 128:"#6c7cf5", 256:"#2ec5d3",
-    512:"#ef5da8", 1024:"#8a4fe8", 2048:"#ffb62e"
+    512:"#ef5da8", 1024:"#8a4fe8", 2048:"#ffb62e", 4096:"#ff6f5e",
+    8192:"#3ec6b0", 16384:"#7a5cf0", 32768:"#ff4d8d"
   };
   var NEXT_POOL = [1, 1, 1, 2, 2, 4, 8];   // 新数字随机池，偏低级
   var QUEUE_LEN = 6;
@@ -235,7 +249,7 @@
     el.className = "hex empty";
     var inn = document.createElement("div"); inn.className = "in";
     el.appendChild(inn);
-    var c = { q:q, r:r, val:0, el:el, s:20 };
+    var c = { q:q, r:r, val:0, el:el, s:20, moved:false };
     (function (cell) {
       el.addEventListener("click", function () { tap(cell); });
     })(c);
@@ -257,12 +271,15 @@
     var inn = cell.el.querySelector(".in");
     if (cell.val > 0) {
       cell.el.classList.remove("empty");
+      cell.el.classList.toggle("used", !!cell.moved);
       inn.style.background = "linear-gradient(160deg, rgba(255,255,255,.5) 0%, rgba(255,255,255,.12) 38%, rgba(0,0,0,.05) 70%, rgba(0,0,0,.14) 100%), " + colorOf(cell.val);
       inn.textContent = cell.val;
       inn.style.fontSize = Math.round(cell.s * (String(cell.val).length >= 3 ? .5 : .62)) + "px";
       if (born) { cell.el.classList.remove("born"); void cell.el.offsetWidth; cell.el.classList.add("born"); }
     } else {
       cell.el.classList.add("empty");
+      cell.el.classList.remove("used");
+      cell.moved = false;
       inn.style.background = "";
       inn.textContent = "";
     }
@@ -414,13 +431,17 @@
     }
   }
 
-  function resolve(anchor) {
+  function resolve(anchor, chain) {
+    chain = chain || 1;
     var group = connected(anchor);
     if (group.length >= 3) {
       busy = true;
       var myGen = gen;
-      var nv = anchor.val * 2;
-      hintEl.textContent = "合并 " + group.length + " 个 " + anchor.val + " → " + nv + "！";
+      var nv = anchor.val * 4;                        // 合成翻两番：1→4、2→8、4→16、8→32
+      // 得分 = 合成值 × 连锁层数 × 参与块数：合得越多、连锁越深、数字越大，得分越高
+      var gained = nv * chain * group.length;
+      hintEl.textContent = "合并 " + group.length + " 个 " + anchor.val + " → " + nv +
+        (chain > 1 ? "（连锁 ×" + chain + "）" : "") + "  +" + gained + " 分！";
       var ac = pixelCenter(anchor.el);
       for (var i = 0; i < group.length; i++) {
         var g = group[i];
@@ -438,16 +459,27 @@
           g2.el.style.removeProperty("--dx"); g2.el.style.removeProperty("--dy");
           if (g2 !== anchor) { g2.val = 0; paint(g2); }
         }
-        anchor.val = nv; paint(anchor);
+        anchor.val = nv; anchor.moved = false; paint(anchor);  // 合成的新块重新获得一次移动机会
         anchor.el.classList.add("flash");
         setTimeout(function () { anchor.el.classList.remove("flash"); }, 460);
-        score += nv; updateScore();
-        setTimeout(function () { if (myGen === gen) resolve(anchor); }, 200);
+        score += gained; updateScore();
+        floatScore(ac.x, ac.y, gained);
+        setTimeout(function () { if (myGen === gen) resolve(anchor, chain + 1); }, 200);
       }, 310);
     } else {
       busy = false;
       checkEnd();
     }
+  }
+
+  // 合并得分飘字
+  function floatScore(x, y, amount) {
+    var el = document.createElement("div");
+    el.className = "float-score";
+    el.textContent = "+" + amount;
+    el.style.left = x + "px"; el.style.top = (y - 14) + "px";
+    document.body.appendChild(el);
+    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 940);
   }
 
   function anyEmpty() {
@@ -492,7 +524,10 @@
     // 已选中棋盘块：点自身取消 / 点别的块改选 / 点空格沿空白路径移动过去
     if (movingFrom) {
       if (cell === movingFrom) { clearMoving(); hintEl.textContent = "已取消移动～"; return; }
-      if (cell.val > 0) { selectMoving(cell); hintEl.textContent = "改选这个块，再点空格让它滑过去～"; return; }
+      if (cell.val > 0) {
+        if (cell.moved) { hintEl.textContent = "这个块已经移动过一次啦，不能再移动咯～"; return; }
+        selectMoving(cell); hintEl.textContent = "改选这个块，再点空格让它滑过去～"; return;
+      }
       var path = findPath(movingFrom, cell);
       if (!path) { hintEl.textContent = "顺着空格走不到那里，换个空地试试～"; return; }
       var src = movingFrom, mv = src.val, mGen = gen;
@@ -501,9 +536,9 @@
       slideCell(path, mv, mGen, function () {
         if (mGen !== gen) return;
         src.val = 0; paint(src);
-        cell.val = mv; paint(cell, true);
+        cell.val = mv; cell.moved = true; paint(cell, true);   // 这个块已用过移动机会
         busy = false;
-        hintEl.textContent = "移动成功！凑成 3 个相同数字就能合并～";
+        hintEl.textContent = "移动成功！这个块本局不能再移动咯，凑成 3 个相同数字就能合并～";
         resolve(cell);
       });
       return;
@@ -511,6 +546,7 @@
 
     // 未选中：点已有块 → 选中它准备移动；点空格 → 从队列放置新数字
     if (cell.val > 0) {
+      if (cell.moved) { hintEl.textContent = "这个块已经移动过一次啦，不能再移动咯～"; return; }
       selectMoving(cell);
       hintEl.textContent = "选中啦！再点一个空格，它会沿空白路线滑过去～（点自己可取消）";
       return;
@@ -541,10 +577,10 @@
     scoreEl.textContent = "0";
     swapN.textContent = swapLeft; hammerN.textContent = hammerLeft;
     overlay.classList.add("hidden");
-    hintEl.textContent = "点数字放到空格；也可点棋盘上的块→点空格移动它；3 个相同数字相连即合并！";
+    hintEl.textContent = "点数字放到空格；也可点棋盘块→点空格移动（每块限移动一次）；3 个相同数字相连合成 4 倍大数字！";
     swapBtn.classList.remove("dim"); hammerBtn.classList.remove("dim", "armed");
     queue = []; fillQueue(); selected = 0; renderQueue();
-    var temp = document.querySelectorAll(".fly-ball,.ripple,.slide-hex");
+    var temp = document.querySelectorAll(".fly-ball,.ripple,.slide-hex,.float-score");
     for (var t = 0; t < temp.length; t++) if (temp[t].parentNode) temp[t].parentNode.removeChild(temp[t]);
     for (var i = 0; i < cells.length; i++) {
       cells[i].val = 0; paint(cells[i]);
