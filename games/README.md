@@ -32,6 +32,10 @@ games/
 ├── gomoku/          # 五子棋
 ├── link-game/       # 连连看
 ├── match-three/     # 消消乐
+├── snake/           # 贪吃蛇
+├── breakout/        # 打砖块
+├── slide-puzzle/    # 数字华容道
+├── find-difference/ # 火眼金睛找不同
 ├── puzzle/          # 拼图游戏
 │   ├── README.md
 │   └── ...

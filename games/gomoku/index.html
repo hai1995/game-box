@@ -23,16 +23,18 @@
     font-size:16px; font-weight:800; color:#e07a00; box-shadow:0 4px 0 #f0c000; white-space:nowrap; }
   #turnPill.black { color:#333; border-color:#888; box-shadow:0 4px 0 #999; }
   #turnPill.white { color:#6b4a2f; border-color:#ffb703; box-shadow:0 4px 0 #e08600; }
+  #turnPill.think { color:#1565c0; border-color:#64b5f6; box-shadow:0 4px 0 #42a5f5; }
   .wrap { max-width:500px; margin:0 auto; padding:0 16px; text-align:center; }
   .boardbox { display:inline-block; padding:10px; border-radius:18px; background:linear-gradient(180deg,#d9a86c,#c98f4e);
     box-shadow:0 8px 18px rgba(120,80,40,.35), inset 0 2px 4px rgba(255,255,255,.4); }
   canvas { display:block; border-radius:10px; touch-action:manipulation; }
-  .tools { display:flex; justify-content:center; gap:14px; margin:16px 0 4px; flex-wrap:wrap; }
-  .btn { border:none; border-radius:999px; padding:12px 28px; font-size:18px; font-weight:900; color:#fff; cursor:pointer;
+  .tools { display:flex; justify-content:center; gap:12px; margin:16px 0 4px; flex-wrap:wrap; }
+  .btn { border:none; border-radius:999px; padding:12px 24px; font-size:17px; font-weight:900; color:#fff; cursor:pointer;
     box-shadow:0 5px 0 rgba(0,0,0,.16); }
   .btn:active { transform:translateY(3px); box-shadow:0 2px 0 rgba(0,0,0,.16); }
   .btn.undo { background:linear-gradient(180deg,#64B5F6,#42A5F5); box-shadow:0 5px 0 #1976D2; }
   .btn.restart { background:linear-gradient(180deg,#ff8fab,#ff6b81); box-shadow:0 5px 0 #e84d68; }
+  .btn.mode { background:linear-gradient(180deg,#81C784,#4CAF50); box-shadow:0 5px 0 #388E3C; }
   .overlay { position:fixed; inset:0; z-index:40; display:flex; flex-direction:column; align-items:center; justify-content:center;
     background:rgba(255,255,255,.92); backdrop-filter:blur(4px); text-align:center; padding:20px; }
   .overlay.hidden { display:none; }
@@ -49,17 +51,18 @@
 <header class="hero">
   <div class="logo">⚫</div>
   <h1>五子棋</h1>
-  <p>黑棋先走，轮流落子，谁先把五个连成一条线谁就赢啦！可以和家长一起玩。</p>
+  <p>默认是和电脑对战：你执黑棋先走，谁先把五颗连成一条线谁就赢！也可以切换成双人模式。</p>
 </header>
 
 <div class="bar">
-  <div class="pill" id="turnPill">⚫ 黑棋回合</div>
+  <div class="pill" id="turnPill">⚫ 轮到你啦</div>
   <div class="pill">步数 <span id="steps">0</span></div>
 </div>
 
 <div class="wrap">
   <div class="boardbox"><canvas id="board"></canvas></div>
   <div class="tools">
+    <button class="btn mode" id="modeBtn">🤖 对战电脑</button>
     <button class="btn undo" id="undoBtn">↩️ 悔棋</button>
     <button class="btn restart" id="restartBtn">🔄 重新开始</button>
   </div>
@@ -67,7 +70,7 @@
 
 <div class="overlay hidden" id="overlay">
   <div class="big" id="ovIcon">🎉</div>
-  <h2 id="ovTitle">黑棋赢啦！</h2>
+  <h2 id="ovTitle">你赢啦！</h2>
   <p id="ovText">五个连成一线，太厉害了！</p>
   <button class="btn" id="ovBtn">再来一局</button>
 </div>
@@ -76,11 +79,14 @@
 <script>
 (function () {
   "use strict";
-  var N = 15;
+  var N = 15, DIRS = [[0,1],[1,0],[1,1],[1,-1]];
   var canvas = document.getElementById("board"), ctx = canvas.getContext("2d");
   var turnPill = document.getElementById("turnPill"), stepsEl = document.getElementById("steps");
+  var modeBtn = document.getElementById("modeBtn");
   var overlay = document.getElementById("overlay");
   var board = [], moves = [], current = 1, finished = false, quizPaused = false, cell = 0, size = 0;
+  var mode = "ai";                 // "ai"=对战电脑(默认)，"pvp"=双人对战
+  var aiTimer = null, aiThinking = false;
 
   function setup() {
     var cssSize = Math.min(500 - 20, window.innerWidth - 60, 460);
@@ -133,59 +139,154 @@
     return n;
   }
   function isWin(r, c, color) {
-    var dirs = [[0,1],[1,0],[1,1],[1,-1]];
-    for (var d = 0; d < dirs.length; d++) {
-      var dr = dirs[d][0], dc = dirs[d][1];
+    for (var d = 0; d < DIRS.length; d++) {
+      var dr = DIRS[d][0], dc = DIRS[d][1];
       if (1 + countDir(r,c,dr,dc,color) + countDir(r,c,-dr,-dc,color) >= 5) return true;
     }
     return false;
   }
   function refreshTurn() {
-    if (current === 1) { turnPill.textContent = "⚫ 黑棋回合"; turnPill.className = "pill black"; }
-    else { turnPill.textContent = "⚪ 白棋回合"; turnPill.className = "pill white"; }
+    turnPill.className = "pill";
+    if (finished) return;
+    if (aiThinking) { turnPill.textContent = "⚪ 电脑思考中…"; turnPill.className = "pill think"; return; }
+    if (mode === "ai") {
+      if (current === 1) { turnPill.textContent = "⚫ 轮到你啦"; turnPill.className = "pill black"; }
+      else { turnPill.textContent = "⚪ 电脑回合"; turnPill.className = "pill white"; }
+    } else {
+      if (current === 1) { turnPill.textContent = "⚫ 黑棋回合"; turnPill.className = "pill black"; }
+      else { turnPill.textContent = "⚪ 白棋回合"; turnPill.className = "pill white"; }
+    }
   }
-  function place(r, c) {
-    if (finished || quizPaused || board[r][c]) return;
-    board[r][c] = current;
-    moves.push({ r: r, c: c, color: current });
+  function showResult(color) {
+    finished = true;
+    if (mode === "ai") {
+      if (color === 1) {
+        document.getElementById("ovIcon").textContent = "🎉";
+        document.getElementById("ovTitle").textContent = "你赢啦！";
+        document.getElementById("ovText").textContent = "把电脑都打败了，太厉害了！共下了 " + moves.length + " 步。";
+      } else {
+        document.getElementById("ovIcon").textContent = "🤖";
+        document.getElementById("ovTitle").textContent = "电脑赢啦";
+        document.getElementById("ovText").textContent = "再试一次，你一定能赢它！";
+      }
+    } else {
+      document.getElementById("ovIcon").textContent = color === 1 ? "⚫" : "⚪";
+      document.getElementById("ovTitle").textContent = (color === 1 ? "黑棋" : "白棋") + "赢啦！";
+      document.getElementById("ovText").textContent = "五个连成一线，太厉害了！共下了 " + moves.length + " 步。";
+    }
+    refreshTurn();
+    overlay.classList.remove("hidden");
+  }
+  function commit(r, c, color) {
+    board[r][c] = color;
+    moves.push({ r: r, c: c, color: color });
     stepsEl.textContent = moves.length;
     draw();
-    if (isWin(r, c, current)) {
-      finished = true;
-      var name = current === 1 ? "黑棋" : "白棋";
-      document.getElementById("ovIcon").textContent = current === 1 ? "⚫" : "⚪";
-      document.getElementById("ovTitle").textContent = name + "赢啦！";
-      document.getElementById("ovText").textContent = "五个连成一线，太厉害了！共下了 " + moves.length + " 步。";
-      overlay.classList.remove("hidden");
-      return;
-    }
+    if (isWin(r, c, color)) { showResult(color); return; }
     if (moves.length >= N * N) {
       finished = true;
       document.getElementById("ovIcon").textContent = "🤝";
       document.getElementById("ovTitle").textContent = "平局！";
       document.getElementById("ovText").textContent = "棋盘下满啦，你们都很棒！";
-      overlay.classList.remove("hidden");
-      return;
+      refreshTurn(); overlay.classList.remove("hidden"); return;
     }
-    current = current === 1 ? 2 : 1;
+    current = color === 1 ? 2 : 1;
     refreshTurn();
   }
+  function humanPlace(r, c) {
+    if (finished || quizPaused || board[r][c]) return;
+    if (mode === "ai" && (current !== 1 || aiThinking)) return;  // 电脑回合，玩家不能下
+    commit(r, c, current);
+    maybeAI();
+  }
+
+  /* ---------- AI：棋型评分（进攻 + 防守） ---------- */
+  function shapeScore(cnt, openA, openB) {
+    var open = (openA ? 1 : 0) + (openB ? 1 : 0);
+    if (cnt >= 5) return 1000000;
+    if (cnt === 4) return open === 2 ? 100000 : (open === 1 ? 10000 : 0);
+    if (cnt === 3) return open === 2 ? 10000 : (open === 1 ? 1000 : 0);
+    if (cnt === 2) return open === 2 ? 1000 : (open === 1 ? 100 : 0);
+    if (cnt === 1) return open === 2 ? 100 : (open === 1 ? 10 : 0);
+    return 0;
+  }
+  // 若在 (r,c) 落 color，评估经过该点的四个方向威胁总和
+  function evalPoint(r, c, color) {
+    var total = 0;
+    for (var d = 0; d < DIRS.length; d++) {
+      var dr = DIRS[d][0], dc = DIRS[d][1];
+      var cnt = 1, rr, cc, openA = false, openB = false;
+      rr = r + dr; cc = c + dc;
+      while (rr >= 0 && rr < N && cc >= 0 && cc < N && board[rr][cc] === color) { cnt++; rr += dr; cc += dc; }
+      if (rr >= 0 && rr < N && cc >= 0 && cc < N && board[rr][cc] === 0) openA = true;
+      rr = r - dr; cc = c - dc;
+      while (rr >= 0 && rr < N && cc >= 0 && cc < N && board[rr][cc] === color) { cnt++; rr -= dr; cc -= dc; }
+      if (rr >= 0 && rr < N && cc >= 0 && cc < N && board[rr][cc] === 0) openB = true;
+      total += shapeScore(cnt, openA, openB);
+    }
+    return total;
+  }
+  function bestMove() {
+    var bestScore = -1, best = [];
+    for (var r = 0; r < N; r++) for (var c = 0; c < N; c++) {
+      if (board[r][c]) continue;
+      var attack = evalPoint(r, c, 2);   // 电脑自己下（进攻）
+      var defend = evalPoint(r, c, 1);   // 堵玩家（防守）
+      var s = attack + defend * 0.9;
+      s += (7 - Math.abs(r - 7)) + (7 - Math.abs(c - 7)); // 轻微偏好中心
+      if (s > bestScore) { bestScore = s; best = [{ r: r, c: c }]; }
+      else if (s === bestScore) best.push({ r: r, c: c });
+    }
+    return best.length ? best[Math.floor(Math.random() * best.length)] : null;
+  }
+  function maybeAI() {
+    if (mode !== "ai" || finished || current !== 2 || quizPaused) return;
+    aiThinking = true; refreshTurn();
+    aiTimer = setTimeout(function () {
+      aiTimer = null;
+      if (finished || quizPaused || current !== 2) { aiThinking = false; refreshTurn(); return; }
+      var mv = bestMove();
+      aiThinking = false;
+      if (mv) commit(mv.r, mv.c, 2);
+      else refreshTurn();
+    }, 450);
+  }
+
   function undo() {
     if (quizPaused || !moves.length) return;
+    if (aiTimer) { clearTimeout(aiTimer); aiTimer = null; }
+    aiThinking = false;
     if (finished) { overlay.classList.add("hidden"); finished = false; }
-    var m = moves.pop();
-    board[m.r][m.c] = 0;
-    current = m.color;
+    var steps = (mode === "ai") ? (moves.length >= 2 ? 2 : 1) : 1;
+    for (var i = 0; i < steps; i++) {
+      var m = moves.pop();
+      board[m.r][m.c] = 0;
+    }
+    if (mode === "ai") {
+      current = 1;  // 人机模式退回到玩家（黑棋）
+    } else {
+      // 双人模式：轮到刚被撤销那一方重新落子
+      current = moves.length ? (moves[moves.length - 1].color === 1 ? 2 : 1) : 1;
+    }
     stepsEl.textContent = moves.length;
     refreshTurn(); draw();
   }
+  function clearAITimer() { if (aiTimer) { clearTimeout(aiTimer); aiTimer = null; } aiThinking = false; }
   function restart() {
+    clearAITimer();
     board = []; moves = []; current = 1; finished = false;
     for (var r = 0; r < N; r++) { board[r] = []; for (var c = 0; c < N; c++) board[r][c] = 0; }
     stepsEl.textContent = "0"; refreshTurn();
     overlay.classList.add("hidden"); draw();
   }
+  function setMode(m) {
+    mode = m;
+    modeBtn.textContent = (mode === "ai") ? "🤖 对战电脑" : "👥 双人对战";
+    modeBtn.title = (mode === "ai") ? "点击切换为双人对战" : "点击切换为对战电脑";
+    restart();
+  }
 
+  modeBtn.addEventListener("click", function () { setMode(mode === "ai" ? "pvp" : "ai"); });
   document.getElementById("undoBtn").addEventListener("click", undo);
   document.getElementById("restartBtn").addEventListener("click", restart);
   document.getElementById("ovBtn").addEventListener("click", restart);
@@ -194,7 +295,7 @@
     var c = Math.round((e.clientX - rect.left) / cell) - 1;
     var r = Math.round((e.clientY - rect.top) / cell) - 1;
     if (r < 0 || r >= N || c < 0 || c >= N) return;
-    place(r, c);
+    humanPlace(r, c);
   });
   window.addEventListener("resize", setup);
 
@@ -203,8 +304,8 @@
   if (window.GameQuiz) {
     GameQuiz.init({
       isPlaying: function () { return !finished && overlay.classList.contains("hidden"); },
-      onOpen: function () { quizPaused = true; },
-      onClose: function () { quizPaused = false; }
+      onOpen: function () { quizPaused = true; clearAITimer(); },
+      onClose: function () { quizPaused = false; refreshTurn(); maybeAI(); }
     });
   }
 })();

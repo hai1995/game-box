@@ -64,7 +64,7 @@
 </header>
 
 <div class="bar">
-  <div class="pill time">⏰ <span id="time">05:00</span></div>
+  <div class="pill time">⏰ <span id="time">10:00</span></div>
   <div class="pill">剩余 <span id="left">24</span> 对</div>
 </div>
 
@@ -91,13 +91,13 @@
 <script>
 (function () {
   "use strict";
-  var R = 6, C = 8, TOTAL = R * C;
-  var EMOJI = ["🐶","🐱","🦊","🐼","🦁","🐸","🐰","🐻","🐷","🐮","🐵","🐔"];
+  var R = 6, C = 8, TOTAL = R * C, TOTAL_TIME = 600;  // 对局时长 10 分钟
+  var EMOJI = ["🍎","🍊","🍋","🍉","🍇","🍓","🍒","🍑","🥭","🍍","🥝","🫐"];
   var DR = [-1, 1, 0, 0], DC = [0, 0, -1, 1];
   var boardEl = document.getElementById("board"), layer = document.getElementById("layer");
   var timeEl = document.getElementById("time"), leftEl = document.getElementById("left");
   var overlay = document.getElementById("overlay");
-  var grid = [], cells = [], sel = null, timeLeft = 300, timer = null;
+  var grid = [], cells = [], sel = null, timeLeft = TOTAL_TIME, timer = null;
   var finished = false, quizPaused = false, pairsLeft = 0;
 
   function shuffle(a) {
@@ -265,11 +265,11 @@
     finished = true; clearInterval(timer);
     document.getElementById("ovIcon").textContent = "🏆";
     document.getElementById("ovTitle").textContent = "全部消除！";
-    document.getElementById("ovText").textContent = "你用了 " + (300 - timeLeft) + " 秒，记忆力超棒！";
+    document.getElementById("ovText").textContent = "你用了 " + (TOTAL_TIME - timeLeft) + " 秒，记忆力超棒！";
     setTimeout(function () { overlay.classList.remove("hidden"); }, 300);
   }
   function reset() {
-    timeLeft = 300; timeEl.textContent = fmt(timeLeft);
+    timeLeft = TOTAL_TIME; timeEl.textContent = fmt(timeLeft);
     finished = false; overlay.classList.add("hidden");
     build(); startTimer();
   }

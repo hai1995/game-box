@@ -98,6 +98,10 @@
   .app:nth-child(10) { animation-delay: .50s; }
   .app:nth-child(11) { animation-delay: .55s; }
   .app:nth-child(12) { animation-delay: .60s; }
+  .app:nth-child(13) { animation-delay: .65s; }
+  .app:nth-child(14) { animation-delay: .70s; }
+  .app:nth-child(15) { animation-delay: .75s; }
+  .app:nth-child(16) { animation-delay: .80s; }
   @keyframes rise {
     from { opacity: 0; transform: translateY(14px); }
     to   { opacity: 1; transform: translateY(0); }
@@ -144,6 +148,10 @@
   .c-gomoku  { background: linear-gradient(135deg, #8d6e63 0%, #4e342e 100%); }
   .c-link    { background: linear-gradient(135deg, #7c5cff 0%, #e36fb3 100%); }
   .c-match   { background: linear-gradient(135deg, #ff6b9d 0%, #ff8fab 100%); }
+  .c-snake   { background: linear-gradient(135deg, #66bb6a 0%, #2e7d32 100%); }
+  .c-break   { background: linear-gradient(135deg, #f06292 0%, #3949ab 100%); }
+  .c-slide   { background: linear-gradient(135deg, #5c7cfa 0%, #3949ab 100%); }
+  .c-find    { background: linear-gradient(135deg, #ba68c8 0%, #8e24aa 100%); }
   .c-quiz    { background: linear-gradient(135deg, #ff6b9d 0%, #ff9f43 100%); }
   /* 题目练习入口：加个「练习」小角标，与其他游戏区分 */
   .app-icon.quiz-icon { position: relative; }
@@ -227,6 +235,26 @@
     <a class="app" href="games/match-three/index.html" aria-label="打开 消消乐">
       <div class="app-icon c-match"><span class="em">🍬</span></div>
       <div class="app-name">消消乐</div>
+    </a>
+
+    <a class="app" href="games/snake/index.html" aria-label="打开 贪吃蛇">
+      <div class="app-icon c-snake"><span class="em">🐍</span></div>
+      <div class="app-name">贪吃蛇</div>
+    </a>
+
+    <a class="app" href="games/breakout/index.html" aria-label="打开 打砖块">
+      <div class="app-icon c-break"><span class="em">🧱</span></div>
+      <div class="app-name">打砖块</div>
+    </a>
+
+    <a class="app" href="games/slide-puzzle/index.html" aria-label="打开 数字华容道">
+      <div class="app-icon c-slide"><span class="em">🔢</span></div>
+      <div class="app-name">数字<br>华容道</div>
+    </a>
+
+    <a class="app" href="games/find-difference/index.html" aria-label="打开 火眼金睛找不同">
+      <div class="app-icon c-find"><span class="em">👀</span></div>
+      <div class="app-name">火眼<br>金睛</div>
     </a>
 
     <a class="app" href="practice/index.html" aria-label="打开 题目练习">

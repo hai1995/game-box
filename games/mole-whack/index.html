@@ -54,7 +54,7 @@
 
 <div class="hud">
   <div class="pill">⭐ <span id="score">0</span> 分</div>
-  <div class="pill time">⏱ <span id="time">30</span> 秒</div>
+  <div class="pill time">⏱ <span id="time">60</span> 秒</div>
 </div>
 
 <div class="field" id="field"></div>
@@ -62,7 +62,7 @@
 <div class="overlay" id="startScreen">
   <div class="big">🔨🐹</div>
   <h2>打地鼠啦！</h2>
-  <p>30 秒内打到越多地鼠越好～</p>
+  <p>60 秒内打到越多地鼠越好～</p>
   <button class="btn" id="startBtn">开始游戏 ▶</button>
 </div>
 
@@ -83,7 +83,8 @@
   var startScreen = document.getElementById("startScreen");
   var endScreen = document.getElementById("endScreen");
   var holes = [];
-  var score = 0, time = 30, playing = false;
+  var ROUND_SECONDS = 60;
+  var score = 0, time = ROUND_SECONDS, playing = false;
   var popTimer = null, tickTimer = null;
 
   function build() {
@@ -127,7 +128,7 @@
     h._mole.textContent = isBomb ? "💣" : (Math.random() < .5 ? "🐹" : "🐭");
     h._up = true;
     h.classList.add("up");
-    var dur = isBomb ? 900 : Math.max(500, 1100 - (30 - time) * 22);
+    var dur = isBomb ? 900 : Math.max(650, 1400 - (ROUND_SECONDS - time) * 12);
     h._hideTimer = setTimeout(function () {
       if (h._up === true && h.classList.contains("up")) {
         h.classList.remove("up");
@@ -173,8 +174,8 @@
   }
 
   function start() {
-    score = 0; time = 30; playing = true;
-    scoreEl.textContent = "0"; timeEl.textContent = "30";
+    score = 0; time = ROUND_SECONDS; playing = true;
+    scoreEl.textContent = "0"; timeEl.textContent = String(ROUND_SECONDS);
     startScreen.classList.add("hidden");
     endScreen.classList.add("hidden");
     clearMoles();
