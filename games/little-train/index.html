@@ -269,7 +269,7 @@
     var r=(hex>>16)&255, g=(hex>>8)&255, b=hex&255;
     return "rgb(" + Math.min(255,r*f|0) + "," + Math.min(255,g*f|0) + "," + Math.min(255,b*f|0) + ")";
   }
-  // 画一个 3D 盒子（顶/前/一个侧面）
+  // 画一个 3D 盒子（顶/前/一个侧面）——保留给隧道等场景用
   function box(x, y, d, w, h, l, color) {
     var df=d-l/2, db=d+l/2, yb=y-h/2, yt=y+h/2, xl=x-w/2, xr=x+w/2;
     var a=P(xl,yb,df), b=P(xr,yb,df), c=P(xr,yt,df), e=P(xl,yt,df);
@@ -284,18 +284,46 @@
     }
     poly([a,b,c,e], shade(color,.96));             // 前面(朝相机)
   }
+  // 线性渐变填充一个已 beginPath 的路径
+  function gradFill(x0,y0,x1,y1, stops) {
+    var g=ctx.createLinearGradient(x0,y0,x1,y1);
+    for (var i=0;i<stops.length;i++) g.addColorStop(stops[i][0], stops[i][1]);
+    ctx.fillStyle=g; ctx.fill();
+  }
+  // 画一个带金属质感/高光的写实车轮（含轮毂、辐条、外圈），wx/wy 为屏幕坐标，r 半径
+  function wheel(wx, wy, r, spin) {
+    if (r<1.2) { ctx.fillStyle="#222"; ctx.beginPath(); ctx.arc(wx,wy,Math.max(1,r),0,6.28); ctx.fill(); return; }
+    // 轮胎外圈（深色金属）
+    var g=ctx.createRadialGradient(wx-r*.3,wy-r*.3,r*.1, wx,wy,r);
+    g.addColorStop(0,"#6b7076"); g.addColorStop(.6,"#33383e"); g.addColorStop(1,"#15181c");
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(wx,wy,r,0,6.28); ctx.fill();
+    ctx.strokeStyle="#0d0f12"; ctx.lineWidth=Math.max(.8,r*.14); ctx.stroke();
+    // 辐条
+    if (r>3) {
+      ctx.strokeStyle="#8d949c"; ctx.lineWidth=Math.max(.6,r*.1);
+      for (var k=0;k<6;k++) {
+        var a=spin+k*Math.PI/3;
+        ctx.beginPath(); ctx.moveTo(wx+Math.cos(a)*r*.28, wy+Math.sin(a)*r*.28);
+        ctx.lineTo(wx+Math.cos(a)*r*.72, wy+Math.sin(a)*r*.72); ctx.stroke();
+      }
+    }
+    // 轮毂
+    ctx.fillStyle="#c9ced4"; ctx.beginPath(); ctx.arc(wx,wy,r*.28,0,6.28); ctx.fill();
+    ctx.fillStyle="#5a6068"; ctx.beginPath(); ctx.arc(wx,wy,r*.12,0,6.28); ctx.fill();
+  }
 
   /* ================= 场景参数 ================= */
   var TRACK_X = [-3, 0, 3];
-  var NEAR = 3.2, FAR = 115;
-  var HEAD_D = 16, CAR_GAP = .9; // 火车整体推远，视觉上更小、遮挡更少，露出更多轨道
+  var NEAR = 1.9, FAR = 115; // 轨道近端拉近到屏幕下方，让线路从画面底部延伸上来
+  var HEAD_D = 9.5, CAR_GAP = 1.05; // 火车整体拉近放大，让写实木外形清晰可见；车尾朝向镜头
+  var NUM_CARS = 6; // 车厢数（最后一节为朝向镜头的守车）
   var SLEEPER = 1.05;
 
   var running=false, distance=0, score=0, quizPaused=false;
   var baseSpeed=.30, speed=baseSpeed, fast=false, offset=0, wheelAngle=0;
   var currentTrack=1, trainX=TRACK_X[1];
-  var carX=[0,0,0,0,0,0,0,0,0,0]; // 10 节车厢各自的横向位置，用于蛇形转弯
-  var CAR_FOLLOW=0.16; // 车厢跟随前一节的速度：越小转弯越舒缓、S 形越明显
+  var carX=[]; for (var ci=0;ci<NUM_CARS;ci++) carX.push(0); // 每节车厢各自的横向位置，用于蛇形转弯
+  var CAR_FOLLOW=0.30; // 车厢跟随前一节的速度：加大后左右换轨动画更快更跟手
   var lastPick=0, lastTunnel=0, lastMilestone=0;
 
   var trees=[], clouds=[], pickups=[], smoke=[], fireworks=[], tunnel=null, flash=0;
@@ -474,33 +502,164 @@
   function drawTrain() {
     // 车头（最远）-> 10 节车厢（越来越近），保证近处覆盖远处
     var hx=trainX;
-    // 车头
     var hd=HEAD_D;
-    box(hx, 1.0, hd, 1.5, 1.3, 2.6, 0xef476f);
-    box(hx, 2.05, hd+.5, 1.3, .9, 1.1, 0xd62828); // 驾驶室
-    var wf=hd-1.31;
-    poly([P(hx-.5,2.22,wf),P(hx+.5,2.22,wf),P(hx+.5,2.58,wf),P(hx-.5,2.58,wf)], "#bfe3ff"); // 窗
-    poly([P(hx-.16,2.35,hd-.7),P(hx+.16,2.35,hd-.7),P(hx+.12,2.85,hd-.7),P(hx-.12,2.85,hd-.7)], "#444"); // 烟囱
-    var lp=P(hx,1.0,hd-1.32); ctx.fillStyle="#ffe066";
-    ctx.beginPath(); ctx.arc(lp.x,lp.y,Math.max(2,.2*lp.s),0,6.28); ctx.fill(); // 大灯
-    drawWheels(hx, hd-1.3, .9);
+    drawLocomotive(hx, hd);
     // 10 节车厢：每节用各自的 carX，转弯时依次跟随车头形成蛇形
-    var colors=[0x4d96ff,0x6bcb77,0xffca3a,0xff9f1c,0xc77dff,0xff595e,0x26c6da,0xec407a,0x9ccc65,0xff7043];
-    for (var i=1;i<=10;i++) {
+    var colors=[0x2d7dd2,0x2fa84f,0xe8a317,0xe2622d,0x9b5de5,0xd6455f,0x1ba6b0,0xcf3d78,0x7aa62f,0xe2562b];
+    for (var i=1;i<=NUM_CARS;i++) {
       var d=HEAD_D-i*CAR_GAP, col=colors[(i-1)%colors.length];
       var cx=carX[i-1];
-      box(cx, .85, d, 1.4, 1.1, 2.1, col);
-      var df=d-1.06;
-      poly([P(cx-.42,1.0,df),P(cx+.42,1.0,df),P(cx+.42,1.35,df),P(cx-.42,1.35,df)], "#cfefff"); // 窗
-      drawWheels(cx, df, .75);
+      drawCoach(cx, d, col, i);
     }
   }
+
+  // 写实蒸汽机车车头：锅炉 + 驾驶室 + 烟囱 + 排障器 + 大灯 + 连杆动轮
+  function drawLocomotive(x, d) {
+    var s=P(x,1,d).s;
+    var halfW=.78, boilerY=1.15, boilerR=.62;
+    var df=d-1.35, db=d+1.15; // 前端近、后端远
+    // —— 锅炉：圆柱体（沿纵向的梯形，用横向渐变模拟圆柱高光）——
+    var bfl=P(x-boilerR,boilerY-boilerR,df), bfr=P(x+boilerR,boilerY-boilerR,df);
+    var btl=P(x-boilerR,boilerY+boilerR,df), btr=P(x+boilerR,boilerY+boilerR,df);
+    var bbl=P(x-boilerR,boilerY-boilerR,db), bbr=P(x+boilerR,boilerY-boilerR,db);
+    var btl2=P(x-boilerR,boilerY+boilerR,db), btr2=P(x+boilerR,boilerY+boilerR,db);
+    // 锅炉顶面
+    poly([btl,btr,btr2,btl2], shade(0x1f6f5c,1.2));
+    // 锅炉侧面（朝向镜头的一侧，横向渐变做圆柱反光）
+    ctx.beginPath(); ctx.moveTo(bfl.x,bfl.y); ctx.lineTo(bfr.x,bfr.y);
+    ctx.lineTo(btr.x,btr.y); ctx.lineTo(btl.x,btl.y); ctx.closePath();
+    gradFill(bfl.x,bfl.y,bfr.x,bfr.y,[[0,"#0f4a3d"],[.28,"#2f8a6f"],[.5,"#49ad8d"],[.72,"#2b7f68"],[1,"#123f34"]]);
+    // 锅炉箍环（数道竖线）
+    ctx.strokeStyle="rgba(0,0,0,.35)"; ctx.lineWidth=Math.max(.6,s*.035);
+    for (var k=1;k<=4;k++) {
+      var zk=df+(db-df)*k/5;
+      var kt=P(x-boilerR*.98,boilerY+boilerR*.98,zk), kb=P(x-boilerR*.98,boilerY-boilerR*.98,zk);
+      ctx.beginPath(); ctx.moveTo(kt.x,kt.y); ctx.lineTo(kb.x,kb.y); ctx.stroke();
+    }
+    // 烟箱门（锅炉前端圆形面板）
+    var fc=P(x,boilerY,df-0.02), fr=boilerR*.82*s;
+    var dg=ctx.createRadialGradient(fc.x-fr*.3,fc.y-fr*.3,fr*.1,fc.x,fc.y,fr);
+    dg.addColorStop(0,"#3a444c"); dg.addColorStop(.7,"#202830"); dg.addColorStop(1,"#0f1418");
+    ctx.fillStyle=dg; ctx.beginPath(); ctx.arc(fc.x,fc.y,fr,0,6.28); ctx.fill();
+    ctx.strokeStyle="#8d949c"; ctx.lineWidth=Math.max(.8,fr*.12); ctx.stroke();
+    ctx.strokeStyle="rgba(255,255,255,.25)"; ctx.lineWidth=Math.max(.5,fr*.05);
+    ctx.beginPath(); ctx.arc(fc.x,fc.y,fr*.72,0,6.28); ctx.stroke();
+    // 大灯（烟箱门上方，暖黄光晕）
+    var hl=P(x,boilerY+boilerR*.55,df-.05), hr=Math.max(2,s*.13);
+    var hg=ctx.createRadialGradient(hl.x,hl.y,0,hl.x,hl.y,hr*2.6);
+    hg.addColorStop(0,"rgba(255,236,150,.95)"); hg.addColorStop(.35,"rgba(255,220,110,.55)"); hg.addColorStop(1,"rgba(255,220,110,0)");
+    ctx.fillStyle=hg; ctx.beginPath(); ctx.arc(hl.x,hl.y,hr*2.6,0,6.28); ctx.fill();
+    ctx.fillStyle="#ffe9a3"; ctx.beginPath(); ctx.arc(hl.x,hl.y,hr,0,6.28); ctx.fill();
+    ctx.strokeStyle="#7a6a3a"; ctx.lineWidth=Math.max(.6,hr*.3); ctx.stroke();
+    // —— 驾驶室（后端，稍高，带屋顶与侧窗）——
+    var cabD=db+0.05, cabW=.72, cabH=.95;
+    var cyb=1.0, cyt=cyb+cabH;
+    var ca=P(x-cabW,cyb,cabD), cb=P(x+cabW,cyb,cabD), cc=P(x+cabW,cyt,cabD), ce=P(x-cabW,cyt,cabD);
+    ctx.beginPath(); ctx.moveTo(ca.x,ca.y); ctx.lineTo(cb.x,cb.y); ctx.lineTo(cc.x,cc.y); ctx.lineTo(ce.x,ce.y); ctx.closePath();
+    gradFill(ca.x,ca.y,cb.x,cb.y,[[0,"#7a1f1f"],[.5,"#b83535"],[1,"#6d1919"]]);
+    // 驾驶室顶檐（外扩一点）
+    var roofY=cyt+.12, rw=cabW+.14;
+    poly([P(x-rw,roofY,cabD),P(x+rw,roofY,cabD),P(x+rw,roofY-.16,cabD),P(x-rw,roofY-.16,cabD)], "#3a3f45");
+    // 驾驶室窗（两扇，暖色玻璃 + 反光）
+    [-1,1].forEach(function (sg) {
+      var wx=x+sg*cabW*.46, wy=cyb+cabH*.66, ww=cabW*.30, wh=cabH*.30;
+      var wa=P(wx-ww,wy-wh,cabD-.02), wb=P(wx+ww,wy-wh,cabD-.02), wc=P(wx+ww,wy+wh,cabD-.02), wd=P(wx-ww,wy+wh,cabD-.02);
+      ctx.beginPath(); ctx.moveTo(wa.x,wa.y); ctx.lineTo(wb.x,wb.y); ctx.lineTo(wc.x,wc.y); ctx.lineTo(wd.x,wd.y); ctx.closePath();
+      gradFill(wa.x,wa.y,wa.x,wc.y,[[0,"#bfe8ff"],[.55,"#7fc4ec"],[1,"#e8f6ff"]]);
+      ctx.strokeStyle="#3a2b22"; ctx.lineWidth=Math.max(.6,s*.03); ctx.stroke();
+    });
+    // —— 烟囱（锅炉前部上方，锥形 + 顶帽）——
+    var stD=df+0.55, stY=boilerY+boilerR;
+    var stbW=.20, sttW=.26, stH=.62;
+    var s1=P(x-stbW,stY,stD), s2=P(x+stbW,stY,stD), s3=P(x+sttW,stY+stH,stD), s4=P(x-sttW,stY+stH,stD);
+    ctx.beginPath(); ctx.moveTo(s1.x,s1.y); ctx.lineTo(s2.x,s2.y); ctx.lineTo(s3.x,s3.y); ctx.lineTo(s4.x,s4.y); ctx.closePath();
+    gradFill(s1.x,s1.y,s2.x,s2.y,[[0,"#0d1114"],[.5,"#394049"],[1,"#0d1114"]]);
+    poly([P(x-sttW-.06,stY+stH,stD),P(x+sttW+.06,stY+stH,stD),P(x+sttW+.06,stY+stH-.1,stD),P(x-sttW-.06,stY+stH-.1,stD)], "#22272d");
+    // 汽包（驾驶室前的圆顶）
+    var dm=P(x,boilerY+boilerR+.05,cabD-.5), dr=Math.max(1.5,s*.16);
+    ctx.fillStyle="#c9a24a"; ctx.beginPath(); ctx.ellipse(dm.x,dm.y,dr,dr*.55,0,0,6.28); ctx.fill();
+    ctx.strokeStyle="#7a6428"; ctx.lineWidth=Math.max(.5,s*.02); ctx.stroke();
+    // —— 排障器（车头下方梯形金属犁）——
+    var pfY=.42, pw1=.95, pw2=.62;
+    poly([P(x-pw1,pfY,df-.2),P(x+pw1,pfY,df-.2),P(x+pw2,.12,df-.55),P(x-pw2,.12,df-.55)], "#3b4148");
+    ctx.strokeStyle="#1d2126"; ctx.lineWidth=Math.max(.6,s*.02); ctx.stroke();
+    // —— 底部车架 ——
+    poly([P(x-halfW,.55,db),P(x+halfW,.55,db),P(x+halfW,.55,df),P(x-halfW,.55,df)], "#1a1e22");
+    // —— 动轮 + 连杆 ——
+    var wd=df+.35, wr=Math.max(2,s*.30), wy=P(x,.3,wd).y;
+    var wl=P(x-.52,.3,wd).x, wrr=P(x+.52,.3,wd).x;
+    // 连杆（两轮之间，随轮子转动）
+    var crank=Math.sin(wheelAngle)*wr*.5;
+    ctx.strokeStyle="#b8352f"; ctx.lineWidth=Math.max(1.2,wr*.28); ctx.lineCap="round";
+    ctx.beginPath(); ctx.moveTo(wl,wy+crank); ctx.lineTo(wrr,wy-crank); ctx.stroke();
+    wheel(wl,wy,wr,wheelAngle);
+    wheel(wrr,wy,wr,wheelAngle+Math.PI);
+  }
+
+  // 写实客车车厢：弧形车顶 + 车身渐变 + 窗排 + 转向架车轮
+  function drawCoach(x, d, col, idx) {
+    var s=P(x,.85,d).s;
+    var halfW=.72, yb=.42, yt=1.5, df=d-1.05, db=d+1.05;
+    // 车身（朝镜头的面，横向渐变做金属漆反光）
+    var la=P(x-halfW,yb,df), rb=P(x+halfW,yb,df), rt=P(x+halfW,yt,df), lt=P(x-halfW,yt,df);
+    ctx.beginPath(); ctx.moveTo(la.x,la.y); ctx.lineTo(rb.x,rb.y); ctx.lineTo(rt.x,rt.y); ctx.lineTo(lt.x,lt.y); ctx.closePath();
+    gradFill(la.x,la.y,rb.x,rb.y,[[0,shade(col,.62)],[.22,shade(col,1.05)],[.5,shade(col,1.22)],[.78,shade(col,.98)],[1,shade(col,.55)]]);
+    // 车顶（圆弧感：梯形 + 顶部浅色带）
+    var rw=halfW+.06;
+    poly([P(x-rw,yt,df),P(x+rw,yt,df),P(x+rw*0.86,yt+.22,df+.1),P(x-rw*0.86,yt+.22,df+.1)], shade(col,.75));
+    // 车身腰线（浅色饰条）
+    ctx.strokeStyle="rgba(255,255,255,.55)"; ctx.lineWidth=Math.max(.6,s*.028);
+    var y1=P(x-halfW,yb+.16,df), y2=P(x+halfW,yb+.16,df);
+    ctx.beginPath(); ctx.moveTo(y1.x,y1.y); ctx.lineTo(y2.x,y2.y); ctx.stroke();
+    // 窗户（三扇，带窗框与天空反光）
+    for (var wi=-1; wi<=1; wi++) {
+      var wx=x+wi*halfW*.56, wy=yb+(yt-yb)*.62, ww=halfW*.30, wh=(yt-yb)*.26;
+      var wa=P(wx-ww,wy-wh,df-.02), wb=P(wx+ww,wy-wh,df-.02), wc=P(wx+ww,wy+wh,df-.02), wd=P(wx-ww,wy+wh,df-.02);
+      ctx.beginPath(); ctx.moveTo(wa.x,wa.y); ctx.lineTo(wb.x,wb.y); ctx.lineTo(wc.x,wc.y); ctx.lineTo(wd.x,wd.y); ctx.closePath();
+      gradFill(wa.x,wa.y,wa.x,wc.y,[[0,"#cdeeff"],[.5,"#8ec9ee"],[1,"#5f9fc9"]]);
+      ctx.strokeStyle="#2a2f34"; ctx.lineWidth=Math.max(.5,s*.022); ctx.stroke();
+    }
+    // 转向架 + 车轮（贴近车体下缘 yb，避免悬空脱离车身）
+    var wr=Math.max(1.5,s*.17), wy=P(x,yb-.06,df-.02).y;
+    var wl=P(x-.46,yb-.06,df-.02).x, wrx=P(x+.46,yb-.06,df-.02).x;
+    wheel(wl,wy,wr,wheelAngle);
+    wheel(wrx,wy,wr,wheelAngle+Math.PI);
+    // 最后一节=朝向镜头的守车车尾：加端面细节，让车尾一眼可辨
+    if (idx===NUM_CARS) {
+      // 车尾下缘深色保险杠
+      var bp1=P(x-halfW,yb,df-.03), bp2=P(x+halfW,yb,df-.03);
+      ctx.strokeStyle="#20252b"; ctx.lineWidth=Math.max(2,s*.09); ctx.lineCap="butt";
+      ctx.beginPath(); ctx.moveTo(bp1.x,bp1.y); ctx.lineTo(bp2.x,bp2.y); ctx.stroke();
+      // 黄黑警示斜纹（车尾底部）
+      var stY=yb+.10;
+      for (var q=-3;q<3;q++) {
+        var qx=x+q*halfW/3;
+        poly([P(qx,stY,df-.04),P(qx+halfW/3,stY,df-.04),P(qx+halfW/3-.08,stY+.14,df-.04),P(qx-.08,stY+.14,df-.04)], q%2===0?"#f2c11b":"#2a2a2a");
+      }
+      // 尾部两盏红灯（带光晕）
+      [-.42,.42].forEach(function (sg) {
+        var tl=P(x+sg*halfW*.72,yt-.28,df-.05), tr=Math.max(2,s*.10);
+        var tg=ctx.createRadialGradient(tl.x,tl.y,0,tl.x,tl.y,tr*2.4);
+        tg.addColorStop(0,"rgba(255,90,90,.9)"); tg.addColorStop(1,"rgba(255,60,60,0)");
+        ctx.fillStyle=tg; ctx.beginPath(); ctx.arc(tl.x,tl.y,tr*2.4,0,6.28); ctx.fill();
+        ctx.fillStyle="#e23b3b"; ctx.beginPath(); ctx.arc(tl.x,tl.y,tr,0,6.28); ctx.fill();
+        ctx.strokeStyle="#7a1a1a"; ctx.lineWidth=Math.max(.5,tr*.28); ctx.stroke();
+      });
+      // 车尾 central 车门（纵深的浅色门框）
+      var doorW=halfW*.34, doorH=(yt-yb)*.42, doorX=x, doorY=yb+.16;
+      var da=P(doorX-doorW,doorY,df-.03), db2=P(doorX+doorW,doorY,df-.03),
+          dc=P(doorX+doorW,doorY+doorH,df-.03), dd=P(doorX-doorW,doorY+doorH,df-.03);
+      ctx.beginPath(); ctx.moveTo(da.x,da.y); ctx.lineTo(db2.x,db2.y); ctx.lineTo(dc.x,dc.y); ctx.lineTo(dd.x,dd.y); ctx.closePath();
+      ctx.strokeStyle="rgba(255,255,255,.75)"; ctx.lineWidth=Math.max(.8,s*.03); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo((da.x+db2.x)/2,da.y); ctx.lineTo((dd.x+dc.x)/2,dc.y); ctx.stroke();
+    }
+  }
+
   function drawWheels(x, d, half) {
     var p=P(x-half,.3,d), r=Math.max(1.5,.28*p.s);
-    ctx.fillStyle="#333";
-    ctx.beginPath(); ctx.arc(p.x,p.y,r,0,6.28); ctx.fill();
+    wheel(p.x,p.y,r,wheelAngle);
     var q=P(x+half,.3,d), r2=Math.max(1.5,.28*q.s);
-    ctx.beginPath(); ctx.arc(q.x,q.y,r2,0,6.28); ctx.fill();
+    wheel(q.x,q.y,r2,wheelAngle+Math.PI);
   }
   function drawSmoke() {
     smoke.forEach(function (p) {
@@ -565,8 +724,8 @@
     toasts.forEach(function (t) { t.y-=1.1; t.life-=.018; });
     toasts=toasts.filter(function (t) { return t.life>0; });
 
-    // 车头平滑趋近目标轨道；车厢依次跟随前一节，形成蛇形转弯
-    trainX += (TRACK_X[currentTrack]-trainX)*.12;
+    // 车头平滑趋近目标轨道；加大系数让左右换轨更迅速
+    trainX += (TRACK_X[currentTrack]-trainX)*.24;
     var lead = trainX;
     for (var ci=0; ci<carX.length; ci++) {
       carX[ci] += (lead - carX[ci]) * CAR_FOLLOW;
