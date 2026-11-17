@@ -120,6 +120,7 @@
   .app:nth-child(20) { animation-delay: 1.00s; }
   .app:nth-child(21) { animation-delay: 1.05s; }
   .app:nth-child(22) { animation-delay: 1.10s; }
+  .app:nth-child(23) { animation-delay: 1.15s; }
   @keyframes rise {
     from { opacity: 0; transform: translateY(14px); }
     to   { opacity: 1; transform: translateY(0); }
@@ -175,6 +176,7 @@
   .c-slide   { background: linear-gradient(135deg, #5c7cfa 0%, #3949ab 100%); }
   .c-find    { background: linear-gradient(135deg, #ba68c8 0%, #8e24aa 100%); }
   .c-arrow   { background: linear-gradient(135deg, #4facfe 0%, #2f6fe4 100%); }
+  .c-arrow-pro { background: linear-gradient(135deg, #4a4a4f 0%, #0b0b0d 100%); }
   .c-dino    { background: linear-gradient(135deg, #7ed957 0%, #2f9b48 100%); }
   .c-space   { background: linear-gradient(135deg, #5b6ef5 0%, #2b2a7a 100%); }
   .c-car     { background: linear-gradient(135deg, #ff7a6b 0%, #e02b2b 100%); }
@@ -186,6 +188,13 @@
     content: "练习"; position: absolute; top: -6px; right: -8px;
     background: #fff; color: #ff6b9d; font-size: 11px; font-weight: 900;
     padding: 2px 7px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,.18);
+  }
+  /* 箭头消除高阶版：加「PRO」角标，与儿童版区分 */
+  .app-icon.pro-icon { position: relative; }
+  .app-icon.pro-icon::after {
+    content: "PRO"; position: absolute; top: -6px; right: -8px;
+    background: #fff; color: #111; font-size: 10px; font-weight: 900;
+    padding: 2px 6px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,.18);
   }
 
   footer { text-align: center; margin-top: 26px; color: var(--sub); font-size: 12px; }
@@ -295,6 +304,11 @@
     <a class="app" href="games/arrow-out/index.html" aria-label="打开 箭头消除">
       <div class="app-icon c-arrow"><span class="em">➡️</span></div>
       <div class="app-name">箭头<br>消除</div>
+    </a>
+
+    <a class="app" href="games/arrow-out-pro/index.html" aria-label="打开 箭头消除高阶版（成人向）">
+      <div class="app-icon c-arrow-pro pro-icon"><span class="em">➡️</span></div>
+      <div class="app-name">箭头消除<br>PRO</div>
     </a>
 
     <a class="app" href="games/dino-run/index.html" aria-label="打开 恐龙快跑">
