@@ -7,9 +7,11 @@
  *     随关号对数增长，约 800 关达到 76×102 / 280 后保持满配高难度。
  *   - 箭头绘制更细、纯黑系（见 index.html），同样盘面容纳更多箭头仍清晰可辨。
  *   - seed 仅由关号决定，同一关每次生成完全一致（可重试、可分享关号）。
- *   - 折弯预算从第 1 关即拉满（16→26 折）；箭身从尖端起全程只走垂直拐弯、
- *     零直线段（无 3 点共线），并用「射线覆盖热度」引导箭头反复横穿彼此弹道，
- *     互相包含深、突破口少、难度极高。
+ *   - 折弯预算从第 1 关即拉满（16→26 折）；箭身中段全程只走垂直拐弯、零直线段
+ *     （无 3 点共线），但「箭头头部直入直出」——第一段沿朝向正后方直行，三角头与
+ *     身体成一条直线、清晰易辨；中段用射线覆盖热度引导横穿彼此弹道。
+ *   - 优先朝盘面内部生成（射线长、易被后续箭身遮挡），并用逐层剥离画像筛选
+ *     （层深大、单层突破口少者胜），逼近「每一圈层仅一个突破口」的高难拆解。
  *   - 反向构造天然保证可解，空腔填补后再跑求解器复核，绝不返回死局。
  * 暴露：window.ArrowLevelGen.generate(level) -> { c, r, t, a } | null
  *       window.ArrowLevelGen.paramsFor(level) -> 难度参数（调试用）
@@ -98,14 +100,18 @@
       } else { er = ri(0, R - 1); ec = ri(0, C - 1); }
       if (grid[er * C + ec] !== -1) continue;
       var dir;
-      if (attempt % 3 === 0) {
-        var outs = [];
-        if (er === 0) outs.push(0);
-        if (er === R - 1) outs.push(2);
-        if (ec === 0) outs.push(3);
-        if (ec === C - 1) outs.push(1);
-        dir = outs.length ? outs[ri(0, outs.length - 1)] : ri(0, 3);
-      } else { dir = ri(0, 3); }
+      // 减少突破口：优先让箭头朝「盘面内部（射线长）」飞出——射线越长越容易被
+      // 后续放入的箭身横穿遮挡，初始畅通的箭头就越少。仅少量随机保留多样性。
+      if (rng() < 0.68) {
+        // 按四方向到边界的射线长度加权随机（长度越长权重越高）
+        var reach = [er, C - 1 - ec, R - 1 - er, ec];
+        var w0 = reach[0] * reach[0] + 1, w1 = reach[1] * reach[1] + 1;
+        var w2 = reach[2] * reach[2] + 1, w3 = reach[3] * reach[3] + 1;
+        var pick = rng() * (w0 + w1 + w2 + w3);
+        dir = pick < w0 ? 0 : (pick < w0 + w1 ? 1 : (pick < w0 + w1 + w2 ? 2 : 3));
+      } else {
+        dir = ri(0, 3);
+      }
       if (rayHit(er, ec, dir, grid, R, C, -1)) continue;
       var back = OPP[dir], depth = 0, rr = er, cc = ec;
       while (true) {
@@ -117,19 +123,24 @@
       var len = Math.max(2, Math.min(wantLen + ri(-1, 1), depth + 1));
       var cells = [[er, ec]], r = er, c = ec, lastBack = back, bends = 0, straightRun = 0;
       while (cells.length < len) {
-        // 移除直线箭头：头部第一步起，每一步都只走「垂直于当前方向」的拐弯方向，
-        // 彻底不设直行兜底——垂直方向都走不通就收尾。箭身全程零直线段，缠绕度最大化。
-        var perps = [(lastBack + 1) % 4, (lastBack + 3) % 4];
-        // 互相包含：优先朝「已被别的箭头射线覆盖」的格子拐，让箭身横穿他人弹道、
-        // 制造更多遮挡依赖；两个垂直方向按覆盖热度排序并保留少量随机避免模式化。
-        var hot = function (d) {
-          var nr = r + DIRS[d][0], nc = c + DIRS[d][1];
-          if (nr < 0 || nr >= R || nc < 0 || nc >= C) return -1;
-          return rayCover ? rayCover[nr * C + nc] : 0;
-        };
-        var dirs = perps.slice();
-        if (rng() < 0.82) dirs.sort(function (x, y) { return hot(y) - hot(x); });
-        else shuffle(dirs);
+        var dirs;
+        if (cells.length === 1) {
+          // 箭头头部直入直出：第一段箭身沿朝向正后方直行，让三角箭头头与身体成一条直线，
+          // 尖端不拐 L 形弯、清晰易辨（中段仍全程拐弯、零直线段）。
+          dirs = [back];
+        } else {
+          // 中段只走「垂直于当前方向」的拐弯方向，零直线段；
+          // 且优先朝「已被别的箭头射线覆盖」的格子拐，横穿他人弹道制造遮挡依赖。
+          var perps = [(lastBack + 1) % 4, (lastBack + 3) % 4];
+          var hot = function (d) {
+            var nr = r + DIRS[d][0], nc = c + DIRS[d][1];
+            if (nr < 0 || nr >= R || nc < 0 || nc >= C) return -1;
+            return rayCover ? rayCover[nr * C + nc] : 0;
+          };
+          dirs = perps.slice();
+          if (rng() < 0.97) dirs.sort(function (x, y) { return hot(y) - hot(x); });
+          else shuffle(dirs);
+        }
         var moved = false;
         for (var i = 0; i < dirs.length; i++) {
           var d = dirs[i];
@@ -211,6 +222,34 @@
     for (var id = 0; id < board.arrows.length; id++) if (!arrowBlocked(board.arrows[id], grid, R, C, id)) n++;
     return n;
   }
+  /* 逐层剥离画像：模拟每层「清空当前所有可消箭头」，统计
+   *   first = 第一层可消数（初始突破口，越少越好，理想 1）
+   *   maxLayer = 单层最多可消数（越少越好，理想 1）
+   *   singles = 恰好只有 1 个突破口的比例（越高越接近「每层一个」）
+   *   rounds = 层深（越大越好，理想=箭头数）
+   * 用于筛选：优先挑「突破口集中在单箭头」的盘面，逼近每层仅一个突破口。 */
+  function layerProfile(board) {
+    var grid = fillGrid(board), R = board.R, C = board.C, arrows = board.arrows;
+    var alive = [], i;
+    for (i = 0; i < arrows.length; i++) alive.push(i);
+    var inAlive = new Uint8Array(arrows.length).fill(1), rounds = 0;
+    var first = 0, maxLayer = 0, singles = 0;
+    while (alive.length) {
+      var clear = [];
+      for (i = 0; i < alive.length; i++) { var id = alive[i]; if (!arrowBlocked(arrows[id], grid, R, C, id)) clear.push(id); }
+      if (!clear.length) return null;
+      if (rounds === 0) first = clear.length;
+      if (clear.length > maxLayer) maxLayer = clear.length;
+      if (clear.length === 1) singles++;
+      clear.forEach(function (id2) {
+        arrows[id2].cells.forEach(function (p) { grid[p[0] * C + p[1]] = -1; });
+        inAlive[id2] = 0;
+      });
+      alive = alive.filter(function (id3) { return inAlive[id3]; });
+      rounds++;
+    }
+    return { first: first, maxLayer: maxLayer, singles: singles, rounds: rounds };
+  }
   function depth(board) {
     var grid = fillGrid(board), R = board.R, C = board.C, arrows = board.arrows, alive = [], i;
     for (i = 0; i < arrows.length; i++) alive.push(i);
@@ -262,14 +301,27 @@
       for (var att = 0; att < 300; att++) {
         var hr = ri(0, R - 1), hc = ri(0, C - 1);
         if (!safe[hr * C + hc]) continue;
+        // 方向也按「射线尽早撞到已有箭身」排序：朝内部的射线上可能已有箭身，
+        // 选 shadow 小的方向 = 自身更可能被挡，减少新增突破口。
         var dirs = shuf([0, 1, 2, 3]);
+        dirs.sort(function (a, b) {
+          function blk(d) {
+            var rr = hr + DIRS[d][0], cc = hc + DIRS[d][1];
+            while (rr >= 0 && rr < R && cc >= 0 && cc < C) {
+              if (grid[rr * C + cc] !== -1) return 1; // 前方遇到箭身→该箭头会被挡
+              rr += DIRS[d][0]; cc += DIRS[d][1];
+            }
+            return 0;
+          }
+          return blk(b) - blk(a);
+        });
         for (var di = 0; di < 4; di++) {
           var dir = dirs[di], back = OPP[dir];
           var cells = [[hr, hc]], r = hr, c = hc, lb = back, bends = 0, want = ri(8, 22), straightRun = 0;
           while (cells.length < want) {
-            // 与主生成器一致：移除直线，每步优先垂直方向拐弯，直行仅作兜底
+            // 与主生成器一致：头部直入直出、中段零直线拐弯
             var perps2 = [(lb + 1) % 4, (lb + 3) % 4];
-            var order = shuf(perps2.slice()); // 与主生成器一致：零直行，只走垂直方向
+            var order = cells.length === 1 ? [back] : shuf(perps2.slice());
             var moved = false;
             for (var o = 0; o < order.length; o++) {
               var d = order[o];
@@ -321,8 +373,16 @@
     // 大盘面本身已足够复杂、且单次构造更耗时：按规模递减尝试次数（反向构造仍保证可解）
     var scale = (p.cols * p.rows) / (28 * 37);
     var TRIES = Math.max(18, Math.round(68 / Math.sqrt(scale)));
-    var MAX_CAND = Math.max(3, Math.round(6 / Math.sqrt(scale)));
+    var MAX_CAND = Math.max(4, Math.round(9 / Math.sqrt(scale)));
     var fallback = null, candidates = [];
+    // 两阶段：先用未填补盘面的画像快速粗筛出少量候选（填补很贵，只做少数），
+    // 再对这些候选做空腔填补并对「最终盘面」精算打分。
+    function quickScore(board) {
+      var prof = layerProfile(board);
+      if (!prof) return -Infinity;
+      // 首层突破口权重翻倍：优先挑开局可下手箭头最少的盘面
+      return prof.rounds * 10 + prof.singles * 6 - prof.first * 8 - prof.maxLayer * 3;
+    }
     for (var t = 0; t < TRIES; t++) {
       rng = mulberry32((Math.imul(level, 2654435761) + Math.imul(t, 40503)) >>> 0);
       var board = buildOnce(p, level);
@@ -331,34 +391,40 @@
       var fill = board.used / (board.R * board.C);
       var full = board.arrows.length >= p.count;
       var inBand = fill >= fillLo && fill <= fillHi;
+      var item = { board: board, fill: fill, quick: quickScore(board) };
       if (full && inBand) {
-        candidates.push({ board: board, fill: fill });
-        if (candidates.length >= MAX_CAND) break;
+        candidates.push(item);
       } else {
         var s = (full ? 100 : 0) - Math.abs(fill - p.fill) * 100;
-        if (!fallback || s > fallback.s) fallback = { board: board, fill: fill, s: s };
+        if (!fallback || s > fallback.s) { fallback = item; fallback.s = s; }
       }
     }
-    var best = fallback;
-    if (candidates.length) {
-      var top = -Infinity;
-      candidates.forEach(function (c) {
-        var open = openness(c.board), dep = depth(c.board);
-        // 成年人难度：依赖层深、初始突破口少权重更高——箭头互相包含越多、可下手的越少越难
-        var sc = dep * 10 - open * 6 - Math.abs(c.fill - p.fill) * 100;
-        if (sc > top) { top = sc; best = { board: c.board, fill: c.fill }; }
-      });
-    }
+    // 取粗分最高的少数做填补 + 精算
+    candidates.sort(function (a, b) { return b.quick - a.quick; });
+    var pool = candidates.slice(0, MAX_CAND);
+    if (!pool.length && fallback) pool = [fallback];
+    var best = null, top = -Infinity;
+    pool.forEach(function (c) {
+      // 填补空腔并复核可解性（失败则回退未填补版本）
+      var filled = fillCavities(c.board, level);
+      if (!solvable(filled)) filled = c.board;
+      var fg = fillGrid(filled), fused = 0;
+      for (var fi = 0; fi < fg.length; fi++) if (fg[fi] !== -1) fused++;
+      var finalFill = fused / (filled.R * filled.C);
+      var prof = layerProfile(filled);
+      if (!prof) return;
+      // 成年难度：层深/单突破口圈越多越好、每圈突破口(first/maxLayer)越少越难
+      var sc = prof.rounds * 10 + prof.singles * 6 - prof.first * 8 - prof.maxLayer * 3
+             - Math.abs(finalFill - p.fill) * 60;
+      if (sc > top) { top = sc; best = { board: filled, fill: finalFill }; }
+    });
+    if (!best && fallback) best = { board: fallback.board, fill: fallback.fill };
     if (!best) return null;
-    // 填补反向构造留下的空腔，再复核一次可解性（失败则回退到未填补版本）
-    var filled = fillCavities(best.board, level);
-    if (!solvable(filled)) filled = best.board;
-    var fg = fillGrid(filled), fused = 0;
-    for (var fi = 0; fi < fg.length; fi++) if (fg[fi] !== -1) fused++;
+    var out = best.board;
     return {
-      c: filled.C, r: filled.R, t: p.time,
-      a: encode(filled),
-      _meta: { name: p.name, arrows: filled.arrows.length, want: p.count, fill: +(fused / (filled.R * filled.C)).toFixed(3) }
+      c: out.C, r: out.R, t: p.time,
+      a: encode(out),
+      _meta: { name: p.name, arrows: out.arrows.length, want: p.count, fill: +(best.fill).toFixed(3) }
     };
   }
 

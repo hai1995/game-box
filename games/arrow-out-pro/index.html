@@ -141,8 +141,8 @@
   /* ---------- 关卡加载 ----------
    * 成人版所有关卡均由 ArrowLevelGen 运行时生成（关号即种子、可复现），
    * 从第 1 关即大盘面高难度；内存 + localStorage 轻量缓存避免反复生成。 */
-  var GEN_CACHE_KEY = "gb-arrow-pro-cache-v5"; // 成人版独立缓存 { "关卡号": {c,r,t,a} }；v5=零直线箭头 + 互相包含强化；与儿童版存档完全隔离
-  try { localStorage.removeItem("gb-arrow-pro-cache-v4"); localStorage.removeItem("gb-arrow-pro-cache-v3"); localStorage.removeItem("gb-arrow-pro-cache-v2"); localStorage.removeItem("gb-arrow-pro-cache-v1"); } catch (e) {} // 清理旧版缓存
+  var GEN_CACHE_KEY = "gb-arrow-pro-cache-v6"; // 成人版独立缓存 { "关卡号": {c,r,t,a} }；v6=头部直入直出 + 箭身贴底盘虚线 + 逐层突破口筛选；与儿童版存档完全隔离
+  try { localStorage.removeItem("gb-arrow-pro-cache-v5"); localStorage.removeItem("gb-arrow-pro-cache-v4"); localStorage.removeItem("gb-arrow-pro-cache-v3"); localStorage.removeItem("gb-arrow-pro-cache-v2"); localStorage.removeItem("gb-arrow-pro-cache-v1"); } catch (e) {} // 清理旧版缓存
   var genCache = null;
   function getGenCache() {
     if (genCache) return genCache;
@@ -326,11 +326,13 @@
     // 棋盘底 + 网格
     ctx.save(); roundRect(2, 2, w - 4, h - 4, 16); ctx.clip();
     ctx.fillStyle = "rgba(255,253,247,.72)"; ctx.fillRect(0, 0, w, h);
-    ctx.strokeStyle = "rgba(210,180,150,.16)"; ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(150,120,92,.34)"; ctx.lineWidth = 1;
+    ctx.setLineDash([3, 4]); // 底盘虚线：穿过每个格心，箭身（连接相邻格心）正好压在虚线上
     ctx.beginPath();
-    for (var c = 1; c < board.c; c++) { ctx.moveTo(c * cell, 0); ctx.lineTo(c * cell, h); }
-    for (var r = 1; r < board.r; r++) { ctx.moveTo(0, r * cell); ctx.lineTo(w, r * cell); }
+    for (var c = 0; c < board.c; c++) { ctx.moveTo(c * cell + cell / 2, 0); ctx.lineTo(c * cell + cell / 2, h); }
+    for (var r = 0; r < board.r; r++) { ctx.moveTo(0, r * cell + cell / 2); ctx.lineTo(w, r * cell + cell / 2); }
     ctx.stroke();
+    ctx.setLineDash([]);
     ctx.restore();
     // 未消除箭头
     board.arrows.forEach(function (a, id) {
