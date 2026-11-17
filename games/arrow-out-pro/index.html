@@ -116,14 +116,14 @@
   var ovTitle = document.getElementById("ovTitle"), ovMsg = document.getElementById("ovMsg");
   var ovBtns = document.getElementById("ovBtns"), toastEl = document.getElementById("toast");
 
-  /* ---------- 成人版黑系色板：深灰高光 → 近黑，整体纯黑观感，档位微差便于区分相邻箭头 ---------- */
+  /* ---------- 成人版黑系色板：深灰 → 纯黑，醒目不刺眼，档位微差便于区分相邻箭头 ---------- */
   var PALETTE = [
-    { s: "#6b6b6b", e: "#181818", d: "#000000" }, // 墨黑
-    { s: "#5a5f66", e: "#1c2024", d: "#050608" }, // 铁灰黑
-    { s: "#737373", e: "#242424", d: "#0a0a0a" }, // 炭黑
-    { s: "#61666b", e: "#121417", d: "#000000" }, // 深铅黑
-    { s: "#777a7d", e: "#2a2d30", d: "#0d0f11" }, // 石墨黑
-    { s: "#666666", e: "#101010", d: "#000000" }  // 纯黑
+    { s: "#3a3a3a", e: "#000000", d: "#000000" }, // 墨黑
+    { s: "#34383d", e: "#08090b", d: "#000000" }, // 铁灰黑
+    { s: "#404040", e: "#0e0e0e", d: "#000000" }, // 炭黑
+    { s: "#363a3e", e: "#040507", d: "#000000" }, // 深铅黑
+    { s: "#44474a", e: "#141618", d: "#000000" }, // 石墨黑
+    { s: "#333333", e: "#000000", d: "#000000" }  // 纯黑
   ];
 
   /* ---------- 游戏状态 ---------- */
@@ -275,28 +275,27 @@
       if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
     }
   }
-  // 按给定点序列绘制一条纤细的黑色箭头（成人版线宽约为儿童版的一半，密集棋盘不糊）
+  // 按给定点序列绘制一条醒目的黑色箭头：纯黑实线 + 实心箭头头，方向一眼可辨。
+  // 线宽仍小于儿童版（0.66/0.5），密集棋盘不糊；但去掉白芯高光、加深颜色、放大箭头头提升辨识度。
   function drawArrowShape(pts, dir, pal, alpha) {
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.lineJoin = "round"; ctx.lineCap = "round";
-    lineThrough(pts); ctx.lineWidth = cell * 0.34; ctx.strokeStyle = pal.d; ctx.stroke();
-    var g = ctx.createLinearGradient(pts[0].x, pts[0].y, pts[pts.length - 1].x, pts[pts.length - 1].y);
-    g.addColorStop(0, pal.s); g.addColorStop(1, pal.e);
-    lineThrough(pts); ctx.lineWidth = cell * 0.24; ctx.strokeStyle = g; ctx.stroke();
-    ctx.save(); ctx.translate(-cell * 0.03, -cell * 0.05);
-    lineThrough(pts); ctx.lineWidth = cell * 0.05; ctx.strokeStyle = "rgba(255,255,255,.42)"; ctx.stroke();
+    // 主线：纯黑实线（比旧版 0.34 略粗，醒目但仍是儿童版的约 2/3）
+    lineThrough(pts); ctx.lineWidth = cell * 0.42; ctx.strokeStyle = pal.d; ctx.stroke();
+    // 顶部一条同色系高光，让线条有立体感但不再发白（深色，不抢黑色主体）
+    ctx.save(); ctx.translate(-cell * 0.02, -cell * 0.045);
+    lineThrough(pts); ctx.lineWidth = cell * 0.14; ctx.strokeStyle = pal.s; ctx.stroke();
     ctx.restore();
     var end = pts[pts.length - 1], v = DIRS[dir], vx = v[1], vy = v[0];   // 列=x 行=y
-    var bx = end.x + vx * cell * 0.01, by = end.y + vy * cell * 0.01;
-    var tipx = end.x + vx * cell * 0.42, tipy = end.y + vy * cell * 0.42;
-    var px = -vy, py = vx, half = cell * 0.2;
+    var bx = end.x + vx * cell * 0.02, by = end.y + vy * cell * 0.02;
+    var tipx = end.x + vx * cell * 0.5, tipy = end.y + vy * cell * 0.5;
+    var px = -vy, py = vx, half = cell * 0.32;
     function tri() { ctx.beginPath(); ctx.moveTo(tipx, tipy);
       ctx.lineTo(bx + px * half, by + py * half); ctx.lineTo(bx - px * half, by - py * half); ctx.closePath(); }
-    tri(); ctx.lineWidth = cell * 0.055; ctx.strokeStyle = pal.d; ctx.stroke();
-    tri(); ctx.fillStyle = pal.e; ctx.fill();
+    tri(); ctx.fillStyle = pal.d; ctx.fill();   // 实心纯黑箭头头，比旧版更大更清晰
     var st = pts[0];
-    ctx.beginPath(); ctx.arc(st.x, st.y, cell * 0.075, 0, Math.PI * 2); ctx.fillStyle = pal.d; ctx.fill();
+    ctx.beginPath(); ctx.arc(st.x, st.y, cell * 0.085, 0, Math.PI * 2); ctx.fillStyle = pal.d; ctx.fill();
     ctx.restore();
   }
   function drawArrow(a, pal, dx, dy, alpha, sh) {
