@@ -180,7 +180,10 @@
     dir = nextDir;
     var head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
     if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS) { end(); return; }
-    for (var i = 0; i < snake.length; i++) if (snake[i].x === head.x && snake[i].y === head.y) { end(); return; }
+    // 自撞检测：未吃食物时尾格会被 pop 释放，不应算作撞到自身
+    var willEat = !!(food && head.x === food.x && head.y === food.y);
+    var bodyLen = willEat ? snake.length : snake.length - 1;
+    for (var i = 0; i < bodyLen; i++) if (snake[i].x === head.x && snake[i].y === head.y) { end(); return; }
     snake.unshift(head);
     if (food && head.x === food.x && head.y === food.y) {
       score++; scoreEl.textContent = score;

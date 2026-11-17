@@ -240,8 +240,8 @@
   canvas.addEventListener("touchstart", function (e) { movePad(e.touches[0].clientX); }, { passive: true });
   canvas.addEventListener("touchmove", function (e) { movePad(e.touches[0].clientX); e.preventDefault(); }, { passive: false });
   document.addEventListener("keydown", function (e) {
-    if (e.key === "ArrowLeft") { padX -= 22; e.preventDefault(); }
-    if (e.key === "ArrowRight") { padX += 22; e.preventDefault(); }
+    if (e.key === "ArrowLeft") { pointerX = null; padX -= 22; e.preventDefault(); }
+    if (e.key === "ArrowRight") { pointerX = null; padX += 22; e.preventDefault(); }
   });
   ovBtn.addEventListener("click", function () {
     if (won) { newLevel(); }

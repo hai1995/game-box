@@ -76,6 +76,7 @@
   var stepsEl = document.getElementById("steps");
   var winScreen = document.getElementById("winScreen");
   var level = 1, steps = 0, cols, rows, grid, px, py, cell, ox, oy, moving = false;
+  var quizPaused = false; // 答题弹窗期间禁止移动（键盘/触摸/方向键）
 
   // 生成迷宫（递归回溯）：1=墙 0=路
   function generate(c, r) {
@@ -212,7 +213,7 @@
   }
 
   function move(dx, dy) {
-    if (moving || !grid) return;
+    if (moving || !grid || quizPaused) return;
     var nx = px + dx, ny = py + dy;
     if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) return;
     if (grid[ny][nx] === 1) return;
@@ -271,8 +272,8 @@
   if (window.GameQuiz) {
     GameQuiz.init({
       isPlaying: function () { return winScreen.classList.contains("hidden"); },
-      onOpen: function () {},
-      onClose: function () {}
+      onOpen: function () { quizPaused = true; },
+      onClose: function () { quizPaused = false; }
     });
   }
 })();

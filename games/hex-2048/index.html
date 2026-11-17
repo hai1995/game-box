@@ -553,13 +553,14 @@
     if (hammerMode) {
       clearMoving();
       if (cell.val > 0 && hammerLeft > 0) {
+        // 点击瞬间立即扣减，避免 220ms 动画窗口内连点多敲、计数变负
+        hammerLeft--; hammerN.textContent = hammerLeft;
         cell.el.classList.add("hammer");
         var target = cell, hGen = gen;
         setTimeout(function () {
           if (hGen !== gen) return;
           target.el.classList.remove("hammer");
           target.val = 0; paint(target);
-          hammerLeft--; hammerN.textContent = hammerLeft;
           hintEl.textContent = "敲掉一个数字，腾出空格啦！";
           if (hammerLeft <= 0) { hammerBtn.classList.add("dim"); hammerMode = false; hammerBtn.classList.remove("armed"); }
         }, ANIM.hammer);

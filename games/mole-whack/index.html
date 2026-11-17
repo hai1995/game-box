@@ -91,6 +91,7 @@
   var ROUND_SECONDS = 60;
   var score = 0, time = ROUND_SECONDS, playing = false;
   var popTimer = null, tickTimer = null;
+  var moleSeq = 0; // 地鼠代数：clearMoles 时自增，作废旧 _hideTimer，避免其提前隐藏新地鼠
 
   // 最高分持久化（每局独立，仅记录历史最高，不恢复局面）
   var SAVE_KEY = "mole-whack";
@@ -122,7 +123,9 @@
   }
 
   function clearMoles() {
+    moleSeq++; // 作废旧的地鼠隐藏定时器
     holes.forEach(function (h) {
+      if (h._hideTimer) { clearTimeout(h._hideTimer); h._hideTimer = null; }
       h._up = false;
       h.classList.remove("up");
       h._mole.classList.remove("hit", "bomb");
@@ -142,7 +145,10 @@
     h._up = true;
     h.classList.add("up");
     var dur = isBomb ? 900 : Math.max(650, 1400 - (ROUND_SECONDS - time) * 12);
+    var seq = moleSeq;
     h._hideTimer = setTimeout(function () {
+      if (seq !== moleSeq) return; // 已被新一轮 clearMoles 作废
+      h._hideTimer = null;
       if (h._up === true && h.classList.contains("up")) {
         h.classList.remove("up");
         h._up = false;

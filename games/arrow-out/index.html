@@ -131,6 +131,7 @@
   /* ---------- 游戏状态 ---------- */
   var DIRS = [[-1, 0], [0, 1], [1, 0], [0, -1]]; // 0上 1右 2下 3左
   var level = 1, board = null, occ = null, cell = 30;
+  var boardSeq = 0; // 关卡代数：换关自增，用于让上一关的延迟结算回调失效
   /* 视图缩放：baseCell=适应容器的基准格尺寸，cell=baseCell*zoom；panX/panY=canvas 中心相对容器中心的偏移 */
   var baseCell = 30, zoom = 1, panX = 0, panY = 0;
   var MIN_ZOOM = 1, MAX_ZOOM = 5;
@@ -201,7 +202,7 @@
     hideOverlay();
     loadLevel(level, function (data) {
       if (!data) { toast("关卡载入失败，请重试"); loading.classList.add("hidden"); return; }
-      board = data;
+      board = data; boardSeq++;
       occ = new Int32Array(board.r * board.c).fill(-1);
       board.arrows.forEach(function (a, id) {
         a.cells.forEach(function (p) { occ[p[0] * board.c + p[1]] = id; });
@@ -211,7 +212,7 @@
       started = false; running = false; won = false; lost = false; quizPaused = false;
       flying = []; flash = null; shake = null;
       zoom = 1; panX = 0; panY = 0; // 换关复位视图，从全貌开始
-      localStorage.setItem("gb-arrow-level", String(level));
+      try { localStorage.setItem("gb-arrow-level", String(level)); } catch (e) {}
       resize();
       syncHud();
       loading.classList.add("hidden");
@@ -463,7 +464,7 @@
         toast("连消 " + streak + " 个，奖励 +5 秒！");
       }
       syncHud(); invalidate();
-      if (remaining <= 0) setTimeout(function () { win(); }, 600);
+      if (remaining <= 0) { var seq = boardSeq; setTimeout(function () { if (boardSeq === seq) win(); }, 600); }
     } else {
       // 被挡：扣机会 + 视觉反馈
       lives--; streak = 0;
@@ -472,7 +473,7 @@
       pulse(livesPill);
       toast("被挡住啦！还剩 " + lives + " 次机会");
       syncHud(); invalidate();
-      if (lives <= 0) setTimeout(function () { lose("机会用完啦！"); }, 380);
+      if (lives <= 0) { var seq = boardSeq; setTimeout(function () { if (boardSeq === seq) lose("机会用完啦！"); }, 380); }
     }
   }
 
@@ -619,7 +620,8 @@
   }
 
   /* ---------- 启动 ---------- */
-  var saved = parseInt(localStorage.getItem("gb-arrow-level"), 10);
+  var saved = NaN;
+  try { saved = parseInt(localStorage.getItem("gb-arrow-level"), 10); } catch (e) {}
   startLevel(saved >= 1 && isFinite(saved) ? Math.min(saved, 1000000) : 1);
 })();
 </script>

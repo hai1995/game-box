@@ -171,6 +171,7 @@
   var overlay = document.getElementById("overlay");
   var grid = [], cells = [], sel = null, score = 0, steps = STEPS;
   var busy = false, finished = false, quizPaused = false;
+  var animSeq = 0; // 消除动画代数：重开时自增，使挂起的 setTimeout 回调失效
 
   function saveGame() {
     if (!window.GameSave) return;
@@ -296,13 +297,16 @@
       var pos = marks0(keys[i]);
       cells[pos[0]][pos[1]].classList.add("clear");
     }
+    var seq = animSeq;
     setTimeout(function () {
+      if (seq !== animSeq) return; // 已重开，放弃旧棋盘上的消除
       for (var j = 0; j < keys.length; j++) {
         var p = marks0(keys[j]); grid[p[0]][p[1]] = null;
       }
       var fresh = collapse();
       renderAll(fresh);
       setTimeout(function () {
+        if (seq !== animSeq) return;
         resolve(findMatches(), combo);
       }, 240);
     }, 280);
@@ -356,6 +360,7 @@
     }
   }
   function reset(fresh) {
+    animSeq++; // 作废所有挂起的消除回调，防止污染新棋盘
     var saved = fresh ? null : (window.GameSave ? GameSave.load(SAVE_KEY, null) : null);
     score = 0; steps = STEPS; busy = false; finished = false;
     scoreEl.textContent = "0"; stepsEl.textContent = STEPS; barEl.style.width = "0%";

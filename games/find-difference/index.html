@@ -100,6 +100,7 @@
   var startScore = saved && saved.score > 0 ? Math.floor(saved.score) : 0;
   var level = startLevel, score = startScore, timeLeft = 20, timer = null, diffIdx = -1, diffKey = "", cells = [];
   var playing = false, quizPaused = false, locked = false;
+  var winTimer = null; // 过关弹窗延时句柄，重开时清除，避免旧回调弹出过关层
 
   function saveProgress() {
     startLevel = level; startScore = score;
@@ -135,7 +136,8 @@
       score += 10 + level * 2; scoreEl.textContent = score;
       saveProgress();
       clearInterval(timer);
-      setTimeout(function () {
+      winTimer = setTimeout(function () {
+        winTimer = null;
         locked = false;
         overlay.classList.remove("hidden");
       }, 420);
@@ -166,6 +168,7 @@
     overlay.classList.add("hidden");
   }
   function start() {
+    if (winTimer) { clearTimeout(winTimer); winTimer = null; }
     level = startLevel; score = startScore;
     levelEl.textContent = level; scoreEl.textContent = score;
     playing = true; quizPaused = false; locked = false;

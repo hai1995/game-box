@@ -771,7 +771,7 @@
       // 命中判定：在挥剑峰值附近击杀
       const target = nearest;
       setTimeout(() => {
-        if (state.running && target.userData.alive) {
+        if (state.running && !state.quizPaused && target.userData.alive) {
           const d = Math.hypot(hero.position.x - target.position.x, hero.position.z - target.position.z);
           if (d < ATTACK_RANGE + 0.8) {
             target.userData.alive = false;

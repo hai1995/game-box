@@ -104,6 +104,7 @@
   var overlay = document.getElementById("overlay");
   var grid = [], cells = [], sel = null, timeLeft = TOTAL_TIME, timer = null;
   var finished = false, quizPaused = false, pairsLeft = 0;
+  var gameSeq = 0; // 局面代数：reset 时自增，使挂起的延时弹层/重排回调失效
 
   function saveGame() {
     if (!window.GameSave) return;
@@ -241,7 +242,7 @@
       saveGame();
       setTimeout(function () { layer.innerHTML = ""; }, 320);
       if (pairsLeft <= 0) { win(); return; }
-      if (!findAnyPair()) { setTimeout(function () { shuffleBoard(); }, 360); }
+      if (!findAnyPair()) { var sq = gameSeq; setTimeout(function () { if (gameSeq === sq && !finished) shuffleBoard(); }, 360); }
     } else {
       cells[a.r][a.c].classList.remove("sel");
       cells[a.r][a.c].classList.add("shake"); cells[b.r][b.c].classList.add("shake");
@@ -299,9 +300,11 @@
     document.getElementById("ovTitle").textContent = "全部消除！";
     document.getElementById("ovText").textContent = "你用了 " + (TOTAL_TIME - timeLeft) + " 秒，记忆力超棒！";
     if (window.GameSave) GameSave.clear(SAVE_KEY);
-    setTimeout(function () { overlay.classList.remove("hidden"); }, 300);
+    var sq = gameSeq;
+    setTimeout(function () { if (gameSeq === sq) overlay.classList.remove("hidden"); }, 300);
   }
   function reset(fresh) {
+    gameSeq++; // 作废挂起的延时弹层/重排
     var saved = fresh ? null : (window.GameSave ? GameSave.load(SAVE_KEY, null) : null);
     timeLeft = TOTAL_TIME;
     finished = false; overlay.classList.add("hidden");

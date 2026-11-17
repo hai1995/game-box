@@ -249,8 +249,8 @@
   function update(dt) {
     // 难度：距离越远越快，上限保护
     distance += speed * dt / 12;
-    if (!slowTime) speed = Math.min(520, speed + dt * 3.2);
-    if (slowTime > 0) slowTime -= dt;
+    if (slowTime <= 0) speed = Math.min(520, speed + dt * 3.2);
+    if (slowTime > 0) slowTime = Math.max(0, slowTime - dt); // 钳到0，避免变负导致速度永久冻结
     if (invincible > 0) invincible -= dt;
     if (shake > 0) shake -= dt;
     if (flashAlpha > 0) flashAlpha = Math.max(0, flashAlpha - dt * 2.6);

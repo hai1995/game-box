@@ -170,8 +170,12 @@
     var saved = fresh ? null : (window.GameSave ? GameSave.load(SAVE_KEY, null) : null);
     var valid = saved && saved.tiles && saved.tiles.length === 9;
     if (valid) {
+      // 必须是 0~8 各出现恰好一次的完整排列，否则永远无解
+      var seen = [false, false, false, false, false, false, false, false, false];
       for (var i = 0; i < 9; i++) {
-        if (typeof saved.tiles[i] !== "number" || saved.tiles[i] < 0 || saved.tiles[i] > 8) { valid = false; break; }
+        var v = saved.tiles[i];
+        if (typeof v !== "number" || v < 0 || v > 8 || seen[v]) { valid = false; break; }
+        seen[v] = true;
       }
     }
     if (valid) {
