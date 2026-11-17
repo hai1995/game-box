@@ -4,8 +4,10 @@
  * 与 tools/gen-levels.js 同源的「反向构造法 + 求解器复核 + 拒绝采样」算法。
  * 前 1000 关由预生成数据提供，本模块负责 1000 关之后的无限关卡：
  *   - seed 仅由关号决定，同一关每次生成完全一致（可重试、可分享关号）。
- *   - 棋盘尺寸封顶（30×40），避免手机上格子过小点不准；难度靠箭头数、
- *     折弯预算、嵌套深度（初始可消箭头少 / 依赖层多）持续爬升。
+ *   - 1001 关起棋盘/箭头随关号「对数持续增长」——关卡越大盘面越大、箭头越多，
+ *     增速递减以兼顾手机生成性能；配合游戏内双指/滚轮缩放解决格子变小问题。
+ *     约 10 万关达到 64×86/200 后仍极缓增长（软上限，不会无限膨胀）。
+ *   - 难度另靠折弯预算、嵌套深度（初始可消箭头少 / 依赖层多）持续爬升。
  *   - 反向构造天然保证可解，生成后再跑求解器复核一次才输出。
  * 暴露：window.ArrowLevelGen.generate(level) -> { c, r, t, a } | null
  *       window.ArrowLevelGen.paramsFor(level) -> 难度参数（调试用）
@@ -20,19 +22,32 @@
   var DIRS = [[-1, 0], [0, 1], [1, 0], [0, -1]];
   var OPP = [2, 3, 0, 1];
 
-  // 难度曲线：前 1000 关与 gen-levels.js 一致（供参考/自测），之后为扩展段。
+  // 前 1000 关段表（与 gen-levels.js 一致）；1001 关起走下方 ENDLESS 对数增长曲线。
   var SEGMENTS = [
     { from: 1,    to: 90,   cols: [6, 8],   rows: [7, 9],   arrows: [10, 18], bends: 1, time: 600,  fill: 0.69, name: '入门' },
     { from: 91,   to: 325,  cols: [10, 14], rows: [12, 18], arrows: [18, 30], bends: 2, time: 600,  fill: 0.71, name: '进阶' },
     { from: 326,  to: 500,  cols: [16, 20], rows: [22, 26], arrows: [28, 40], bends: 3, time: 720,  fill: 0.73, name: '迷宫' },
     { from: 501,  to: 700,  cols: [20, 24], rows: [26, 30], arrows: [38, 48], bends: 4, time: 840,  fill: 0.75, name: '深迷宫A' },
     { from: 701,  to: 900,  cols: [24, 26], rows: [30, 34], arrows: [45, 55], bends: 4, time: 960,  fill: 0.76, name: '深迷宫B' },
-    { from: 901,  to: 1000, cols: [26, 28], rows: [34, 37], arrows: [50, 60], bends: 4, time: 1080, fill: 0.77, name: '终极' },
-    // ===== 1000 关之后：面向成年人的无限进阶 =====
-    { from: 1001, to: 1500, cols: [28, 30], rows: [37, 40], arrows: [58, 66], bends: 5, time: 1200, fill: 0.78, name: '大师' },
-    { from: 1501, to: 2500, cols: [30, 30], rows: [40, 40], arrows: [66, 74], bends: 5, time: 1260, fill: 0.79, name: '宗师' },
-    { from: 2501, to: Infinity, cols: [30, 30], rows: [40, 40], arrows: [74, 80], bends: 6, time: 1260, fill: 0.80, name: '无尽' }
+    { from: 901,  to: 1000, cols: [26, 28], rows: [34, 37], arrows: [50, 60], bends: 4, time: 1080, fill: 0.77, name: '终极' }
   ];
+
+  /* ===== 1001 关之后：面向成年人的无限进阶（盘面/箭头随关号对数持续增长）=====
+   * 大师段延续第 1000 关的 28×37/60 起步，用对数曲线让盘面与箭头持续变大：
+   *   progress = ln(1 + 距1000关的关数 / K) / ln(1 + 100000 / K)
+   * 关号越大 progress 越接近 1（K=2200 控制前期增速），到约 10 万关时达到
+   * 64×86/200 满配；之后 progress 仍缓慢逼近但不再显著增大（软上限）。 */
+  var ENDLESS = {
+    fromLevel: 1000, K: 2200, fullAt: 100000,
+    cols: [28, 64], rows: [37, 86], arrows: [60, 200],
+    bends: [5, 6], time: [1200, 1500], fill: [0.78, 0.80]
+  };
+  var ENDLESS_NAMES = ['大师', '宗师', '深渊', '无尽'];
+  function endlessProgress(level) {
+    var n = Math.max(0, level - ENDLESS.fromLevel);
+    var denom = Math.log(1 + ENDLESS.fullAt / ENDLESS.K);
+    return Math.min(1, Math.log(1 + n / ENDLESS.K) / denom);
+  }
 
   function mulberry32(a) {
     return function () {
@@ -52,17 +67,30 @@
   }
   function lerp(a, b, t) { return Math.round(a + (b - a) * t); }
   function paramsFor(level) {
-    var seg = SEGMENTS[0];
+    var seg = null;
     for (var i = 0; i < SEGMENTS.length; i++) { if (level <= SEGMENTS[i].to) { seg = SEGMENTS[i]; break; } }
-    var span = seg.to === seg.from ? 1 : (seg.to - seg.from);
-    // 无尽段用平滑收敛：离 2501 越远，t 越接近 1（参数封顶）
-    var t = seg.to === Infinity ? Math.min(1, (level - seg.from) / 1500) : (level - seg.from) / span;
-    if (t < 0) t = 0;
+    if (seg) {
+      var span = seg.to === seg.from ? 1 : (seg.to - seg.from);
+      var t = (level - seg.from) / span;
+      if (t < 0) t = 0;
+      return {
+        cols: lerp(seg.cols[0], seg.cols[1], t),
+        rows: lerp(seg.rows[0], seg.rows[1], t),
+        count: lerp(seg.arrows[0], seg.arrows[1], t),
+        bends: seg.bends, time: seg.time, fill: seg.fill, name: seg.name
+      };
+    }
+    // 1001 关起：盘面/箭头/时长随关号对数持续增长
+    var pr = endlessProgress(level);
+    var nameIdx = Math.min(ENDLESS_NAMES.length - 1, Math.floor(pr * ENDLESS_NAMES.length));
     return {
-      cols: lerp(seg.cols[0], seg.cols[1], t),
-      rows: lerp(seg.rows[0], seg.rows[1], t),
-      count: lerp(seg.arrows[0], seg.arrows[1], t),
-      bends: seg.bends, time: seg.time, fill: seg.fill, name: seg.name
+      cols: lerp(ENDLESS.cols[0], ENDLESS.cols[1], pr),
+      rows: lerp(ENDLESS.rows[0], ENDLESS.rows[1], pr),
+      count: lerp(ENDLESS.arrows[0], ENDLESS.arrows[1], pr),
+      bends: lerp(ENDLESS.bends[0], ENDLESS.bends[1], pr),
+      time: lerp(ENDLESS.time[0], ENDLESS.time[1], pr),
+      fill: ENDLESS.fill[0] + (ENDLESS.fill[1] - ENDLESS.fill[0]) * pr,
+      name: ENDLESS_NAMES[nameIdx]
     };
   }
 
