@@ -6,7 +6,7 @@
  *   - seed 仅由关号决定，同一关每次生成完全一致（可重试、可分享关号）。
  *   - 1001 关起棋盘/箭头随关号「对数持续增长」——关卡越大盘面越大、箭头越多，
  *     增速递减以兼顾手机生成性能；配合游戏内双指/滚轮缩放解决格子变小问题。
- *     约 10 万关达到 64×86/200 后仍极缓增长（软上限，不会无限膨胀）。
+ *     约 15 万关达到 76×102/280 后仍极缓增长（软上限，不会无限膨胀）。
  *   - 难度另靠折弯预算、嵌套深度（初始可消箭头少 / 依赖层多）持续爬升。
  *   - 反向构造天然保证可解，生成后再跑求解器复核一次才输出。
  * 暴露：window.ArrowLevelGen.generate(level) -> { c, r, t, a } | null
@@ -34,13 +34,13 @@
 
   /* ===== 1001 关之后：面向成年人的无限进阶（盘面/箭头随关号对数持续增长）=====
    * 大师段延续第 1000 关的 28×37/60 起步，用对数曲线让盘面与箭头持续变大：
-   *   progress = ln(1 + 距1000关的关数 / K) / ln(1 + 100000 / K)
-   * 关号越大 progress 越接近 1（K=2200 控制前期增速），到约 10 万关时达到
-   * 64×86/200 满配；之后 progress 仍缓慢逼近但不再显著增大（软上限）。 */
+   *   progress = ln(1 + 距1000关的关数 / K) / ln(1 + 150000 / K)
+   * 关号越大 progress 越接近 1（K=2600 控制前期增速），到约 15 万关时达到
+   * 76×102/280 满配；之后 progress 仍缓慢逼近但不再显著增大（软上限）。 */
   var ENDLESS = {
-    fromLevel: 1000, K: 2200, fullAt: 100000,
-    cols: [28, 64], rows: [37, 86], arrows: [60, 200],
-    bends: [5, 6], time: [1200, 1500], fill: [0.78, 0.80]
+    fromLevel: 1000, K: 2600, fullAt: 150000,
+    cols: [28, 76], rows: [37, 102], arrows: [60, 280],
+    bends: [5, 6], time: [1200, 1680], fill: [0.78, 0.80]
   };
   var ENDLESS_NAMES = ['大师', '宗师', '深渊', '无尽'];
   function endlessProgress(level) {
@@ -317,7 +317,10 @@
     level = Math.floor(level);
     var p = paramsFor(level);
     var fillLo = 0.66, fillHi = 0.82;   // 运行时略放宽，优先保证快且可解
-    var TRIES = 68, MAX_CAND = 6;
+    // 大盘面本身已足够复杂、且单次构造更耗时：按规模递减尝试次数（反向构造仍保证可解）
+    var scale = (p.cols * p.rows) / (28 * 37);
+    var TRIES = Math.max(18, Math.round(68 / Math.sqrt(scale)));
+    var MAX_CAND = Math.max(3, Math.round(6 / Math.sqrt(scale)));
     var fallback = null, candidates = [];
     for (var t = 0; t < TRIES; t++) {
       rng = mulberry32((Math.imul(level, 2654435761) + Math.imul(t, 40503)) >>> 0);

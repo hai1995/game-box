@@ -143,8 +143,8 @@
    * 1–1000 关：按需加载预生成分块（首屏不卡）。
    * 1001+ 关：运行时用 ArrowLevelGen 生成（关号即种子、可复现），
    *           内存 + localStorage 轻量缓存，避免反复生成。 */
-  var GEN_CACHE_KEY = "gb-arrow-gen-cache-v3"; // { "关卡号": {c,r,t,a} }；v3=盘面/箭头随关号增长
-  try { localStorage.removeItem("gb-arrow-gen-cache"); localStorage.removeItem("gb-arrow-gen-cache-v2"); } catch (e) {} // 清理旧版缓存
+  var GEN_CACHE_KEY = "gb-arrow-gen-cache-v4"; // { "关卡号": {c,r,t,a} }；v4=盘面/箭头进一步增大(76x102/280)
+  try { localStorage.removeItem("gb-arrow-gen-cache"); localStorage.removeItem("gb-arrow-gen-cache-v2"); localStorage.removeItem("gb-arrow-gen-cache-v3"); } catch (e) {} // 清理旧版缓存
   var genCache = null;
   function getGenCache() {
     if (genCache) return genCache;
