@@ -23,6 +23,11 @@
   #hud .grp { display:flex; gap:8px; }
   #timePill.urgent { color:#e53935; animation:pulse .8s infinite; }
   @keyframes pulse { 50%{ transform:scale(1.08); } }
+  /* 炸药道具按钮：HUD 整体 pointer-events:none，此处单独放开以便点击 */
+  #hud .bomb-btn { pointer-events:auto; cursor:pointer; touch-action:manipulation;
+    background:linear-gradient(180deg,#fff,#ffe9d2); border-color:#e08a2e; color:#a85c12; }
+  #hud .bomb-btn.off { opacity:.5; }
+  #hud .bomb-btn.flash { animation:bump .35s; }
 
   .overlay { z-index:20; }
   .overlay .card { width:min(90vw,380px); }
@@ -50,7 +55,10 @@
     <span class="pill">🏆 <b id="scorePill">0</b></span>
     <span class="pill">🎯 <b id="goalPill">650</b></span>
   </div>
-  <div class="grp"><span class="pill" id="timePill">⏰ <b id="timeNum">60</b>s</span></div>
+  <div class="grp">
+    <button class="pill bomb-btn off" id="bombBtn" title="炸掉勾住的物品，立刻收回钩爪">💣 <b id="bombNum">2</b></button>
+    <span class="pill" id="timePill">⏰ <b id="timeNum">90</b>s</span>
+  </div>
 </div>
 
 <div id="toast"></div>
@@ -75,6 +83,7 @@
   "use strict";
   var cv=document.getElementById("cv"),ctx=cv.getContext("2d");
   var scorePill=document.getElementById("scorePill"),goalPill=document.getElementById("goalPill"),timeNum=document.getElementById("timeNum"),timePill=document.getElementById("timePill");
+  var bombBtn=document.getElementById("bombBtn"),bombNum=document.getElementById("bombNum");
   var overlay=document.getElementById("overlay"),ovEmoji=document.getElementById("ovEmoji");
   var ovTitle=document.getElementById("ovTitle"),ovMsg=document.getElementById("ovMsg");
   var ovScore=document.getElementById("ovScore"),ovBigScore=document.getElementById("ovBigScore");
@@ -82,7 +91,12 @@
 
   var W=0,H=0,dpr=1,scale=1,groundY=0,pivotX=0,pivotY=0;
   var state="menu",quizPaused=false,lastT=0,raf=0;
-  var level=1,score=0,goal=650,timeLeft=60;
+  var level=1,score=0,goal=650,timeLeft=90,bombs=0;
+
+  // 炸药道具：每关补充到上限，炸掉已勾住的物品、立即快速收回钩爪（不记该物品分）
+  var BOMB_MAX=3;
+  // 抓中物品奖励的秒数：石头/袋子这类低价值或误导物不加时，金块钻石按价值加
+  var TIME_BONUS={gold_s:3,gold_l:5,diamond:8,rock:0,bag:2};
 
   // 存档：跨刷新保留关卡与累计分数（goal/time 由 level 重算）
   var SAVE_KEY="gold-miner",checkpoint=null;
@@ -95,7 +109,8 @@
     if(window.GameSave)GameSave.save(SAVE_KEY,checkpoint);
   }
 
-  var hook={angle:Math.PI/2,dir:1,len:0,state:"swing",grab:null,speed:0};
+  // rot：爪子自身朝向，固定为朝下(0)，不随绳子摆动旋转
+  var hook={angle:Math.PI/2,dir:1,len:0,state:"swing",grab:null,speed:0,rot:0};
   var items=[],particles=[],floaters=[];
   var BASE_LEN=34;
 
@@ -122,7 +137,7 @@
     var n=itemCount(lv);
     return Math.min(1000, Math.round(n*52 + lv*28));
   }
-  function timeFor(lv){ return Math.max(45, 60 - Math.floor(lv/5)*2); }
+  function timeFor(lv){ return Math.max(70, 90 - Math.floor(lv/5)*2); }
 
   function resize(){
     dpr=Math.min(window.devicePixelRatio||1,2);
@@ -168,7 +183,8 @@
     if(fullReset){ level=1; score=0; }
     goal=goalFor(level);
     timeLeft=timeFor(level);
-    hook.angle=Math.PI/2;hook.dir=1;hook.len=BASE_LEN*scale;hook.state="swing";hook.grab=null;
+    bombs=BOMB_MAX;
+    hook.angle=Math.PI/2;hook.dir=1;hook.len=BASE_LEN*scale;hook.state="swing";hook.grab=null;hook.rot=0;
     particles=[];floaters=[];
     buildItems();updateHud();
   }
@@ -176,7 +192,10 @@
     scorePill.textContent=score;
     goalPill.textContent=goal;
     timeNum.textContent=Math.ceil(timeLeft);
-    timePill.classList.toggle("urgent",timeLeft<=30 && state==="playing");
+    timePill.classList.toggle("urgent",timeLeft<=20 && state==="playing");
+    bombNum.textContent=bombs;
+    // 仅当钩爪正勾着物品时炸药可用（否则半透明）
+    bombBtn.classList.toggle("off",!(bombs>0 && hook.grab && hook.state==="retract"));
   }
   function start(){
     if(checkpoint){level=checkpoint.level;score=checkpoint.score;}else{level=1;score=0;}
@@ -224,6 +243,23 @@
   function hookTip(){
     return { x:pivotX+Math.cos(hook.angle)*hook.len, y:pivotY+Math.sin(hook.angle)*hook.len };
   }
+  // 使用炸药：仅当钩爪已勾住物品时可用。炸掉物品(不计分)、爆炸特效，并立刻快速收回钩爪。
+  function useBomb(){
+    if(state!=="playing"||quizPaused) return;
+    if(bombs<=0){ toastMsg("炸药用完啦","#ffb24d"); return; }
+    if(hook.state!=="retract"||!hook.grab) return;
+    bombs--;
+    var g=hook.grab, tp=hookTip();
+    burst(tp.x,tp.y,{s:"#ffe98a",e:"#ff7a2f",d:"#c93a10"},22);   // 爆炸碎屑
+    burst(tp.x,tp.y,{s:"#fff",e:"#ffd24d",d:"#ff8c1a"},14);
+    floater("💥",tp.x,tp.y,"#ffd24d");
+    toastMsg("炸掉啦，快速收回！","#ffb24d");
+    g.got=true;              // 物品消失且不计分
+    hook.grab=null;
+    hook.state="retractFast";
+    bombBtn.classList.remove("flash");void bombBtn.offsetWidth;bombBtn.classList.add("flash");
+    updateHud();
+  }
 
   function loop(now){
     raf=requestAnimationFrame(loop);
@@ -268,17 +304,24 @@
         if(hook.grab){
           var g=hook.grab;
           score+=g.val;
+          var tb=TIME_BONUS[g.type]||0;
+          if(tb>0){ timeLeft+=tb; }
           burst(pivotX,pivotY+BASE_LEN*scale,TYPES[g.type].pal,10);
-          if(g.type==="diamond"){toastMsg("钻石 +"+g.val,"#bff0ff");}
+          if(g.type==="diamond"){toastMsg("钻石 +"+g.val+(tb?"  ⏰+"+tb+"s":""),"#bff0ff");}
           else if(g.type==="rock"){toastMsg("石头 +"+g.val,"#ddd");}
-          else if(g.type==="bag"){toastMsg("神秘袋 +"+g.val,"#ffcf8a");}
-          else {toastMsg("+"+g.val,"#fff3a0");}
+          else if(g.type==="bag"){toastMsg("神秘袋 +"+g.val+(tb?"  ⏰+"+tb+"s":""),"#ffcf8a");}
+          else {toastMsg("+"+g.val+(tb?"  ⏰+"+tb+"s":""),"#fff3a0");}
           floater("+"+g.val,pivotX,pivotY+30*scale,"#fff3a0");
+          if(tb>0) floater("⏰+"+tb+"s",pivotX+46*scale,pivotY+54*scale,"#9be7ff");
           hook.grab=null;updateHud();
           if(score>=goal){ clearLevel(); return; }
         }
         hook.state="swing";
       }
+    } else if(hook.state==="retractFast"){
+      // 炸药炸掉物品后的快速收回：不记分，匀速迅速回到起点
+      hook.len-=900*scale*dt;
+      if(hook.len<=BASE_LEN*scale){ hook.len=BASE_LEN*scale; hook.state="swing"; updateHud(); }
     }
     for(var i=particles.length-1;i>=0;i--){var p=particles[i];p.life-=dt;
       if(p.life<=0){particles.splice(i,1);continue;}p.vy+=180*scale*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;}
@@ -310,7 +353,9 @@
     var tip=hookTip();
     ctx.strokeStyle="#6b4a2a";ctx.lineWidth=3*scale;ctx.lineCap="round";
     ctx.beginPath();ctx.moveTo(pivotX,pivotY);ctx.lineTo(tip.x,tip.y);ctx.stroke();
-    drawClaw(tip.x,tip.y,hook.angle);
+    // 被勾住的物品挂在爪尖下方，让「抓到什么」一目了然，便于决定要不要炸
+    if(hook.grab){ ctx.save();ctx.translate(0,16*scale);drawItem(hook.grab);ctx.restore(); }
+    drawClaw(tip.x,tip.y);
     // 矿工与滑轮
     drawMiner();
 
@@ -366,8 +411,9 @@
   }
   function drawParticle(p){ctx.save();ctx.globalAlpha=Math.max(0,p.life/p.max);ctx.fillStyle=p.pal.e;
     ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.fill();ctx.restore();}
-  function drawClaw(x,y,ang){
-    ctx.save();ctx.translate(x,y);ctx.rotate(-ang+Math.PI/2);
+  function drawClaw(x,y){
+    // 爪子固定在绳端、始终朝下：不随绳子摆动旋转，视觉更稳、更易对准
+    ctx.save();ctx.translate(x,y);
     ctx.fillStyle="#c9ccd6";ctx.strokeStyle="#6b7280";ctx.lineWidth=2*scale;
     // 爪座
     roundRect(-6*scale,-8*scale,12*scale,12*scale,3*scale);ctx.fill();ctx.stroke();
@@ -401,7 +447,12 @@
     ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
 
   cv.addEventListener("pointerdown",function(e){e.preventDefault();dropHook();},{passive:false});
-  document.addEventListener("keydown",function(e){if(e.code==="Space"){e.preventDefault();dropHook();}});
+  document.addEventListener("keydown",function(e){
+    if(e.code==="Space"){e.preventDefault();dropHook();}
+    else if(e.code==="KeyX"||e.code==="KeyB"){e.preventDefault();useBomb();}
+  });
+  bombBtn.addEventListener("pointerdown",function(e){e.stopPropagation();});
+  bombBtn.addEventListener("click",function(e){e.preventDefault();e.stopPropagation();useBomb();});
   window.addEventListener("resize",function(){resize();buildItems();});
   document.getElementById("startBtn").addEventListener("click",start);
   document.addEventListener("visibilitychange",function(){if(!document.hidden)lastT=performance.now();});
