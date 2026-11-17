@@ -10,8 +10,9 @@
  *   - 折弯预算从第 1 关即拉满（16→26 折）；箭身中段全程只走垂直拐弯、零直线段
  *     （无 3 点共线），但「箭头头部直入直出」——第一段沿朝向正后方直行，三角头与
  *     身体成一条直线、清晰易辨；中段用射线覆盖热度引导横穿彼此弹道。
- *   - 优先朝盘面内部生成（射线长、易被后续箭身遮挡），并用逐层剥离画像筛选
- *     （层深大、单层突破口少者胜），逼近「每一圈层仅一个突破口」的高难拆解。
+ *   - 四向动态均衡 + 局部邻域去同向：四方向稀缺优先使占比各约 25%，
+ *     再对候选点周围已扎堆的朝向降权，消除旧版「整片同向」的扎堆，
+ *     相邻箭头朝向交错、视觉杂乱更难辨；用逐层剥离画像筛选难度最高者。
  *   - 反向构造天然保证可解，空腔填补后再跑求解器复核，绝不返回死局。
  * 暴露：window.ArrowLevelGen.generate(level) -> { c, r, t, a } | null
  *       window.ArrowLevelGen.paramsFor(level) -> 难度参数（调试用）
@@ -88,7 +89,7 @@
     var h = a.cells[a.cells.length - 1];
     return rayHit(h[0], h[1], a.dir, grid, R, C, id);
   }
-  function tryMakeArrow(R, C, grid, wantLen, maxBends, rayCover) {
+  function tryMakeArrow(R, C, grid, wantLen, maxBends, rayCover, dirBalance, headDir) {
     for (var attempt = 0; attempt < 600; attempt++) {
       var er, ec;
       if (rng() < 0.4) {
@@ -100,15 +101,33 @@
       } else { er = ri(0, R - 1); ec = ri(0, C - 1); }
       if (grid[er * C + ec] !== -1) continue;
       var dir;
-      // 减少突破口：优先让箭头朝「盘面内部（射线长）」飞出——射线越长越容易被
-      // 后续放入的箭身横穿遮挡，初始畅通的箭头就越少。仅少量随机保留多样性。
-      if (rng() < 0.68) {
-        // 按四方向到边界的射线长度加权随机（长度越长权重越高）
-        var reach = [er, C - 1 - ec, R - 1 - er, ec];
-        var w0 = reach[0] * reach[0] + 1, w1 = reach[1] * reach[1] + 1;
-        var w2 = reach[2] * reach[2] + 1, w3 = reach[3] * reach[3] + 1;
-        var pick = rng() * (w0 + w1 + w2 + w3);
-        dir = pick < w0 ? 0 : (pick < w0 + w1 ? 1 : (pick < w0 + w1 + w2 ? 2 : 3));
+      // 四向动态均衡：反比权重(1/(已用+1))让用得少的方向更优先，彻底打破旧版
+      // 「射线长度平方加权」造成的「上半盘全朝下、下半盘全朝上」朝内两极化。
+      // 再叠加「局部邻域去同向」：统计候选点周围的箭头头方向，对已扎堆的方向额外降权，
+      // 使相邻箭头朝向交错（全局占比均衡 + 局部打散，双管齐下消除大片同向）。
+      if (dirBalance) {
+        var reach = [er, C - 1 - ec, R - 1 - er, ec]; // 上/右/下/左到边界距离
+        var maxReach = Math.max(1, reach[0], reach[1], reach[2], reach[3]);
+        // 局部邻域方向热度：半径2内每个箭头头按距离衰减投票
+        var localCnt = [0, 0, 0, 0];
+        if (headDir) {
+          for (var dr = -2; dr <= 2; dr++) for (var dc = -2; dc <= 2; dc++) {
+            if (dr === 0 && dc === 0) continue;
+            var nr = er + dr, nc = ec + dc;
+            if (nr < 0 || nr >= R || nc < 0 || nc >= C) continue;
+            var hd = headDir[nr * C + nc];
+            if (hd >= 0) localCnt[hd] += 1 / (1 + dr * dr + dc * dc);
+          }
+        }
+        var w = [0, 0, 0, 0], wsum = 0;
+        for (var dd = 0; dd < 4; dd++) {
+          var localPenalty = 1 / (1 + localCnt[dd] * 1.6); // 邻域同向越多、权重越低
+          w[dd] = (1 / (dirBalance[dd] + 1)) * (0.9 + 0.2 * (reach[dd] / maxReach)) * localPenalty;
+          wsum += w[dd];
+        }
+        var pick = rng() * wsum;
+        dir = 3;
+        for (var dd = 0; dd < 4; dd++) { pick -= w[dd]; if (pick <= 0) { dir = dd; break; } }
       } else {
         dir = ri(0, 3);
       }
@@ -175,18 +194,22 @@
     // 射线覆盖热度图：每放一个箭头，把它尖端射线上经过的格子热度 +1；
     // 后续箭头优先朝高热度格拐弯，从而反复横穿已有弹道 → 互相包含更多。
     var rayCover = new Int32Array(R * C);
+    var dirBalance = [0, 0, 0, 0]; // 四方向已用计数：供 tryMakeArrow 做稀缺优先均衡
+    var headDir = new Int8Array(R * C).fill(-1); // 每格箭头头朝向(空格-1)：供局部邻域去同向
     for (var k = 0; k < N; k++) {
       var remainArrows = N - k, remainCells = Math.max(2, targetCells - used);
       var want0 = Math.max(3, Math.round(remainCells / remainArrows * 1.3));
       var cap = Math.max(5, Math.floor(Math.max(R, C) * 0.9)), placed = false;
       for (var relax = 0; relax < 9 && !placed; relax++) {
         var want = Math.max(2, Math.min(cap, want0 - Math.floor(relax / 2)));
-        var a = tryMakeArrow(R, C, grid, want, bends, rayCover);
+        var a = tryMakeArrow(R, C, grid, want, bends, rayCover, dirBalance, headDir);
         if (!a) continue;
+        dirBalance[a.dir]++;
         var id = arrows.length;
         for (var i = 0; i < a.cells.length; i++) grid[a.cells[i][0] * C + a.cells[i][1]] = id;
         // 沿新箭头尖端射线，把经过的空格热度 +1（遇到已占用格即止）
         var hh = a.cells[a.cells.length - 1], vv = DIRS[a.dir];
+        headDir[hh[0] * C + hh[1]] = a.dir; // 记录头部朝向，供后续箭头局部避让
         var rr = hh[0] + vv[0], cc = hh[1] + vv[1];
         while (rr >= 0 && rr < R && cc >= 0 && cc < C && grid[rr * C + cc] === -1) {
           rayCover[rr * C + cc]++;
@@ -276,6 +299,8 @@
    * 又不破坏可解性。方向挑选时避开会遮蔽更多安全格的朝向，尽量多填。 */
   function fillCavities(board, level) {
     var R = board.R, C = board.C, arrows = board.arrows.slice();
+    var dirBalance = [0, 0, 0, 0]; // 承接主生成器的方向分布，填补阶段继续做四向均衡
+    arrows.forEach(function (a) { dirBalance[a.dir]++; });
     var rnd = mulberry32((Math.imul(level, 2246822519) ^ 0x9e3779b9) >>> 0);
     function ri(a, b) { return a + Math.floor(rnd() * (b - a + 1)); }
     function shuf(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
@@ -297,6 +322,9 @@
       var safe = new Uint8Array(R * C), sc = 0;
       for (var q = 0; q < R * C; q++) if (grid[q] === -1 && !forb[q]) { safe[q] = 1; sc++; }
       if (sc < 2) break;
+      // 头部朝向图：本轮所有箭头头的位置→方向，供局部去同向（相邻朝向交错）
+      var headDir = new Int8Array(R * C).fill(-1);
+      arrows.forEach(function (a) { var h = a.cells[a.cells.length - 1]; headDir[h[0] * C + h[1]] = a.dir; });
       var best = null;
       for (var att = 0; att < 300; att++) {
         var hr = ri(0, R - 1), hc = ri(0, C - 1);
@@ -349,12 +377,25 @@
             if (safe[rr * C + cc] && !own[rr * C + cc]) shadow++;
             rr += DIRS[dir][0]; cc += DIRS[dir][1];
           }
-          var score = cells.length * 3 - shadow * 2;
+          // 方向均衡：稀缺方向给正奖励，避免填补阶段堆积同向箭头（大片同向的最大来源）。
+          var avgDir = (dirBalance[0] + dirBalance[1] + dirBalance[2] + dirBalance[3]) / 4;
+          var balBonus = (avgDir - dirBalance[dir]) * 2.5; // 用得越少奖励越高
+          // 局部去同向：候选点半径2内与该方向相同的头部越多，惩罚越大（距离衰减）
+          var localSame = 0;
+          for (var dr2 = -2; dr2 <= 2; dr2++) for (var dc2 = -2; dc2 <= 2; dc2++) {
+            if (dr2 === 0 && dc2 === 0) continue;
+            var nr2 = hr + dr2, nc2 = hc + dc2;
+            if (nr2 < 0 || nr2 >= R || nc2 < 0 || nc2 >= C) continue;
+            if (headDir[nr2 * C + nc2] === dir) localSame += 1 / (1 + dr2 * dr2 + dc2 * dc2);
+          }
+          var localPenalty = localSame * 9;
+          var score = cells.length * 3 - shadow * 2 + balBonus - localPenalty;
           if (!best || score > best.score) best = { cells: cells, dir: dir, score: score };
         }
       }
       if (!best) break;
       arrows.unshift({ cells: best.cells, dir: best.dir });
+      dirBalance[best.dir]++;
     }
     return { R: R, C: C, arrows: arrows };
   }

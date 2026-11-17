@@ -141,8 +141,8 @@
   /* ---------- 关卡加载 ----------
    * 成人版所有关卡均由 ArrowLevelGen 运行时生成（关号即种子、可复现），
    * 从第 1 关即大盘面高难度；内存 + localStorage 轻量缓存避免反复生成。 */
-  var GEN_CACHE_KEY = "gb-arrow-pro-cache-v6"; // 成人版独立缓存 { "关卡号": {c,r,t,a} }；v6=头部直入直出 + 箭身贴底盘虚线 + 逐层突破口筛选；与儿童版存档完全隔离
-  try { localStorage.removeItem("gb-arrow-pro-cache-v5"); localStorage.removeItem("gb-arrow-pro-cache-v4"); localStorage.removeItem("gb-arrow-pro-cache-v3"); localStorage.removeItem("gb-arrow-pro-cache-v2"); localStorage.removeItem("gb-arrow-pro-cache-v1"); } catch (e) {} // 清理旧版缓存
+  var GEN_CACHE_KEY = "gb-arrow-pro-cache-v7"; // 成人版独立缓存 { "关卡号": {c,r,t,a} }；v7=四向动态均衡+局部去同向(消除大片同向箭头)；与儿童版存档完全隔离
+  try { localStorage.removeItem("gb-arrow-pro-cache-v6"); localStorage.removeItem("gb-arrow-pro-cache-v5"); localStorage.removeItem("gb-arrow-pro-cache-v4"); localStorage.removeItem("gb-arrow-pro-cache-v3"); localStorage.removeItem("gb-arrow-pro-cache-v2"); localStorage.removeItem("gb-arrow-pro-cache-v1"); } catch (e) {} // 清理旧版缓存
   var genCache = null;
   function getGenCache() {
     if (genCache) return genCache;
