@@ -7,7 +7,8 @@
  *     随关号对数增长，约 800 关达到 76×102 / 280 后保持满配高难度。
  *   - 箭头绘制更细、纯黑系（见 index.html），同样盘面容纳更多箭头仍清晰可辨。
  *   - seed 仅由关号决定，同一关每次生成完全一致（可重试、可分享关号）。
- *   - 折弯预算从第 1 关即拉满，嵌套深度靠「初始可消箭头少 / 依赖层多」保持高难。
+ *   - 折弯预算从第 1 关即拉满（16→26 折），中段「转向优先 0.94 + 连续直行≥2 强制拐弯」，
+ *     蛇形箭身多绕且无长直线段；头部仍强制直入直出，嵌套深、突破口少保持高难。
  *   - 反向构造天然保证可解，空腔填补后再跑求解器复核，绝不返回死局。
  * 暴露：window.ArrowLevelGen.generate(level) -> { c, r, t, a } | null
  *       window.ArrowLevelGen.paramsFor(level) -> 难度参数（调试用）
@@ -29,7 +30,7 @@
   var ADULT = {
     fromLevel: 1, K: 200, fullAt: 800,
     cols: [32, 76], rows: [42, 102], arrows: [96, 280],
-    bends: [5, 6], time: [900, 1500], fill: [0.80, 0.82]
+    bends: [16, 26], time: [900, 1500], fill: [0.80, 0.82]
   };
   var ADULT_NAMES = ['黑带', '宗师', '深渊', '无尽', '传说'];
   function adultProgress(level) {
@@ -113,14 +114,21 @@
       }
       if (depth < 1) continue;
       var len = Math.max(2, Math.min(wantLen + ri(-1, 1), depth + 1));
-      var cells = [[er, ec]], r = er, c = ec, lastBack = back, bends = 0;
+      var cells = [[er, ec]], r = er, c = ec, lastBack = back, bends = 0, straightRun = 0;
       while (cells.length < len) {
-        // 头部直入直出：第一步强制沿 back 直行，避免箭头尖端处拐弯、被相邻箭身遮挡看不清
-        var dirs = cells.length === 1
-          ? [back]
-          : (rng() < 0.65
-            ? [lastBack].concat(shuffle([0, 1, 2, 3]).filter(function (d) { return d !== lastBack; }))
-            : shuffle([0, 1, 2, 3]));
+        // 头部直入直出：第一步强制沿 back 直行，避免箭头尖端处拐弯、被相邻箭身遮挡看不清。
+        // 中段弯绕再强化：
+        //   1) 转向优先概率 0.94（原 0.85）——几乎每步都先试垂直方向；
+        //   2) 连续直行 ≥2 格则「强制拐弯」，只在无垂直出路时才回退直行，
+        //      消灭长直线段，让蛇形更均匀、更绕。
+        var dirs;
+        if (cells.length === 1) dirs = [back];
+        else if (straightRun >= 2) {
+          var turns = shuffle([0, 1, 2, 3].filter(function (d) { return d !== lastBack && d !== OPP[lastBack]; }));
+          dirs = turns.concat([lastBack]); // 直行仅作无路可拐时的兜底
+        } else if (rng() < 0.94) {
+          dirs = shuffle([0, 1, 2, 3].filter(function (d) { return d !== lastBack; })).concat([lastBack]);
+        } else dirs = shuffle([0, 1, 2, 3]);
         var moved = false;
         for (var i = 0; i < dirs.length; i++) {
           var d = dirs[i];
@@ -134,7 +142,8 @@
           var nb = d !== lastBack ? bends + 1 : bends;
           if (nb > maxBends) continue;
           cells.push([nr, nc]);
-          if (d !== lastBack) bends = nb;
+          if (d !== lastBack) { bends = nb; straightRun = 0; }
+          else straightRun++;
           lastBack = d; r = nr; c = nc; moved = true;
           break;
         }
@@ -245,14 +254,17 @@
         var dirs = shuf([0, 1, 2, 3]);
         for (var di = 0; di < 4; di++) {
           var dir = dirs[di], back = OPP[dir];
-          var cells = [[hr, hc]], r = hr, c = hc, lb = back, bends = 0, want = ri(8, 22);
+          var cells = [[hr, hc]], r = hr, c = hc, lb = back, bends = 0, want = ri(8, 22), straightRun = 0;
           while (cells.length < want) {
-            // 头部直入直出：第一步强制沿 back，末尾再 reverse，与主生成器一致
-            var order = cells.length === 1
-              ? [back]
-              : (rnd() < 0.7
-                ? [lb].concat(shuf([0, 1, 2, 3]).filter(function (d) { return d !== lb; }))
-                : shuf([0, 1, 2, 3]));
+            // 与主生成器一致：头部直入 + 中段转向优先(0.94) + 连续直行≥2 强制拐弯
+            var order;
+            if (cells.length === 1) order = [back];
+            else if (straightRun >= 2) {
+              var turns2 = shuf([0, 1, 2, 3].filter(function (d) { return d !== lb && d !== OPP[lb]; }));
+              order = turns2.concat([lb]);
+            } else if (rnd() < 0.94) {
+              order = shuf([0, 1, 2, 3].filter(function (d) { return d !== lb; })).concat([lb]);
+            } else order = shuf([0, 1, 2, 3]);
             var moved = false;
             for (var o = 0; o < order.length; o++) {
               var d = order[o];
@@ -263,9 +275,10 @@
               for (var k = 0; k < cells.length; k++) if (cells[k][0] === nr && cells[k][1] === nc) { dup = true; break; }
               if (dup) continue;
               var nb = d !== lb ? bends + 1 : bends;
-              if (nb > 3) continue;
+              if (nb > 10) continue;
               cells.push([nr, nc]);
-              if (d !== lb) bends = nb;
+              if (d !== lb) { bends = nb; straightRun = 0; }
+              else straightRun++;
               lb = d; r = nr; c = nc; moved = true; break;
             }
             if (!moved) break;
