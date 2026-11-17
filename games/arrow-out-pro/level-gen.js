@@ -10,9 +10,9 @@
  *   - 折弯预算从第 1 关即拉满（16→26 折）；箭身中段全程只走垂直拐弯、零直线段
  *     （无 3 点共线），但「箭头头部直入直出」——第一段沿朝向正后方直行，三角头与
  *     身体成一条直线、清晰易辨；中段用射线覆盖热度引导横穿彼此弹道。
- *   - 四向动态均衡 + 局部邻域去同向：四方向稀缺优先使占比各约 25%，
- *     再对候选点周围已扎堆的朝向降权，消除旧版「整片同向」的扎堆，
- *     相邻箭头朝向交错、视觉杂乱更难辨；用逐层剥离画像筛选难度最高者。
+ *   - 8 方向（上下左右 + 4 斜向）：稀缺优先 + 局部邻域去同向使八向各约 12.5%，
+ *     头部邻域同向率较 4 向版大幅下降；斜向射线斜穿棋盘、遮挡关系更复杂，
+ *     中段走位仍只走垂直方向保持零直线段、头部直入直出。
  *   - 反向构造天然保证可解，空腔填补后再跑求解器复核，绝不返回死局。
  * 暴露：window.ArrowLevelGen.generate(level) -> { c, r, t, a } | null
  *       window.ArrowLevelGen.paramsFor(level) -> 难度参数（调试用）
@@ -24,8 +24,9 @@
 })(typeof window !== 'undefined' ? window : globalThis, function () {
   'use strict';
 
-  var DIRS = [[-1, 0], [0, 1], [1, 0], [0, -1]];
-  var OPP = [2, 3, 0, 1];
+  // 8方向（顺时针）：0上 1右上 2右 3右下 4下 5左下 6左 7左上
+  var DIRS = [[-1,0],[-1,1],[0,1],[1,1],[1,0],[1,-1],[0,-1],[-1,-1]];
+  var OPP = [4,5,6,7,0,1,2,3]; // 对向 = (d+4)%8
 
   /* ===== 成人版难度曲线：所有关卡从大盘面高箭头起步，全程保持高难 =====
    * 第 1 关即 32×42 / 96（超过原版终关 28×37 / 60），随关号对数增长，
@@ -101,15 +102,19 @@
       } else { er = ri(0, R - 1); ec = ri(0, C - 1); }
       if (grid[er * C + ec] !== -1) continue;
       var dir;
-      // 四向动态均衡：反比权重(1/(已用+1))让用得少的方向更优先，彻底打破旧版
-      // 「射线长度平方加权」造成的「上半盘全朝下、下半盘全朝上」朝内两极化。
-      // 再叠加「局部邻域去同向」：统计候选点周围的箭头头方向，对已扎堆的方向额外降权，
-      // 使相邻箭头朝向交错（全局占比均衡 + 局部打散，双管齐下消除大片同向）。
+      // 八方向动态均衡：稀缺优先 + 局部邻域去同向（正交4向 + 斜向4向）。
+      // 旧版仅4向，相邻同向率偏高且难度有上限；引入斜向后射线可斜穿棋盘、
+      // 遮挡关系更复杂，方向有8种使同向率进一步下降、难度显著提升。
       if (dirBalance) {
-        var reach = [er, C - 1 - ec, R - 1 - er, ec]; // 上/右/下/左到边界距离
-        var maxReach = Math.max(1, reach[0], reach[1], reach[2], reach[3]);
+        // 8方向到边界的射线长度：正交用行/列距离，斜向取行列较小值
+        var reach = [
+          er, Math.min(er, C - 1 - ec), C - 1 - ec, Math.min(R - 1 - er, C - 1 - ec),
+          R - 1 - er, Math.min(R - 1 - er, ec), ec, Math.min(er, ec)
+        ];
+        var maxReach = 1;
+        for (var mr = 0; mr < 8; mr++) if (reach[mr] > maxReach) maxReach = reach[mr];
         // 局部邻域方向热度：半径2内每个箭头头按距离衰减投票
-        var localCnt = [0, 0, 0, 0];
+        var localCnt = [0, 0, 0, 0, 0, 0, 0, 0];
         if (headDir) {
           for (var dr = -2; dr <= 2; dr++) for (var dc = -2; dc <= 2; dc++) {
             if (dr === 0 && dc === 0) continue;
@@ -119,17 +124,17 @@
             if (hd >= 0) localCnt[hd] += 1 / (1 + dr * dr + dc * dc);
           }
         }
-        var w = [0, 0, 0, 0], wsum = 0;
-        for (var dd = 0; dd < 4; dd++) {
+        var w = [0, 0, 0, 0, 0, 0, 0, 0], wsum = 0;
+        for (var dd = 0; dd < 8; dd++) {
           var localPenalty = 1 / (1 + localCnt[dd] * 1.6); // 邻域同向越多、权重越低
           w[dd] = (1 / (dirBalance[dd] + 1)) * (0.9 + 0.2 * (reach[dd] / maxReach)) * localPenalty;
           wsum += w[dd];
         }
         var pick = rng() * wsum;
-        dir = 3;
-        for (var dd = 0; dd < 4; dd++) { pick -= w[dd]; if (pick <= 0) { dir = dd; break; } }
+        dir = 7;
+        for (var dd = 0; dd < 8; dd++) { pick -= w[dd]; if (pick <= 0) { dir = dd; break; } }
       } else {
-        dir = ri(0, 3);
+        dir = ri(0, 7);
       }
       if (rayHit(er, ec, dir, grid, R, C, -1)) continue;
       var back = OPP[dir], depth = 0, rr = er, cc = ec;
@@ -148,9 +153,10 @@
           // 尖端不拐 L 形弯、清晰易辨（中段仍全程拐弯、零直线段）。
           dirs = [back];
         } else {
-          // 中段只走「垂直于当前方向」的拐弯方向，零直线段；
+          // 中段只走「垂直于当前方向」的拐弯方向（8方向下垂直=±90°即+2/+6 mod8），
+          // 零直线段；正交箭头走正交折线、斜向箭头走斜线折线，各自方向一致不共线。
           // 且优先朝「已被别的箭头射线覆盖」的格子拐，横穿他人弹道制造遮挡依赖。
-          var perps = [(lastBack + 1) % 4, (lastBack + 3) % 4];
+          var perps = [(lastBack + 2) % 8, (lastBack + 6) % 8];
           var hot = function (d) {
             var nr = r + DIRS[d][0], nc = c + DIRS[d][1];
             if (nr < 0 || nr >= R || nc < 0 || nc >= C) return -1;
@@ -194,7 +200,7 @@
     // 射线覆盖热度图：每放一个箭头，把它尖端射线上经过的格子热度 +1；
     // 后续箭头优先朝高热度格拐弯，从而反复横穿已有弹道 → 互相包含更多。
     var rayCover = new Int32Array(R * C);
-    var dirBalance = [0, 0, 0, 0]; // 四方向已用计数：供 tryMakeArrow 做稀缺优先均衡
+    var dirBalance = [0, 0, 0, 0, 0, 0, 0, 0]; // 八方向已用计数：供 tryMakeArrow 做稀缺优先均衡
     var headDir = new Int8Array(R * C).fill(-1); // 每格箭头头朝向(空格-1)：供局部邻域去同向
     for (var k = 0; k < N; k++) {
       var remainArrows = N - k, remainCells = Math.max(2, targetCells - used);
@@ -299,7 +305,7 @@
    * 又不破坏可解性。方向挑选时避开会遮蔽更多安全格的朝向，尽量多填。 */
   function fillCavities(board, level) {
     var R = board.R, C = board.C, arrows = board.arrows.slice();
-    var dirBalance = [0, 0, 0, 0]; // 承接主生成器的方向分布，填补阶段继续做四向均衡
+    var dirBalance = [0, 0, 0, 0, 0, 0, 0, 0]; // 承接主生成器的方向分布，填补阶段继续做八向均衡
     arrows.forEach(function (a) { dirBalance[a.dir]++; });
     var rnd = mulberry32((Math.imul(level, 2246822519) ^ 0x9e3779b9) >>> 0);
     function ri(a, b) { return a + Math.floor(rnd() * (b - a + 1)); }
@@ -331,7 +337,7 @@
         if (!safe[hr * C + hc]) continue;
         // 方向也按「射线尽早撞到已有箭身」排序：朝内部的射线上可能已有箭身，
         // 选 shadow 小的方向 = 自身更可能被挡，减少新增突破口。
-        var dirs = shuf([0, 1, 2, 3]);
+        var dirs = shuf([0, 1, 2, 3, 4, 5, 6, 7]);
         dirs.sort(function (a, b) {
           function blk(d) {
             var rr = hr + DIRS[d][0], cc = hc + DIRS[d][1];
@@ -343,12 +349,12 @@
           }
           return blk(b) - blk(a);
         });
-        for (var di = 0; di < 4; di++) {
+        for (var di = 0; di < 8; di++) {
           var dir = dirs[di], back = OPP[dir];
           var cells = [[hr, hc]], r = hr, c = hc, lb = back, bends = 0, want = ri(8, 22), straightRun = 0;
           while (cells.length < want) {
-            // 与主生成器一致：头部直入直出、中段零直线拐弯
-            var perps2 = [(lb + 1) % 4, (lb + 3) % 4];
+            // 与主生成器一致：头部直入直出、中段零直线拐弯（8方向±90°垂直）
+            var perps2 = [(lb + 2) % 8, (lb + 6) % 8];
             var order = cells.length === 1 ? [back] : shuf(perps2.slice());
             var moved = false;
             for (var o = 0; o < order.length; o++) {
@@ -378,7 +384,8 @@
             rr += DIRS[dir][0]; cc += DIRS[dir][1];
           }
           // 方向均衡：稀缺方向给正奖励，避免填补阶段堆积同向箭头（大片同向的最大来源）。
-          var avgDir = (dirBalance[0] + dirBalance[1] + dirBalance[2] + dirBalance[3]) / 4;
+          var avgDir = (dirBalance[0] + dirBalance[1] + dirBalance[2] + dirBalance[3]
+                      + dirBalance[4] + dirBalance[5] + dirBalance[6] + dirBalance[7]) / 8;
           var balBonus = (avgDir - dirBalance[dir]) * 2.5; // 用得越少奖励越高
           // 局部去同向：候选点半径2内与该方向相同的头部越多，惩罚越大（距离衰减）
           var localSame = 0;

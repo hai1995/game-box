@@ -127,7 +127,8 @@
   ];
 
   /* ---------- 游戏状态 ---------- */
-  var DIRS = [[-1, 0], [0, 1], [1, 0], [0, -1]]; // 0上 1右 2下 3左
+  var DIRS = [[-1,0],[-1,1],[0,1],[1,1],[1,0],[1,-1],[0,-1],[-1,-1]]; // 8方向：0上1右上2右3右下4下5左下6左7左上（须与生成器一致）
+  var OPP = [4,5,6,7,0,1,2,3]; // 对向=(d+4)%8
   var level = 1, board = null, occ = null, cell = 30;
   /* 视图缩放：baseCell=适应容器的基准格尺寸，cell=baseCell*zoom；panX/panY=canvas 中心相对容器中心的偏移 */
   var baseCell = 30, zoom = 1, panX = 0, panY = 0;
@@ -141,8 +142,8 @@
   /* ---------- 关卡加载 ----------
    * 成人版所有关卡均由 ArrowLevelGen 运行时生成（关号即种子、可复现），
    * 从第 1 关即大盘面高难度；内存 + localStorage 轻量缓存避免反复生成。 */
-  var GEN_CACHE_KEY = "gb-arrow-pro-cache-v7"; // 成人版独立缓存 { "关卡号": {c,r,t,a} }；v7=四向动态均衡+局部去同向(消除大片同向箭头)；与儿童版存档完全隔离
-  try { localStorage.removeItem("gb-arrow-pro-cache-v6"); localStorage.removeItem("gb-arrow-pro-cache-v5"); localStorage.removeItem("gb-arrow-pro-cache-v4"); localStorage.removeItem("gb-arrow-pro-cache-v3"); localStorage.removeItem("gb-arrow-pro-cache-v2"); localStorage.removeItem("gb-arrow-pro-cache-v1"); } catch (e) {} // 清理旧版缓存
+  var GEN_CACHE_KEY = "gb-arrow-pro-cache-v8"; // 成人版独立缓存 { "关卡号": {c,r,t,a} }；v8=8方向(含斜向)，dir索引语义变化须清旧缓存；与儿童版存档完全隔离
+  try { localStorage.removeItem("gb-arrow-pro-cache-v7"); localStorage.removeItem("gb-arrow-pro-cache-v6"); localStorage.removeItem("gb-arrow-pro-cache-v5"); localStorage.removeItem("gb-arrow-pro-cache-v4"); localStorage.removeItem("gb-arrow-pro-cache-v3"); localStorage.removeItem("gb-arrow-pro-cache-v2"); localStorage.removeItem("gb-arrow-pro-cache-v1"); } catch (e) {} // 清理旧版缓存
   var genCache = null;
   function getGenCache() {
     if (genCache) return genCache;
