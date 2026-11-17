@@ -7,8 +7,9 @@
  *     随关号对数增长，约 800 关达到 76×102 / 280 后保持满配高难度。
  *   - 箭头绘制更细、纯黑系（见 index.html），同样盘面容纳更多箭头仍清晰可辨。
  *   - seed 仅由关号决定，同一关每次生成完全一致（可重试、可分享关号）。
- *   - 折弯预算从第 1 关即拉满（16→26 折），中段「转向优先 0.94 + 连续直行≥2 强制拐弯」，
- *     蛇形箭身多绕且无长直线段；头部仍强制直入直出，嵌套深、突破口少保持高难。
+ *   - 折弯预算从第 1 关即拉满（16→26 折）；箭身从尖端起全程只走垂直拐弯、
+ *     零直线段（无 3 点共线），并用「射线覆盖热度」引导箭头反复横穿彼此弹道，
+ *     互相包含深、突破口少、难度极高。
  *   - 反向构造天然保证可解，空腔填补后再跑求解器复核，绝不返回死局。
  * 暴露：window.ArrowLevelGen.generate(level) -> { c, r, t, a } | null
  *       window.ArrowLevelGen.paramsFor(level) -> 难度参数（调试用）
@@ -85,7 +86,7 @@
     var h = a.cells[a.cells.length - 1];
     return rayHit(h[0], h[1], a.dir, grid, R, C, id);
   }
-  function tryMakeArrow(R, C, grid, wantLen, maxBends) {
+  function tryMakeArrow(R, C, grid, wantLen, maxBends, rayCover) {
     for (var attempt = 0; attempt < 600; attempt++) {
       var er, ec;
       if (rng() < 0.4) {
@@ -116,19 +117,19 @@
       var len = Math.max(2, Math.min(wantLen + ri(-1, 1), depth + 1));
       var cells = [[er, ec]], r = er, c = ec, lastBack = back, bends = 0, straightRun = 0;
       while (cells.length < len) {
-        // 头部直入直出：第一步强制沿 back 直行，避免箭头尖端处拐弯、被相邻箭身遮挡看不清。
-        // 中段弯绕再强化：
-        //   1) 转向优先概率 0.94（原 0.85）——几乎每步都先试垂直方向；
-        //   2) 连续直行 ≥2 格则「强制拐弯」，只在无垂直出路时才回退直行，
-        //      消灭长直线段，让蛇形更均匀、更绕。
-        var dirs;
-        if (cells.length === 1) dirs = [back];
-        else if (straightRun >= 2) {
-          var turns = shuffle([0, 1, 2, 3].filter(function (d) { return d !== lastBack && d !== OPP[lastBack]; }));
-          dirs = turns.concat([lastBack]); // 直行仅作无路可拐时的兜底
-        } else if (rng() < 0.94) {
-          dirs = shuffle([0, 1, 2, 3].filter(function (d) { return d !== lastBack; })).concat([lastBack]);
-        } else dirs = shuffle([0, 1, 2, 3]);
+        // 移除直线箭头：头部第一步起，每一步都只走「垂直于当前方向」的拐弯方向，
+        // 彻底不设直行兜底——垂直方向都走不通就收尾。箭身全程零直线段，缠绕度最大化。
+        var perps = [(lastBack + 1) % 4, (lastBack + 3) % 4];
+        // 互相包含：优先朝「已被别的箭头射线覆盖」的格子拐，让箭身横穿他人弹道、
+        // 制造更多遮挡依赖；两个垂直方向按覆盖热度排序并保留少量随机避免模式化。
+        var hot = function (d) {
+          var nr = r + DIRS[d][0], nc = c + DIRS[d][1];
+          if (nr < 0 || nr >= R || nc < 0 || nc >= C) return -1;
+          return rayCover ? rayCover[nr * C + nc] : 0;
+        };
+        var dirs = perps.slice();
+        if (rng() < 0.82) dirs.sort(function (x, y) { return hot(y) - hot(x); });
+        else shuffle(dirs);
         var moved = false;
         for (var i = 0; i < dirs.length; i++) {
           var d = dirs[i];
@@ -140,7 +141,7 @@
           for (var k = 0; k < cells.length; k++) if (cells[k][0] === nr && cells[k][1] === nc) { dup = true; break; }
           if (dup) continue;
           var nb = d !== lastBack ? bends + 1 : bends;
-          if (nb > maxBends) continue;
+          if (nb > maxBends) break;
           cells.push([nr, nc]);
           if (d !== lastBack) { bends = nb; straightRun = 0; }
           else straightRun++;
@@ -160,16 +161,26 @@
     var bends = p.bends; // 成人版：第 1 关即满折弯，不做新手简化
     var targetCells = Math.round(R * C * p.fill);
     var grid = new Int32Array(R * C).fill(-1), arrows = [], used = 0;
+    // 射线覆盖热度图：每放一个箭头，把它尖端射线上经过的格子热度 +1；
+    // 后续箭头优先朝高热度格拐弯，从而反复横穿已有弹道 → 互相包含更多。
+    var rayCover = new Int32Array(R * C);
     for (var k = 0; k < N; k++) {
       var remainArrows = N - k, remainCells = Math.max(2, targetCells - used);
       var want0 = Math.max(3, Math.round(remainCells / remainArrows * 1.3));
       var cap = Math.max(5, Math.floor(Math.max(R, C) * 0.9)), placed = false;
       for (var relax = 0; relax < 9 && !placed; relax++) {
         var want = Math.max(2, Math.min(cap, want0 - Math.floor(relax / 2)));
-        var a = tryMakeArrow(R, C, grid, want, bends);
+        var a = tryMakeArrow(R, C, grid, want, bends, rayCover);
         if (!a) continue;
         var id = arrows.length;
         for (var i = 0; i < a.cells.length; i++) grid[a.cells[i][0] * C + a.cells[i][1]] = id;
+        // 沿新箭头尖端射线，把经过的空格热度 +1（遇到已占用格即止）
+        var hh = a.cells[a.cells.length - 1], vv = DIRS[a.dir];
+        var rr = hh[0] + vv[0], cc = hh[1] + vv[1];
+        while (rr >= 0 && rr < R && cc >= 0 && cc < C && grid[rr * C + cc] === -1) {
+          rayCover[rr * C + cc]++;
+          rr += vv[0]; cc += vv[1];
+        }
         arrows.push(a); used += a.cells.length; placed = true;
       }
       if (!placed) break;
@@ -256,15 +267,9 @@
           var dir = dirs[di], back = OPP[dir];
           var cells = [[hr, hc]], r = hr, c = hc, lb = back, bends = 0, want = ri(8, 22), straightRun = 0;
           while (cells.length < want) {
-            // 与主生成器一致：头部直入 + 中段转向优先(0.94) + 连续直行≥2 强制拐弯
-            var order;
-            if (cells.length === 1) order = [back];
-            else if (straightRun >= 2) {
-              var turns2 = shuf([0, 1, 2, 3].filter(function (d) { return d !== lb && d !== OPP[lb]; }));
-              order = turns2.concat([lb]);
-            } else if (rnd() < 0.94) {
-              order = shuf([0, 1, 2, 3].filter(function (d) { return d !== lb; })).concat([lb]);
-            } else order = shuf([0, 1, 2, 3]);
+            // 与主生成器一致：移除直线，每步优先垂直方向拐弯，直行仅作兜底
+            var perps2 = [(lb + 1) % 4, (lb + 3) % 4];
+            var order = shuf(perps2.slice()); // 与主生成器一致：零直行，只走垂直方向
             var moved = false;
             for (var o = 0; o < order.length; o++) {
               var d = order[o];
@@ -275,7 +280,7 @@
               for (var k = 0; k < cells.length; k++) if (cells[k][0] === nr && cells[k][1] === nc) { dup = true; break; }
               if (dup) continue;
               var nb = d !== lb ? bends + 1 : bends;
-              if (nb > 10) continue;
+              if (nb > 24) break;
               cells.push([nr, nc]);
               if (d !== lb) { bends = nb; straightRun = 0; }
               else straightRun++;
@@ -284,7 +289,7 @@
             if (!moved) break;
           }
           if (cells.length < 2) continue;
-          cells.reverse(); // 头部落在构造起点 (hr,hc)，其前一格正沿 back，直入直出
+          cells.reverse(); // 头部落在构造起点 (hr,hc)，箭身自尖端垂直伸出（无直线段）
           // 该填充箭头射线上还会遮蔽多少安全格（越少越好）
           var shadow = 0, rr = hr + DIRS[dir][0], cc = hc + DIRS[dir][1], own = {};
           cells.forEach(function (p) { own[p[0] * C + p[1]] = 1; });
@@ -339,8 +344,8 @@
       var top = -Infinity;
       candidates.forEach(function (c) {
         var open = openness(c.board), dep = depth(c.board);
-        // 成年人难度：依赖层深、初始突破口少权重更高
-        var sc = dep * 6 - open * 4 - Math.abs(c.fill - p.fill) * 100;
+        // 成年人难度：依赖层深、初始突破口少权重更高——箭头互相包含越多、可下手的越少越难
+        var sc = dep * 10 - open * 6 - Math.abs(c.fill - p.fill) * 100;
         if (sc > top) { top = sc; best = { board: c.board, fill: c.fill }; }
       });
     }

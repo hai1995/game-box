@@ -109,8 +109,8 @@
     if(window.GameSave)GameSave.save(SAVE_KEY,checkpoint);
   }
 
-  // rot：爪子自身朝向，固定为朝下(0)，不随绳子摆动旋转
-  var hook={angle:Math.PI/2,dir:1,len:0,state:"swing",grab:null,speed:0,rot:0};
+  // angle：绳子从支点指向爪尖的方向角（canvas 坐标，π/2 为正下方）；爪子朝向实时跟随它
+  var hook={angle:Math.PI/2,dir:1,len:0,state:"swing",grab:null,speed:0};
   var items=[],particles=[],floaters=[];
   var BASE_LEN=34;
 
@@ -184,7 +184,7 @@
     goal=goalFor(level);
     timeLeft=timeFor(level);
     bombs=BOMB_MAX;
-    hook.angle=Math.PI/2;hook.dir=1;hook.len=BASE_LEN*scale;hook.state="swing";hook.grab=null;hook.rot=0;
+    hook.angle=Math.PI/2;hook.dir=1;hook.len=BASE_LEN*scale;hook.state="swing";hook.grab=null;
     particles=[];floaters=[];
     buildItems();updateHud();
   }
@@ -353,8 +353,8 @@
     var tip=hookTip();
     ctx.strokeStyle="#6b4a2a";ctx.lineWidth=3*scale;ctx.lineCap="round";
     ctx.beginPath();ctx.moveTo(pivotX,pivotY);ctx.lineTo(tip.x,tip.y);ctx.stroke();
-    // 被勾住的物品挂在爪尖下方，让「抓到什么」一目了然，便于决定要不要炸
-    if(hook.grab){ ctx.save();ctx.translate(0,16*scale);drawItem(hook.grab);ctx.restore(); }
+    // 被勾住的物品挂在爪尖正前方（沿绳子指向），让「抓到什么」一目了然，便于决定要不要炸
+    if(hook.grab){ ctx.save();ctx.translate(Math.cos(hook.angle)*16*scale,Math.sin(hook.angle)*16*scale);drawItem(hook.grab);ctx.restore(); }
     drawClaw(tip.x,tip.y);
     // 矿工与滑轮
     drawMiner();
@@ -412,8 +412,11 @@
   function drawParticle(p){ctx.save();ctx.globalAlpha=Math.max(0,p.life/p.max);ctx.fillStyle=p.pal.e;
     ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.fill();ctx.restore();}
   function drawClaw(x,y){
-    // 爪子固定在绳端、始终朝下：不随绳子摆动旋转，视觉更稳、更易对准
+    // 爪子朝向跟随绳子指向：绳子的方向角就是 hook.angle（canvas 中 π/2 为正下方）。
+    // 爪型默认按「朝下(+y)」绘制，绕爪尖旋转 (angle - π/2) 后即与绳子同轴——
+    // 绳子摆到哪，爪子就指向哪；角度为 π/2 时旋转量为 0，仍朝正下方。
     ctx.save();ctx.translate(x,y);
+    ctx.rotate(hook.angle - Math.PI/2);
     ctx.fillStyle="#c9ccd6";ctx.strokeStyle="#6b7280";ctx.lineWidth=2*scale;
     // 爪座
     roundRect(-6*scale,-8*scale,12*scale,12*scale,3*scale);ctx.fill();ctx.stroke();
