@@ -143,8 +143,8 @@
    * 1–1000 关：按需加载预生成分块（首屏不卡）。
    * 1001+ 关：运行时用 ArrowLevelGen 生成（关号即种子、可复现），
    *           内存 + localStorage 轻量缓存，避免反复生成。 */
-  var GEN_CACHE_KEY = "gb-arrow-gen-cache-v4"; // { "关卡号": {c,r,t,a} }；v4=盘面/箭头进一步增大(76x102/280)
-  try { localStorage.removeItem("gb-arrow-gen-cache"); localStorage.removeItem("gb-arrow-gen-cache-v2"); localStorage.removeItem("gb-arrow-gen-cache-v3"); } catch (e) {} // 清理旧版缓存
+  var GEN_CACHE_KEY = "gb-arrow-gen-cache-v5"; // { "关卡号": {c,r,t,a} }；v5=箭头头部直入直出(尖端不再拐弯)
+  try { localStorage.removeItem("gb-arrow-gen-cache"); localStorage.removeItem("gb-arrow-gen-cache-v2"); localStorage.removeItem("gb-arrow-gen-cache-v3"); localStorage.removeItem("gb-arrow-gen-cache-v4"); } catch (e) {} // 清理旧版缓存
   var genCache = null;
   function getGenCache() {
     if (genCache) return genCache;
@@ -293,17 +293,17 @@
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.lineJoin = "round"; ctx.lineCap = "round";
-    lineThrough(pts); ctx.lineWidth = cell * 0.66; ctx.strokeStyle = pal.d; ctx.stroke();
+    lineThrough(pts); ctx.lineWidth = cell * 0.7; ctx.strokeStyle = pal.d; ctx.stroke();
     var g = ctx.createLinearGradient(pts[0].x, pts[0].y, pts[pts.length - 1].x, pts[pts.length - 1].y);
     g.addColorStop(0, pal.s); g.addColorStop(1, pal.e);
-    lineThrough(pts); ctx.lineWidth = cell * 0.5; ctx.strokeStyle = g; ctx.stroke();
+    lineThrough(pts); ctx.lineWidth = cell * 0.54; ctx.strokeStyle = g; ctx.stroke();
     ctx.save(); ctx.translate(-cell * 0.06, -cell * 0.1);
     lineThrough(pts); ctx.lineWidth = cell * 0.12; ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.stroke();
     ctx.restore();
     var end = pts[pts.length - 1], v = DIRS[dir], vx = v[1], vy = v[0];   // 列=x 行=y
     var bx = end.x + vx * cell * 0.02, by = end.y + vy * cell * 0.02;
-    var tipx = end.x + vx * cell * 0.5, tipy = end.y + vy * cell * 0.5;
-    var px = -vy, py = vx, half = cell * 0.34;
+    var tipx = end.x + vx * cell * 0.56, tipy = end.y + vy * cell * 0.56;
+    var px = -vy, py = vx, half = cell * 0.42;
     function tri() { ctx.beginPath(); ctx.moveTo(tipx, tipy);
       ctx.lineTo(bx + px * half, by + py * half); ctx.lineTo(bx - px * half, by - py * half); ctx.closePath(); }
     tri(); ctx.lineWidth = cell * 0.12; ctx.strokeStyle = pal.d; ctx.stroke();

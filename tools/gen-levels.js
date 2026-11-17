@@ -133,9 +133,12 @@ function tryMakeArrow(R, C, grid, wantLen, maxBends) {
     const cells = [[er, ec]];
     let r = er, c = ec, lastBack = back, bends = 0;
     while (cells.length < len) {
-      // 优先沿当前方向直行（深入棋盘），必要时才折弯，避免过早撞墙/自交而走不长
+      // 头部直入直出：第一步强制沿 back 直行，避免箭头尖端处拐弯、被相邻箭身遮挡看不清
       let dirs;
-      if (rng() < 0.65) {
+      if (cells.length === 1) {
+        dirs = [back];
+      } else if (rng() < 0.65) {
+        // 优先沿当前方向直行（深入棋盘），必要时才折弯，避免过早撞墙/自交而走不长
         dirs = [lastBack].concat(shuffle([0, 1, 2, 3]).filter(function (d) { return d !== lastBack; }));
       } else {
         dirs = shuffle([0, 1, 2, 3]);
@@ -300,9 +303,12 @@ function fillCavities(board, level, rngRef) {
         const dir = dirs[di], back = OPP[dir];
         const cells = [[hr, hc]]; let r = hr, c = hc, lb = back, bends = 0, want = ri(8, 22);
         while (cells.length < want) {
-          const order = rnd() < 0.7
-            ? [lb].concat(shuf([0, 1, 2, 3]).filter((d) => d !== lb))
-            : shuf([0, 1, 2, 3]);
+          // 头部直入直出：第一步强制沿 back，末尾再 reverse，与主生成器一致
+          const order = cells.length === 1
+            ? [back]
+            : (rnd() < 0.7
+              ? [lb].concat(shuf([0, 1, 2, 3]).filter((d) => d !== lb))
+              : shuf([0, 1, 2, 3]));
           let moved = false;
           for (let o = 0; o < order.length; o++) {
             const d = order[o];
@@ -321,6 +327,7 @@ function fillCavities(board, level, rngRef) {
           if (!moved) break;
         }
         if (cells.length < 2) continue;
+        cells.reverse(); // 头部落在构造起点 (hr,hc)，其前一格正沿 back，直入直出
         let shadow = 0, rr = hr + DIRS[dir][0], cc = hc + DIRS[dir][1];
         const own = {}; cells.forEach((p) => { own[p[0] * C + p[1]] = 1; });
         while (rr >= 0 && rr < R && cc >= 0 && cc < C) {

@@ -139,9 +139,12 @@
       var len = Math.max(2, Math.min(wantLen + ri(-1, 1), depth + 1));
       var cells = [[er, ec]], r = er, c = ec, lastBack = back, bends = 0;
       while (cells.length < len) {
-        var dirs = rng() < 0.65
-          ? [lastBack].concat(shuffle([0, 1, 2, 3]).filter(function (d) { return d !== lastBack; }))
-          : shuffle([0, 1, 2, 3]);
+        // 头部直入直出：第一步强制沿 back 直行，避免箭头尖端处拐弯、被相邻箭身遮挡看不清
+        var dirs = cells.length === 1
+          ? [back]
+          : (rng() < 0.65
+            ? [lastBack].concat(shuffle([0, 1, 2, 3]).filter(function (d) { return d !== lastBack; }))
+            : shuffle([0, 1, 2, 3]));
         var moved = false;
         for (var i = 0; i < dirs.length; i++) {
           var d = dirs[i];
@@ -268,9 +271,12 @@
           var dir = dirs[di], back = OPP[dir];
           var cells = [[hr, hc]], r = hr, c = hc, lb = back, bends = 0, want = ri(8, 22);
           while (cells.length < want) {
-            var order = rnd() < 0.7
-              ? [lb].concat(shuf([0, 1, 2, 3]).filter(function (d) { return d !== lb; }))
-              : shuf([0, 1, 2, 3]);
+            // 头部直入直出：第一步强制沿 back，末尾再 reverse，与主生成器一致
+            var order = cells.length === 1
+              ? [back]
+              : (rnd() < 0.7
+                ? [lb].concat(shuf([0, 1, 2, 3]).filter(function (d) { return d !== lb; }))
+                : shuf([0, 1, 2, 3]));
             var moved = false;
             for (var o = 0; o < order.length; o++) {
               var d = order[o];
@@ -289,6 +295,7 @@
             if (!moved) break;
           }
           if (cells.length < 2) continue;
+          cells.reverse(); // 头部落在构造起点 (hr,hc)，其前一格正沿 back，直入直出
           // 该填充箭头射线上还会遮蔽多少安全格（越少越好）
           var shadow = 0, rr = hr + DIRS[dir][0], cc = hc + DIRS[dir][1], own = {};
           cells.forEach(function (p) { own[p[0] * C + p[1]] = 1; });

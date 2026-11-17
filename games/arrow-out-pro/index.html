@@ -141,7 +141,8 @@
   /* ---------- 关卡加载 ----------
    * 成人版所有关卡均由 ArrowLevelGen 运行时生成（关号即种子、可复现），
    * 从第 1 关即大盘面高难度；内存 + localStorage 轻量缓存避免反复生成。 */
-  var GEN_CACHE_KEY = "gb-arrow-pro-cache-v1"; // 成人版独立缓存 { "关卡号": {c,r,t,a} }，与儿童版存档完全隔离
+  var GEN_CACHE_KEY = "gb-arrow-pro-cache-v2"; // 成人版独立缓存 { "关卡号": {c,r,t,a} }；v2=箭头头部直入直出；与儿童版存档完全隔离
+  try { localStorage.removeItem("gb-arrow-pro-cache-v1"); } catch (e) {} // 清理旧版缓存
   var genCache = null;
   function getGenCache() {
     if (genCache) return genCache;
@@ -276,17 +277,17 @@
     }
   }
   // 按给定点序列绘制箭头：细箭身 + 明显偏大的实心三角箭头 + 充足留白（参考清晰线稿风格）。
-  // 线宽仅 0.16 cell（儿童版 0.66、上一版 0.42），箭身纤细；箭头头宽约箭身 2.5 倍，方向一眼可辨。
+  // 箭身纤细（0.19 cell，设 1.2px 下限）；箭头头全宽 0.6 cell、长约 0.52 cell，方向醒目易辨。
   function drawArrowShape(pts, dir, pal, alpha) {
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.lineJoin = "round"; ctx.lineCap = "round";
-    // 细箭身（设 1.1px 下限：满配关全貌每格仅几像素时不至于太淡，正常格子仍为纤细线稿）
-    lineThrough(pts); ctx.lineWidth = Math.max(1.1, cell * 0.16); ctx.strokeStyle = pal.d; ctx.stroke();
+    // 细箭身（设 1.2px 下限：满配关全貌每格仅几像素时不至于太淡，正常格子仍为纤细线稿）
+    lineThrough(pts); ctx.lineWidth = Math.max(1.2, cell * 0.19); ctx.strokeStyle = pal.d; ctx.stroke();
     var end = pts[pts.length - 1], v = DIRS[dir], vx = v[1], vy = v[0];   // 列=x 行=y
     var bx = end.x + vx * cell * 0.02, by = end.y + vy * cell * 0.02;
-    var tipx = end.x + vx * cell * 0.44, tipy = end.y + vy * cell * 0.44;
-    var px = -vy, py = vx, half = Math.max(1.4, cell * 0.2);   // 箭头头全宽 0.4 cell，约为箭身 2.5 倍；设下限防极小格看不见
+    var tipx = end.x + vx * cell * 0.52, tipy = end.y + vy * cell * 0.52;
+    var px = -vy, py = vx, half = Math.max(1.9, cell * 0.3);   // 箭头头全宽 0.6 cell，明显偏大；设下限防极小格看不见
     function tri() { ctx.beginPath(); ctx.moveTo(tipx, tipy);
       ctx.lineTo(bx + px * half, by + py * half); ctx.lineTo(bx - px * half, by - py * half); ctx.closePath(); }
     tri(); ctx.fillStyle = pal.d; ctx.fill();   // 实心三角箭头头
