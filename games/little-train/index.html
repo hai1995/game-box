@@ -18,16 +18,20 @@
     padding:6px 12px; font-size:clamp(17px,5vw,26px); font-weight:800; color:#d62828;
     box-shadow:0 4px 0 rgba(0,0,0,.12); display:flex; align-items:center; gap:6px;
     white-space:nowrap; max-width:48vw; }
-  #controls { position:fixed; bottom:0; left:0; right:0; display:flex; gap:10px;
-    justify-content:center; padding:16px 12px calc(16px + env(safe-area-inset-bottom)); z-index:6; }
-  .btn { flex:1; max-width:130px; border:5px solid #fff; border-radius:26px; padding:14px 4px;
-    font-size:28px; color:#fff; font-weight:900; box-shadow:0 6px 0 rgba(0,0,0,.18);
+  #controls { position:fixed; bottom:0; left:0; right:0; display:flex; gap:8px;
+    justify-content:space-between; align-items:flex-end; pointer-events:none;
+    padding:12px 10px calc(14px + env(safe-area-inset-bottom)); z-index:6; }
+  .skill-col { display:flex; flex-direction:column; gap:8px; pointer-events:auto; }
+  .btn { width:58px; border:4px solid #fff; border-radius:20px; padding:8px 2px;
+    font-size:24px; color:#fff; font-weight:900; box-shadow:0 4px 0 rgba(0,0,0,.18);
     cursor:pointer; transition:transform .06s,box-shadow .06s;
-    display:flex; flex-direction:column; align-items:center; gap:2px; line-height:1.1; }
-  .btn small { font-size:14px; font-weight:700; opacity:.95; }
-  .btn:active { transform:translateY(4px); box-shadow:0 2px 0 rgba(0,0,0,.18); }
+    display:flex; flex-direction:column; align-items:center; gap:1px; line-height:1.05; }
+  .btn small { font-size:12px; font-weight:700; opacity:.95; white-space:nowrap; }
+  .btn:active { transform:translateY(4px) scale(.95); box-shadow:0 1px 0 rgba(0,0,0,.18); }
   .btn.b1{background:#ff6b6b}.btn.b2{background:#4d96ff}.btn.b3{background:#6bcb77}
-  .btn.b4{background:#ffa62b}.btn.b5{background:#c77dff}
+  .btn.b4{background:#ffa62b}.btn.b5{background:#c77dff}.btn.b6{background:#ff5c8a}
+  .btn.b7{background:#00b8d9}.btn.b8{background:#ff8c42}.btn.b9{background:#66bb1a}
+  .btn.b10{background:#8e7dff}
   .trackBtn { position:fixed; top:50%; transform:translateY(-50%); width:64px; height:110px;
     border-radius:22px; background:rgba(255,255,255,.55); border:4px solid #fff; color:#d62828;
     font-size:50px; font-weight:900; display:flex; align-items:center; justify-content:center;
@@ -43,9 +47,9 @@
     font-size:28px; color:#d62828; touch-action:manipulation; }
   .home-btn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,.16); }
   .hidden { display:none !important; }
-  .hint { position:fixed; bottom:116px; left:0; right:0; text-align:center; color:#fff;
-    font-size:17px; font-weight:700; text-shadow:1px 1px 2px rgba(0,0,0,.35);
-    pointer-events:none; z-index:4; }
+  .hint { position:fixed; bottom:120px; left:80px; right:80px; text-align:center; color:#fff;
+    font-size:15px; font-weight:700; text-shadow:1px 1px 2px rgba(0,0,0,.45);
+    pointer-events:none; z-index:4; line-height:1.5; }
   #err { position:fixed; top:70px; left:12px; right:12px; z-index:30; background:#ffefef;
     border:3px solid #ef476f; color:#b00; border-radius:14px; padding:12px; font-size:14px;
     font-weight:700; display:none; }
@@ -59,7 +63,6 @@
   <div id="hud">
     <div class="badge">⭐ <span id="score">0</span></div>
     <div class="badge">📏 <span id="dist">0</span>米</div>
-    <div class="badge">🏆 最佳 <span id="best">0</span></div>
   </div>
 
   <div class="trackBtn" id="btnLeft">◀</div>
@@ -67,11 +70,20 @@
   <div class="hint" id="hint">左右滑动换轨道去接 ⭐❤️🎈 · 轻点屏幕鸣笛 🚂</div>
 
   <div id="controls">
-    <div class="btn b1" id="btnWhistle">🚂<small>鸣笛</small></div>
-    <div class="btn b2" id="btnBell">🔔<small>叮咚</small></div>
-    <div class="btn b3" id="btnSteam">💨<small>喷气</small></div>
-    <div class="btn b4" id="btnSpeed">⚡<small>加速</small></div>
-    <div class="btn b5" id="btnParty">🎉<small>烟花</small></div>
+    <div class="skill-col">
+      <div class="btn b1" id="btnWhistle">🚂<small>鸣笛</small></div>
+      <div class="btn b2" id="btnBell">🔔<small>叮咚</small></div>
+      <div class="btn b3" id="btnSteam">💨<small>喷气</small></div>
+      <div class="btn b4" id="btnSpeed">⚡<small>加速</small></div>
+      <div class="btn b5" id="btnParty">🎉<small>烟花</small></div>
+    </div>
+    <div class="skill-col">
+      <div class="btn b6" id="btnRainbow">🌈<small>彩虹</small></div>
+      <div class="btn b7" id="btnStars">✨<small>星雨</small></div>
+      <div class="btn b8" id="btnHearts">💗<small>爱心</small></div>
+      <div class="btn b9" id="btnConfetti">🎊<small>彩带</small></div>
+      <div class="btn b10" id="btnBubbles">🫧<small>泡泡</small></div>
+    </div>
   </div>
 
   <a class="home-btn" href="../../" aria-label="返回主页" title="返回主页">🏠</a>
@@ -328,33 +340,9 @@
 
   var trees=[], clouds=[], pickups=[], smoke=[], fireworks=[], tunnel=null, flash=0;
 
-  /* ================= 存档：只持久化最高分 / 最远距离，不恢复运行中的火车位置 ================= */
-  var bestScore = 0, bestDist = 0;
-  function _loadBest() {
-    var s = (window.GameSave && GameSave.load(SAVE_KEY, null)) || null;
-    if (s) {
-      bestScore = +s.bestScore || 0;
-      bestDist  = +s.bestDist  || 0;
-    }
-  }
-  function _renderBest() {
-    var el = document.getElementById("best");
-    if (el) el.textContent = bestScore + "分·" + bestDist + "米";
-  }
-  function _tickBest() {
-    var changed = false;
-    if (score > bestScore) { bestScore = score; changed = true; }
-    var d = Math.floor(distance / 10) * 10; // 每 10 米记一次，避免每帧写存储
-    if (d > bestDist) { bestDist = d; changed = true; }
-    if (changed && window.GameSave) {
-      GameSave.save(SAVE_KEY, { bestScore: bestScore, bestDist: bestDist });
-      _renderBest();
-    }
-  }
-
   function initScene() {
     trees=[]; clouds=[]; pickups=[]; smoke=[]; fireworks=[]; tunnel=null; flash=0;
-    speedLines=[]; toasts=[]; boostPunch=0;
+    speedLines=[]; toasts=[]; boostPunch=0; fxParts=[]; rainbowT=0;
     distance=0; score=0; offset=0; currentTrack=1; trainX=TRACK_X[1];
     for (var ci=0;ci<carX.length;ci++) carX[ci]=trainX;
     lastPick=0; lastTunnel=0; lastMilestone=0;
@@ -703,6 +691,102 @@
     toasts.push({ text:text, x:W/2, y:H*.30, life:1, color:color||"#fff" });
   }
 
+  /* ---- 新特效技能：彩虹 / 星雨 / 爱心 / 彩带 / 泡泡 ---- */
+  var fxParts=[];    // 通用装饰粒子
+  var rainbowT=0;    // 彩虹弧生命周期 1→0
+
+  function emitFx(kind) {
+    if (kind==="rainbow") { rainbowT=1; return; }
+    var i,n,p;
+    if (kind==="stars") {
+      for (i=0;i<34;i++) fxParts.push({ kind:"star", x:Math.random()*W, y:-20-Math.random()*H*.4,
+        vx:(Math.random()-.5)*1.2, vy:2.2+Math.random()*2.6, life:1, decay:.006+Math.random()*.006,
+        size:7+Math.random()*8, color:fwColors[Math.floor(Math.random()*fwColors.length)],
+        rot:Math.random()*6.28, vr:(Math.random()-.5)*.16, sway:0 });
+    } else if (kind==="hearts") {
+      var hc=["#ff5c8a","#ff8fab","#ffb3c6","#ff4d6d"];
+      for (i=0;i<28;i++) fxParts.push({ kind:"heart", x:Math.random()*W, y:H+20+Math.random()*120,
+        vx:(Math.random()-.5)*.8, vy:-(1.6+Math.random()*2), life:1, decay:.005+Math.random()*.005,
+        size:9+Math.random()*9, color:hc[i%hc.length], rot:0, vr:0, sway:Math.random()*6.28 });
+    } else if (kind==="confetti") {
+      for (i=0;i<46;i++) fxParts.push({ kind:"confetti", x:Math.random()*W, y:-20-Math.random()*H*.5,
+        vx:(Math.random()-.5)*1.6, vy:1.8+Math.random()*2.4, life:1, decay:.004+Math.random()*.004,
+        size:5+Math.random()*6, color:fwColors[Math.floor(Math.random()*fwColors.length)],
+        rot:Math.random()*6.28, vr:(Math.random()-.5)*.3, sway:0 });
+    } else if (kind==="bubbles") {
+      var bc=["#ff9ff3","#54a0ff","#5ee7df","#feca57","#a29bfe"];
+      for (i=0;i<30;i++) fxParts.push({ kind:"bubble", x:Math.random()*W, y:H+20+Math.random()*100,
+        vx:(Math.random()-.5)*.6, vy:-(1.4+Math.random()*1.8), life:1, decay:.004+Math.random()*.004,
+        size:6+Math.random()*12, color:bc[i%bc.length], rot:0, vr:0, sway:Math.random()*6.28 });
+    }
+  }
+
+  function updateFxParts() {
+    if (rainbowT>0) rainbowT=Math.max(0, rainbowT-.010);
+    fxParts.forEach(function (p) {
+      p.x+=p.vx; p.y+=p.vy;
+      if (p.sway) p.x+=Math.sin((1-p.life)*9+p.sway)*.6;
+      if (p.vr) p.rot+=p.vr;
+      if (p.kind==="star"||p.kind==="confetti") p.vy+=.012; // 轻微重力
+      p.life-=p.decay;
+    });
+    fxParts=fxParts.filter(function (p) { return p.life>0 && p.y>-90 && p.y<H+90; });
+  }
+
+  function starPath(g,r) {
+    g.beginPath();
+    for (var i=0;i<10;i++) {
+      var ang=-Math.PI/2+i*Math.PI/5, rr=(i%2===0)?r:r*.42;
+      var x=Math.cos(ang)*rr, y=Math.sin(ang)*rr;
+      if (i===0) g.moveTo(x,y); else g.lineTo(x,y);
+    }
+    g.closePath();
+  }
+  function heartPath(g) {
+    g.beginPath(); g.moveTo(0,6);
+    g.bezierCurveTo(-14,-3,-9,-15,0,-7);
+    g.bezierCurveTo(9,-15,14,-3,0,6);
+    g.closePath();
+  }
+  function drawFxParts() {
+    // 彩虹：7 色同心半圆，从底部拱起并淡出
+    if (rainbowT>0) {
+      var cx=W/2, cy=H*.96, lw=Math.max(4,Math.min(W,H)*.018);
+      var base=Math.min(W,H)*.16+(1-rainbowT)*Math.min(W,H)*.20;
+      var rc=["#ff3b30","#ff9500","#ffcc00","#34c759","#00c7be","#007aff","#af52ed"];
+      fx.lineWidth=lw;
+      for (var i=0;i<rc.length;i++) {
+        fx.globalAlpha=Math.max(0,rainbowT)*.85;
+        fx.strokeStyle=rc[i];
+        fx.beginPath(); fx.arc(cx,cy,base+i*lw*1.05,Math.PI,Math.PI*2); fx.stroke();
+      }
+      fx.globalAlpha=1;
+    }
+    fxParts.forEach(function (p) {
+      fx.globalAlpha=Math.max(0,Math.min(1,p.life*1.4));
+      fx.save(); fx.translate(p.x,p.y);
+      if (p.kind==="star") {
+        fx.rotate(p.rot); starPath(fx,p.size);
+        fx.fillStyle=p.color; fx.fill();
+        fx.strokeStyle="rgba(255,255,255,.85)"; fx.lineWidth=1.5; fx.stroke();
+      } else if (p.kind==="heart") {
+        fx.scale(p.size/16,p.size/16); heartPath(fx);
+        fx.fillStyle=p.color; fx.fill();
+      } else if (p.kind==="confetti") {
+        fx.rotate(p.rot); fx.fillStyle=p.color;
+        fx.fillRect(-p.size/2,-p.size/4,p.size,p.size/2);
+      } else if (p.kind==="bubble") {
+        fx.beginPath(); fx.arc(0,0,p.size,0,6.28);
+        fx.fillStyle="rgba(255,255,255,.10)"; fx.fill();
+        fx.strokeStyle=p.color; fx.lineWidth=2; fx.stroke();
+        fx.beginPath(); fx.arc(-p.size*.3,-p.size*.35,p.size*.18,0,6.28);
+        fx.fillStyle="rgba(255,255,255,.7)"; fx.fill();
+      }
+      fx.restore();
+    });
+    fx.globalAlpha=1;
+  }
+
   /* ================= 主循环 ================= */
   function animate() {
     if (!running) return;
@@ -723,6 +807,7 @@
     // 浮动提示上飘淡出
     toasts.forEach(function (t) { t.y-=1.1; t.life-=.018; });
     toasts=toasts.filter(function (t) { return t.life>0; });
+    updateFxParts(); // 新特效粒子（彩虹/星雨/爱心/彩带/泡泡）
 
     // 车头平滑趋近目标轨道；加大系数让左右换轨更迅速
     trainX += (TRACK_X[currentTrack]-trainX)*.24;
@@ -783,7 +868,6 @@
     smoke=smoke.filter(function (p) { return p.life>0; });
 
     document.getElementById("dist").textContent=Math.floor(distance);
-    _tickBest(); // 记录最高分 / 最远距离（刷新后保留）
 
     /* ---- 绘制 ---- */
     drawSky(night);
@@ -844,6 +928,7 @@
       fx.fillStyle=t.color; fx.fillText(t.text,t.x,t.y);
     });
     fx.globalAlpha=1; fx.textAlign="start"; fx.textBaseline="alphabetic";
+    drawFxParts(); // 新特效粒子绘制在顶层（彩虹/星雨/爱心/彩带/泡泡）
     if (flash>0) {
       flash-=.015; fx.fillStyle="rgba(255,255,255,"+Math.min(flash,.6)+")"; fx.fillRect(0,0,W,H);
     }
@@ -881,6 +966,27 @@
     spawnFirework(W*.3,H*.35); spawnFirework(W*.6,H*.3); spawnFirework(W*.45,H*.5);
     if (running) toast("🎉 好耶！", "#c77dff");
   });
+  // 新增特效技能
+  document.getElementById("btnRainbow").addEventListener("click", function () {
+    ensureAudio(); playChime(); emitFx("rainbow");
+    if (running) toast("🌈 彩虹！", "#ffd166");
+  });
+  document.getElementById("btnStars").addEventListener("click", function () {
+    ensureAudio(); playDing(); emitFx("stars");
+    if (running) toast("✨ 星雨！", "#ffe066");
+  });
+  document.getElementById("btnHearts").addEventListener("click", function () {
+    ensureAudio(); playPop(); emitFx("hearts");
+    if (running) toast("💗 爱心！", "#ff8fab");
+  });
+  document.getElementById("btnConfetti").addEventListener("click", function () {
+    ensureAudio(); playFirework(); emitFx("confetti");
+    if (running) toast("🎊 彩带！", "#8ac926");
+  });
+  document.getElementById("btnBubbles").addEventListener("click", function () {
+    ensureAudio(); playSteam(); emitFx("bubbles");
+    if (running) toast("🫧 泡泡！", "#a0e7ff");
+  });
   function switchTrack(dir) { currentTrack = Math.max(0, Math.min(2, currentTrack + dir)); }
   document.getElementById("btnLeft").addEventListener("click", function () { switchTrack(-1); });
   document.getElementById("btnRight").addEventListener("click", function () { switchTrack(1); });
@@ -908,7 +1014,6 @@
 
   // 进入即直接开始游戏（音频受浏览器策略限制，首次触摸时自动恢复）
   ensureAudio(); startEngine();
-  _loadBest(); _renderBest(); // 启动显示历史最高记录
   if (!running) { running=true; initScene(); animate(); }
   // 玩法提示先展示几秒再淡出，避免一直挡住画面
   setTimeout(function () { document.getElementById("hint").classList.add("hidden"); }, 5000);
