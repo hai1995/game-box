@@ -116,14 +116,14 @@
   var ovTitle = document.getElementById("ovTitle"), ovMsg = document.getElementById("ovMsg");
   var ovBtns = document.getElementById("ovBtns"), toastEl = document.getElementById("toast");
 
-  /* ---------- 成人版黑系色板：深灰 → 纯黑，醒目不刺眼，档位微差便于区分相邻箭头 ---------- */
+  /* ---------- 成人版深墨蓝黑色板：清晰沉稳，档位微差便于区分相邻箭头 ---------- */
   var PALETTE = [
-    { s: "#3a3a3a", e: "#000000", d: "#000000" }, // 墨黑
-    { s: "#34383d", e: "#08090b", d: "#000000" }, // 铁灰黑
-    { s: "#404040", e: "#0e0e0e", d: "#000000" }, // 炭黑
-    { s: "#363a3e", e: "#040507", d: "#000000" }, // 深铅黑
-    { s: "#44474a", e: "#141618", d: "#000000" }, // 石墨黑
-    { s: "#333333", e: "#000000", d: "#000000" }  // 纯黑
+    { d: "#26313e" }, // 深墨蓝
+    { d: "#2d3744" }, // 石板蓝
+    { d: "#1f2936" }, // 午夜蓝
+    { d: "#333c49" }, // 铁蓝灰
+    { d: "#242e3a" }, // 铅蓝
+    { d: "#2a3441" }  // 钢蓝
   ];
 
   /* ---------- 游戏状态 ---------- */
@@ -275,27 +275,21 @@
       if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
     }
   }
-  // 按给定点序列绘制一条醒目的黑色箭头：纯黑实线 + 实心箭头头，方向一眼可辨。
-  // 线宽仍小于儿童版（0.66/0.5），密集棋盘不糊；但去掉白芯高光、加深颜色、放大箭头头提升辨识度。
+  // 按给定点序列绘制箭头：细箭身 + 明显偏大的实心三角箭头 + 充足留白（参考清晰线稿风格）。
+  // 线宽仅 0.16 cell（儿童版 0.66、上一版 0.42），箭身纤细；箭头头宽约箭身 2.5 倍，方向一眼可辨。
   function drawArrowShape(pts, dir, pal, alpha) {
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.lineJoin = "round"; ctx.lineCap = "round";
-    // 主线：纯黑实线（比旧版 0.34 略粗，醒目但仍是儿童版的约 2/3）
-    lineThrough(pts); ctx.lineWidth = cell * 0.42; ctx.strokeStyle = pal.d; ctx.stroke();
-    // 顶部一条同色系高光，让线条有立体感但不再发白（深色，不抢黑色主体）
-    ctx.save(); ctx.translate(-cell * 0.02, -cell * 0.045);
-    lineThrough(pts); ctx.lineWidth = cell * 0.14; ctx.strokeStyle = pal.s; ctx.stroke();
-    ctx.restore();
+    // 细箭身（设 1.1px 下限：满配关全貌每格仅几像素时不至于太淡，正常格子仍为纤细线稿）
+    lineThrough(pts); ctx.lineWidth = Math.max(1.1, cell * 0.16); ctx.strokeStyle = pal.d; ctx.stroke();
     var end = pts[pts.length - 1], v = DIRS[dir], vx = v[1], vy = v[0];   // 列=x 行=y
     var bx = end.x + vx * cell * 0.02, by = end.y + vy * cell * 0.02;
-    var tipx = end.x + vx * cell * 0.5, tipy = end.y + vy * cell * 0.5;
-    var px = -vy, py = vx, half = cell * 0.32;
+    var tipx = end.x + vx * cell * 0.44, tipy = end.y + vy * cell * 0.44;
+    var px = -vy, py = vx, half = Math.max(1.4, cell * 0.2);   // 箭头头全宽 0.4 cell，约为箭身 2.5 倍；设下限防极小格看不见
     function tri() { ctx.beginPath(); ctx.moveTo(tipx, tipy);
       ctx.lineTo(bx + px * half, by + py * half); ctx.lineTo(bx - px * half, by - py * half); ctx.closePath(); }
-    tri(); ctx.fillStyle = pal.d; ctx.fill();   // 实心纯黑箭头头，比旧版更大更清晰
-    var st = pts[0];
-    ctx.beginPath(); ctx.arc(st.x, st.y, cell * 0.085, 0, Math.PI * 2); ctx.fillStyle = pal.d; ctx.fill();
+    tri(); ctx.fillStyle = pal.d; ctx.fill();   // 实心三角箭头头
     ctx.restore();
   }
   function drawArrow(a, pal, dx, dy, alpha, sh) {
