@@ -269,20 +269,26 @@
     for (var i = 0; i < tiles.length; i++) tiles[i].parentNode.removeChild(tiles[i]);
     resetGrid();
     overlay.classList.add("hidden"); gameActive = true; quizPaused = false; ovAction = null;
-    if (saved && saved.grid && saved.grid.length === SIZE) {
-      score = saved.score || 0; won = !!saved.won;
+    score = 0; won = false;
+    var restored = 0;
+    if (saved && Array.isArray(saved.grid) && saved.grid.length) {
+      var g = saved.grid;
+      var flat = typeof g[0] !== "object"; // 兼容旧版扁平数组格式
+      // 尽可能恢复：逐格拷贝当前尺寸内的有效数字，格子尺寸变化也能保住能保的部分
       for (var r = 0; r < SIZE; r++) {
-        if (!saved.grid[r] || saved.grid[r].length !== SIZE) continue;
         for (var c = 0; c < SIZE; c++) {
-          var v = saved.grid[r][c] || 0;
-          if (v > 0) makeTile(r, c, v);
+          var v = flat ? g[r * SIZE + c] : (g[r] && Array.isArray(g[r]) ? g[r][c] : undefined);
+          if (typeof v === "number" && isFinite(v) && v >= 2) { makeTile(r, c, v); restored++; }
         }
       }
-      updateScore();
-    } else {
-      score = 0; won = false; scoreEl.textContent = "0";
-      spawn(); spawn();
+      // 当前局分数与状态也尽量保留（成就的一部分），棋盘降级不连累成绩
+      if (typeof saved.score === "number" && isFinite(saved.score) && saved.score >= 0) score = saved.score;
+      won = !!saved.won;
     }
+    scoreEl.textContent = score;
+    if (score > best) { best = score; bestEl.textContent = best; try { localStorage.setItem("gb1024best", String(best)); } catch (e) {} }
+    // 确实没有可恢复的格子才补两个新块，避免空棋盘卡死
+    if (restored === 0) { spawn(); spawn(); }
     if (fresh && window.GameSave) GameSave.clear(SAVE_KEY);
   }
 

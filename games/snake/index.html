@@ -215,15 +215,36 @@
   }
   function reset(fresh) {
     var saved = fresh ? null : (window.GameSave ? GameSave.load(SAVE_KEY, null) : null);
-    if (saved && saved.snake && saved.snake.length && saved.snake[0] && typeof saved.snake[0].x === "number"
-        && saved.food && typeof saved.food.x === "number" && saved.dir && typeof saved.dir.x === "number") {
-      snake = saved.snake;
-      food = saved.food;
-      dir = saved.dir;
-      nextDir = saved.nextDir || saved.dir;
-      score = saved.score || 0;
-      tickMs = saved.tickMs || 150;
-      scoreEl.textContent = score;
+    var restored = false;
+    if (saved && Array.isArray(saved.snake) && saved.snake.length) {
+      // 尽可能恢复蛇身：只保留坐标有效的节点，结构变化/个别坏点也不整盘丢弃
+      var body = [];
+      for (var i = 0; i < saved.snake.length; i++) {
+        var s = saved.snake[i];
+        if (s && typeof s.x === "number" && typeof s.y === "number" && isFinite(s.x) && isFinite(s.y)
+            && s.x >= 0 && s.x < COLS && s.y >= 0 && s.y < ROWS) {
+          body.push({ x: s.x, y: s.y });
+        }
+      }
+      if (body.length) {
+        snake = body;
+        dir = (saved.dir && typeof saved.dir.x === "number" && typeof saved.dir.y === "number") ? saved.dir : { x: 1, y: 0 };
+        nextDir = (saved.nextDir && typeof saved.nextDir.x === "number" && typeof saved.nextDir.y === "number") ? saved.nextDir : dir;
+        score = (typeof saved.score === "number" && isFinite(saved.score) && saved.score >= 0) ? saved.score : 0;
+        tickMs = (typeof saved.tickMs === "number" && isFinite(saved.tickMs) && saved.tickMs > 0) ? saved.tickMs : 150;
+        scoreEl.textContent = score;
+        if (score > best) { best = score; bestEl.textContent = best; try { localStorage.setItem("gbSnakeBest", String(best)); } catch (e) {} }
+        // 食物坐标有效则恢复，否则按当前蛇身重新放置，避免食物落在蛇身上
+        if (saved.food && typeof saved.food.x === "number" && typeof saved.food.y === "number"
+            && saved.food.x >= 0 && saved.food.x < COLS && saved.food.y >= 0 && saved.food.y < ROWS) {
+          food = { x: saved.food.x, y: saved.food.y };
+        } else {
+          placeFood();
+        }
+        restored = true;
+      }
+    }
+    if (restored) {
       begin();
     } else {
       freshState();
