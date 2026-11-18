@@ -18,9 +18,9 @@
     padding:6px 12px; font-size:clamp(17px,5vw,26px); font-weight:800; color:#d62828;
     box-shadow:0 4px 0 rgba(0,0,0,.12); display:flex; align-items:center; gap:6px;
     white-space:nowrap; max-width:48vw; }
-  #controls { position:fixed; bottom:0; left:0; right:0; display:flex; gap:8px;
-    justify-content:space-between; align-items:flex-end; pointer-events:none;
-    padding:12px 10px calc(14px + env(safe-area-inset-bottom)); z-index:6; }
+  #controls { position:fixed; top:calc(128px + env(safe-area-inset-top)); bottom:auto; left:0; right:0;
+    display:flex; gap:8px; justify-content:space-between; align-items:flex-start; pointer-events:none;
+    padding:0 10px; z-index:6; }
   .skill-col { display:flex; flex-direction:column; gap:8px; pointer-events:auto; }
   .btn { width:58px; border:4px solid #fff; border-radius:20px; padding:8px 2px;
     font-size:24px; color:#fff; font-weight:900; box-shadow:0 4px 0 rgba(0,0,0,.18);
@@ -67,7 +67,7 @@
 
   <div class="trackBtn" id="btnLeft">◀</div>
   <div class="trackBtn" id="btnRight">▶</div>
-  <div class="hint" id="hint">左右滑动换轨道去接 ⭐❤️🎈 · 轻点屏幕鸣笛 🚂</div>
+  <div class="hint" id="hint">点某条轨道自动换过去 · 左右滑动也可换轨 · 点天空鸣笛 🚂</div>
 
   <div id="controls">
     <div class="skill-col">
@@ -271,6 +271,19 @@
     var s = FOCAL / Math.max(d, 1.6);
     return { x: W/2 + x * s, y: HORIZON + (CAM_H - y) * s, s: s };
   }
+  // 把屏幕点击点反投影到地面，返回最近的轨道索引；点在天空/画面外返回 -1
+  function trackFromPoint(px, py) {
+    if (py <= HORIZON + 8 || py > H + 10) return -1; // 天空区不判定轨道
+    var d = (CAM_H - 0.14) * FOCAL / (py - HORIZON); // 由屏幕 y 反推地面深度
+    if (d < NEAR || d > FAR * 1.6) return -1;
+    var worldX = (px - W / 2) * d / FOCAL;
+    var best = 0, bd = Infinity;
+    for (var i = 0; i < TRACK_X.length; i++) {
+      var dd = Math.abs(worldX - TRACK_X[i]);
+      if (dd < bd) { bd = dd; best = i; }
+    }
+    return best;
+  }
   function poly(pts, fill, stroke) {
     ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
     for (var i=1;i<pts.length;i++) ctx.lineTo(pts[i].x, pts[i].y);
@@ -333,6 +346,7 @@
 
   var running=false, distance=0, score=0, quizPaused=false;
   var baseSpeed=.30, speed=baseSpeed, fast=false, offset=0, wheelAngle=0;
+  var dash=0, dashKick=0; // 冲刺前冲动画：dash=持续前冲量(0..1)，dashKick=点击瞬间冲击(1→0)
   var currentTrack=1, trainX=TRACK_X[1];
   var carX=[]; for (var ci=0;ci<NUM_CARS;ci++) carX.push(0); // 每节车厢各自的横向位置，用于蛇形转弯
   var CAR_FOLLOW=0.30; // 车厢跟随前一节的速度：加大后左右换轨动画更快更跟手
@@ -342,7 +356,7 @@
 
   function initScene() {
     trees=[]; clouds=[]; pickups=[]; smoke=[]; fireworks=[]; tunnel=null; flash=0;
-    speedLines=[]; toasts=[]; boostPunch=0; fxParts=[]; rainbowT=0;
+    speedLines=[]; toasts=[]; boostPunch=0; fxParts=[]; rainbowT=0; dash=0; dashKick=0;
     distance=0; score=0; offset=0; currentTrack=1; trainX=TRACK_X[1];
     for (var ci=0;ci<carX.length;ci++) carX[ci]=trainX;
     lastPick=0; lastTunnel=0; lastMilestone=0;
@@ -801,8 +815,10 @@
 
     // 加速冲击衰减 + 速度线飞散
     if (boostPunch>0) boostPunch=Math.max(0, boostPunch-.02);
-    if (fast) { for (var sl=0; sl<5; sl++) spawnSpeedLine(); }
-    speedLines.forEach(function (l) { l.r+=l.spd*(fast?1:.35); l.life-=.02; });
+    if (dashKick>0) dashKick=Math.max(0, dashKick-.035);
+    dash += ((fast?1:0) - dash) * .06; // 冲刺前冲量平滑趋近：加速时推近，常速回位
+    if (fast) { for (var sl=0; sl<7; sl++) spawnSpeedLine(); }
+    speedLines.forEach(function (l) { l.r+=l.spd*(fast?1.25:.35); l.life-=.02; });
     speedLines=speedLines.filter(function (l) { return l.life>0 && l.r<Math.max(W,H)*.78; });
     // 浮动提示上飘淡出
     toasts.forEach(function (t) { t.y-=1.1; t.life-=.018; });
@@ -870,6 +886,13 @@
     document.getElementById("dist").textContent=Math.floor(distance);
 
     /* ---- 绘制 ---- */
+    // 冲刺前冲：以火车附近的中下部为锚点整体放大推近，瞬时冲击再叠加轻微下沉
+    ctx.save();
+    var zoom = 1 + dash*.14 + dashKick*.09;
+    var anchorY = H*.55;
+    ctx.translate(W/2, anchorY);
+    ctx.scale(zoom, zoom);
+    ctx.translate(-W/2, -anchorY + dashKick*10);
     drawSky(night);
     drawGround(night);
     drawTracks();
@@ -883,7 +906,7 @@
     drawTunnel();
     drawTrain();
     drawSmoke();
-
+    ctx.restore(); // 结束冲刺前冲变换
     // 夜晚暗幕
     if (night>0) { ctx.fillStyle="rgba(10,14,40,"+(night*.28)+")"; ctx.fillRect(0,0,W,H); }
     // 隧道变暗
@@ -955,9 +978,9 @@
     speedBtn.style.background=fast?"#06d6a0":"#ffa62b";
     speedBtn.querySelector("small").textContent=fast?"常速":"加速";
     if (fast) {
-      boostPunch=1;
+      boostPunch=1; dashKick=1;
       playBoost();
-      for (var i=0;i<14;i++) smoke.push({x:trainX+(Math.random()-.5)*.8,y:2.2,d:HEAD_D-.6,r:.32,life:1,vy:.05+Math.random()*.06,vd:-.08});
+      for (var i=0;i<18;i++) smoke.push({x:trainX+(Math.random()-.5)*.8,y:2.2,d:HEAD_D-.6,r:.32,life:1,vy:.05+Math.random()*.06,vd:-.08});
       if (running) toast("⚡ 冲啊！", "#06d6a0");
     } else if (running) toast("慢下来 🚂", "#ffa62b");
   });
@@ -988,9 +1011,15 @@
     if (running) toast("🫧 泡泡！", "#a0e7ff");
   });
   function switchTrack(dir) { currentTrack = Math.max(0, Math.min(2, currentTrack + dir)); }
+  function switchToTrack(idx) {
+    idx = Math.max(0, Math.min(2, idx));
+    if (idx === currentTrack) return false;
+    currentTrack = idx;
+    return true;
+  }
   document.getElementById("btnLeft").addEventListener("click", function () { switchTrack(-1); });
   document.getElementById("btnRight").addEventListener("click", function () { switchTrack(1); });
-  // 移动端触摸适配：在画面上左右滑动换轨；轻点仍鸣笛
+  // 画面交互：左右滑动换轨；轻点轨道自动切到该轨道；轻点天空鸣笛
   var ptrStart = null;
   cv.addEventListener("pointerdown", function (e) {
     ensureAudio();
@@ -1003,8 +1032,13 @@
     ptrStart = null;
     if (Math.abs(dx) > 28 && Math.abs(dx) > Math.abs(dy) * 1.3) {
       switchTrack(dx > 0 ? 1 : -1);      // 右滑向右换轨，左滑向左换轨
-    } else if (Math.abs(dx) < 14 && Math.abs(dy) < 14 && dt < 400) {
-      honk();                            // 轻点鸣笛
+    } else if (Math.abs(dx) < 16 && Math.abs(dy) < 16 && dt < 400) {
+      var tk = trackFromPoint(e.clientX, e.clientY);
+      if (tk >= 0) {                     // 轻点轨道：自动移动过去
+        if (switchToTrack(tk) && running) toast(tk === 0 ? "◀ 左轨" : (tk === 2 ? "右轨 ▶" : "中轨"), "#fff");
+      } else {
+        honk();                          // 轻点天空：鸣笛
+      }
     }
   });
   cv.addEventListener("pointercancel", function () { ptrStart = null; });
