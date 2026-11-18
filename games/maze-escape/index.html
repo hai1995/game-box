@@ -159,8 +159,17 @@
   }
 
   // 存档：保存迷宫布局与位置，刷新后原样恢复继续走
+  var MAX_KEY = "maze-escape-max"; // 历史最高关卡独立持久化，布局结构升级/存档失效时也不丢进度
+  function getMaxLevel() {
+    var m = window.GameSave ? GameSave.load(MAX_KEY, null) : null;
+    return m && typeof m.max === "number" && m.max >= 1 ? Math.floor(m.max) : 1;
+  }
+  function bumpMaxLevel(n) {
+    if (n > getMaxLevel() && window.GameSave) GameSave.save(MAX_KEY, { max: n });
+  }
   function saveGame() {
     if (!grid) return;
+    bumpMaxLevel(level);
     if (window.GameSave) GameSave.save(SAVE_KEY, {
       level: level, cols: cols, rows: rows,
       grid: grid, px: px, py: py, steps: steps
@@ -196,6 +205,7 @@
 
   function loadLevel(n) {
     level = n;
+    bumpMaxLevel(n);
     steps = 0;
     stepsEl.textContent = "0";
     levelEl.textContent = String(n);
@@ -266,7 +276,7 @@
   window.addEventListener("resize", resize);
   var saved = window.GameSave ? GameSave.load(SAVE_KEY, null) : null;
   if (validSave(saved)) restoreLevel(saved);
-  else loadLevel(1);
+  else loadLevel(getMaxLevel()); // 存档结构升级/失效时，回到已达最高关而非第 1 关，进度不丢
 
   // 接入公共定时做题模块：过关弹窗显示时不弹题；遮罩会拦截误操作，无需暂停
   if (window.GameQuiz) {

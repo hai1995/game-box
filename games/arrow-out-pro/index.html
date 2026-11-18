@@ -201,7 +201,7 @@
       started = false; running = false; won = false; lost = false; quizPaused = false;
       flying = []; flash = null; shake = null;
       zoom = 1; panX = 0; panY = 0; // 换关复位视图，从全貌开始
-      localStorage.setItem("gb-arrow-pro-level", String(level));
+      try { localStorage.setItem("gb-arrow-pro-level", String(level)); } catch (e) {} // 存储不可用不影响关卡加载
       resize();
       syncHud();
       loading.classList.add("hidden");
@@ -607,7 +607,8 @@
   }
 
   /* ---------- 启动 ---------- */
-  var saved = parseInt(localStorage.getItem("gb-arrow-pro-level"), 10);
+  var saved = 0;
+  try { saved = parseInt(localStorage.getItem("gb-arrow-pro-level"), 10); } catch (e) {}
   startLevel(saved >= 1 && isFinite(saved) ? Math.min(saved, 1000000) : 1);
 })();
 </script>

@@ -96,7 +96,15 @@
   var ovIcon = document.getElementById("ovIcon"), ovTitle = document.getElementById("ovTitle"), ovText = document.getElementById("ovText"), ovBtn = document.getElementById("ovBtn");
   var SAVE_KEY = "find-difference";
   var saved = window.GameSave ? GameSave.load(SAVE_KEY, null) : null;
-  var startLevel = saved && saved.level > 0 ? Math.floor(saved.level) : 1;
+  // 兼容旧字段并取历史最高关卡，结构/字段调整都不回退进度
+  function readMaxLevel(s) {
+    var m = 1;
+    if (s && typeof s.maxLevel === "number" && s.maxLevel >= 1) m = Math.floor(s.maxLevel);
+    if (s && typeof s.level === "number" && s.level >= 1) m = Math.max(m, Math.floor(s.level));
+    return m;
+  }
+  var maxLevel = readMaxLevel(saved);
+  var startLevel = maxLevel;
   var startScore = saved && saved.score > 0 ? Math.floor(saved.score) : 0;
   var level = startLevel, score = startScore, timeLeft = 20, timer = null, diffIdx = -1, diffKey = "", cells = [];
   var playing = false, quizPaused = false, locked = false;
@@ -104,7 +112,8 @@
 
   function saveProgress() {
     startLevel = level; startScore = score;
-    if (window.GameSave) GameSave.save(SAVE_KEY, { level: level, score: score });
+    maxLevel = Math.max(maxLevel, level);
+    if (window.GameSave) GameSave.save(SAVE_KEY, { level: level, maxLevel: maxLevel, score: score });
   }
 
   function gridSize() { return Math.min(3 + level - 1, 6); }  // 3x3 起，每关+1，最多 6x6
@@ -134,6 +143,9 @@
       locked = true;
       el.classList.add("right");
       score += 10 + level * 2; scoreEl.textContent = score;
+      // 通过本关即固化下一关进度，避免点"继续"前刷新导致进度回退
+      maxLevel = Math.max(maxLevel, level + 1);
+      if (window.GameSave) GameSave.save(SAVE_KEY, { level: level, maxLevel: maxLevel, score: score });
       saveProgress();
       clearInterval(timer);
       winTimer = setTimeout(function () {

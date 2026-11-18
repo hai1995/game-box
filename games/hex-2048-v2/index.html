@@ -299,6 +299,15 @@
   var SQ3 = Math.sqrt(3);
 
   try { best = parseInt(localStorage.getItem("hex2048v2best"), 10) || 0; } catch (e) { best = 0; }
+  // 记录迁移：首次进入 V2 时继承 V1（hex-2048）历史最高分，避免升级/换版本丢记录
+  try {
+    var oldBest = parseInt(localStorage.getItem("hex2048best"), 10) || 0;
+    if (oldBest > best) {
+      best = oldBest;
+      bestEl.textContent = best;
+      try { localStorage.setItem("hex2048v2best", best); } catch (e2) {} // 迁移落库，旧键保留
+    }
+  } catch (e3) {}
 
   // 存档：棋盘各格的值与移动标记、队列、选中、分数、道具、结束态
   function saveGame() {

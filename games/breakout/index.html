@@ -91,15 +91,32 @@
   var ROWS = 5, COLS = 7, brickW = 0, brickH = 22, padW = 64, padH = 12;
   var bricks = [], ball = { x: W/2, y: H-40, vx: 2.6, vy: -3.4, r: 6 };
   var SAVE_KEY = "breakout";
+  var BEST_KEY = "breakoutBest";
   var saved = window.GameSave ? GameSave.load(SAVE_KEY, null) : null;
+  var savedBest = window.GameSave ? GameSave.load(BEST_KEY, null) : null;
+  // 历史最高分：兼容旧存档里可能存在的 best 字段，取各处最大值，任何结构变化都不清零
+  var oldBestRaw = 0;
+  try { oldBestRaw = parseInt(localStorage.getItem("gbBreakoutBest"), 10) || 0; } catch (e) {}
+  var best = Math.max(
+    savedBest && typeof savedBest.best === "number" ? savedBest.best : 0,
+    saved && typeof saved.best === "number" ? saved.best : 0,
+    oldBestRaw
+  );
   var startLevel = saved && saved.level > 0 ? Math.floor(saved.level) : 1;
   var startScore = saved && saved.score > 0 ? Math.floor(saved.score) : 0;
   var padX = W/2, score = startScore, lives = 3, level = startLevel, playing = false, quizPaused = false, won = false;
   var raf = null, lastT = 0, pointerX = null;
 
+  function persistBest() {
+    if (score <= best) return;
+    best = score;
+    if (window.GameSave) GameSave.save(BEST_KEY, { best: best });
+    try { localStorage.setItem("gbBreakoutBest", String(best)); } catch (e) {}
+  }
   function saveProgress() {
     startLevel = level; startScore = score;
-    if (window.GameSave) GameSave.save(SAVE_KEY, { level: level, score: score });
+    persistBest();
+    if (window.GameSave) GameSave.save(SAVE_KEY, { level: level, score: score, best: best });
   }
 
   function setup() {
