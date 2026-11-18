@@ -196,6 +196,16 @@
     background: #fff; color: #111; font-size: 10px; font-weight: 900;
     padding: 2px 6px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,.18);
   }
+  /* 六边形2048 V2：加「V2」角标 */
+  .app-icon.v2-icon { position: relative; }
+  .app-icon.v2-icon::after {
+    content: "V2"; position: absolute; top: -7px; right: -9px;
+    background: linear-gradient(135deg,#ff3d6e,#ff8a3d); color: #fff;
+    font-size: 10px; font-weight: 900; letter-spacing:.5px;
+    padding: 2px 7px; border-radius: 10px; box-shadow: 0 2px 6px rgba(200,40,80,.45);
+    border: 2px solid #fff;
+  }
+  .c-hex2048-v2 { background: linear-gradient(135deg, #ff5e62 0%, #ff9a3d 100%); }
 
   footer { text-align: center; margin-top: 26px; color: var(--sub); font-size: 12px; }
   footer .heart { color: #ff6b81; }
@@ -264,6 +274,11 @@
     <a class="app" href="games/hex-2048/index.html" aria-label="打开 六边形2048">
       <div class="app-icon c-hex2048"><span class="em">⬡</span></div>
       <div class="app-name">六边形<br>2048</div>
+    </a>
+
+    <a class="app" href="games/hex-2048-v2/index.html" aria-label="打开 六边形2048 V2 随机风暴">
+      <div class="app-icon c-hex2048-v2 v2-icon"><span class="em">⬡</span></div>
+      <div class="app-name">六边形<br>2048 V2</div>
     </a>
 
     <a class="app" href="games/gomoku/index.html" aria-label="打开 五子棋">

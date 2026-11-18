@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>⬡ 六边形2048 V2 · 随机风暴</title>
+<link rel="stylesheet" href="../../theme.css">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { width:100%; min-height:100%; overflow-x:hidden;
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; color:#6b4a2b; }
+  body {
+    background-color:#fbf3e2;
+    background-image:
+      linear-gradient(rgba(180,150,110,.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(180,150,110,.07) 1px, transparent 1px),
+      radial-gradient(circle at 15% 12%, rgba(255,190,120,.28), transparent 42%),
+      radial-gradient(circle at 85% 78%, rgba(255,150,180,.22), transparent 46%);
+    background-size:26px 26px,26px 26px,100% 100%,100% 100%;
+    background-attachment:fixed;
+    padding-bottom:calc(24px + env(safe-area-inset-bottom));
+  }
+  .home-btn { position:fixed; left:12px; top:calc(12px + env(safe-area-inset-top)); z-index:30;
+    width:46px; height:46px; border-radius:14px; background:linear-gradient(180deg,#ff9a5a,#f2713a);
+    border:3px solid #fff; box-shadow:0 4px 0 rgba(150,80,40,.28); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:900;
+    text-decoration:none; }
+  .home-btn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(150,80,40,.28); }
+
+  .head { display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap;
+    padding:calc(16px + env(safe-area-inset-top)) 12px 6px; }
+  .brand { display:flex; align-items:center; gap:8px; }
+  .brand .mini { display:grid; grid-template-columns:repeat(2,20px); gap:3px; }
+  .brand .mini i { width:20px; height:20px; border-radius:6px; display:flex; align-items:center; justify-content:center;
+    color:#fff; font-size:11px; font-weight:900; font-style:normal; box-shadow:inset 0 -2px 0 rgba(0,0,0,.12); }
+  .brand .mini i:nth-child(1){ background:#6ec6f5; }
+  .brand .mini i:nth-child(2){ background:#ff8fb1; }
+  .brand .mini i:nth-child(3){ background:#a86ff0; }
+  .brand .mini i:nth-child(4){ background:#ff5d73; }
+  .brand h1 { font-size:clamp(22px,6vw,30px); color:#7a4b22; letter-spacing:1px; font-weight:900; }
+  .brand .v2tag { background:linear-gradient(135deg,#ff3d6e,#ff8a3d); color:#fff; font-size:12px;
+    font-weight:900; padding:3px 8px; border-radius:8px; box-shadow:0 3px 0 rgba(200,40,80,.35);
+    letter-spacing:1px; transform:rotate(-6deg); }
+  .scores { display:flex; gap:8px; }
+  .scorebox { background:linear-gradient(180deg,#d98a4a,#c66f34); border:3px solid #fff; border-radius:14px;
+    padding:5px 12px; min-width:84px; text-align:center; box-shadow:0 4px 0 rgba(150,80,40,.25); }
+  .scorebox span { display:block; font-size:11px; color:#fff2df; font-weight:700; }
+  .scorebox b { display:block; font-size:18px; color:#fff; font-weight:900;
+    background:rgba(0,0,0,.12); border-radius:8px; padding:1px 8px; margin-top:2px; }
+
+  .wrap { max-width:460px; margin:0 auto; padding:0 12px; }
+
+  /* 控制条 */
+  .ctrl { display:flex; align-items:stretch; gap:8px; margin:8px 2px 10px; }
+  .cbtn { border:none; border-radius:14px; cursor:pointer; font-weight:900; color:#fff;
+    box-shadow:0 4px 0 rgba(0,0,0,.18); display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:6px 10px; min-width:60px; line-height:1.15; }
+  .cbtn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,.18); }
+  .cbtn .ic { font-size:22px; }
+  .cbtn .lb { font-size:10px; margin-top:2px; }
+  .cbtn.hammer { background:linear-gradient(180deg,#ff6b6b,#e8384f); position:relative; }
+  .cbtn.swap { background:linear-gradient(180deg,#ffffff,#f0e7d8); color:#c66f34; border:3px solid #efe3cf; box-shadow:0 4px 0 rgba(180,140,90,.3); }
+  .cbtn .n { position:absolute; top:-5px; right:0; background:#fff; color:#e8384f;
+    font-size:11px; border-radius:999px; padding:1px 6px; box-shadow:0 2px 5px rgba(0,0,0,.2); }
+  .cbtn.swap .n { color:#c66f34; }
+  .cbtn.armed { outline:3px solid #ffd23f; outline-offset:2px; }
+  .cbtn.dim { opacity:.5; }
+
+  /* 下一组预览 */
+  .nextbox { flex:1; background:rgba(255,255,255,.75); border:3px solid #f0dcc0; border-radius:14px;
+    padding:5px 8px; box-shadow:0 4px 0 rgba(180,140,90,.16); }
+  .nextbox .nt { font-size:10px; color:#a98a63; font-weight:800; text-align:center; margin-bottom:3px; }
+  .balls { display:flex; gap:4px; justify-content:center; flex-wrap:wrap; }
+  .ball { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    color:#fff; font-size:12px; font-weight:900; cursor:pointer; position:relative;
+    box-shadow:inset 0 -3px 0 rgba(0,0,0,.14), 0 2px 4px rgba(0,0,0,.12); transition:transform .12s; }
+  .ball.sel { transform:scale(1.16); box-shadow:inset 0 -3px 0 rgba(0,0,0,.14), 0 0 0 3px #fff, 0 0 0 6px #ffb703; z-index:2; }
+  .ball:active { transform:scale(.92); }
+
+  /* 棋盘 */
+  .boardwrap { position:relative; width:100%; max-width:420px; margin:0 auto; }
+  .board { position:relative; margin:0 auto; }
+  .hex { position:absolute; cursor:pointer; transition:transform .1s; }
+  .hex .in { width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+    font-weight:900; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.28);
+    clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); }
+  .hex.empty .in { background:#dcc9a3 !important; box-shadow:none; }
+  .hex:not(.empty):active { transform:scale(.9); }
+  .hex.pop .in { animation:pop var(--a-pop,.22s) ease forwards; }
+  @keyframes pop { 0%{transform:scale(1)} 45%{transform:scale(1.25)} 100%{transform:scale(0);opacity:0} }
+  .hex.born .in { animation:born var(--a-born,.18s) ease; }
+  @keyframes born { 0%{transform:scale(.3);opacity:.4} 70%{transform:scale(1.12)} 100%{transform:scale(1);opacity:1} }
+  .hex.hammer .in { animation:shake var(--a-shake,.2s); }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+  /* 合并时被吸收的块：朝锚点吸附汇聚 */
+  .hex.pull { z-index:5; pointer-events:none;
+    transition:transform var(--a-pull,.2s) cubic-bezier(.55,.02,.85,.4), opacity var(--a-pull,.2s) ease;
+    transform:translate(var(--dx,0),var(--dy,0)) scale(.3); opacity:0; }
+  /* 锚点合并瞬间的果冻闪光 */
+  .hex.merging .in { animation:mergeGlow var(--a-glow,.2s) ease; }
+  @keyframes mergeGlow { 0%{filter:brightness(1)} 50%{filter:brightness(1.45)} 100%{filter:brightness(1)} }
+  .hex.flash .in { animation:mergeFlash var(--a-flash,.3s) ease; }
+  @keyframes mergeFlash { 0%{transform:scale(1)} 35%{transform:scale(1.28); filter:brightness(1.5)} 100%{transform:scale(1)} }
+  /* 被选中准备移动的块 */
+  .hex.moving { z-index:6; }
+  .hex.moving .in { box-shadow:inset 0 0 0 4px rgba(255,255,255,.95), inset 0 0 0 8px #ffb703,
+    0 0 14px rgba(255,183,3,.75); animation:movePulse .9s ease-in-out infinite; }
+  @keyframes movePulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
+  /* 已经移动过一次的块：变暗淡+右上角对勾，表示不能再移动 */
+  .hex.used .in { filter:saturate(.5) brightness(.82); }
+  .hex.used::after { content:"✓"; position:absolute; top:4%; right:8%; z-index:3;
+    width:16px; height:16px; border-radius:50%; background:rgba(90,70,50,.55); color:#fff;
+    font-size:11px; font-weight:900; display:flex; align-items:center; justify-content:center;
+    pointer-events:none; }
+  /* 合并时的飘分反馈 */
+  .float-score { position:fixed; z-index:60; pointer-events:none; font-weight:900;
+    font-size:20px; color:#fff; text-shadow:0 2px 0 #e8384f, 0 3px 8px rgba(0,0,0,.25);
+    transform:translate(-50%,-50%); animation:floatUp var(--a-float,.62s) ease-out forwards; }
+  @keyframes floatUp { 0%{opacity:0; transform:translate(-50%,-30%) scale(.6)}
+    22%{opacity:1; transform:translate(-50%,-60%) scale(1.15)}
+    100%{opacity:0; transform:translate(-50%,-170%) scale(1)} }
+  /* 沿空白路径滑行的块（六边形，用 clip-path 保持造型一致） */
+  .slide-hex { position:fixed; left:0; top:0; z-index:50; pointer-events:none;
+    display:flex; align-items:center; justify-content:center; color:#fff; font-weight:900;
+    text-shadow:0 1px 2px rgba(0,0,0,.28); box-shadow:inset 0 -3px 0 rgba(0,0,0,.14), 0 6px 14px rgba(0,0,0,.22);
+    clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); will-change:transform; }
+  /* 从预览队列飞向目标格的球 */
+  .fly-ball { position:fixed; left:0; top:0; z-index:50; border-radius:50%; pointer-events:none;
+    display:flex; align-items:center; justify-content:center; color:#fff; font-weight:900;
+    text-shadow:0 1px 2px rgba(0,0,0,.28); box-shadow:inset 0 -3px 0 rgba(0,0,0,.14), 0 6px 14px rgba(0,0,0,.22);
+    will-change:transform,opacity; }
+  /* 落点涟漪 */
+  .ripple { position:fixed; z-index:49; border-radius:50%; pointer-events:none;
+    border:4px solid rgba(255,255,255,.92); box-shadow:0 0 0 2px rgba(255,178,60,.45);
+    transform:translate(-50%,-50%) scale(.35); animation:ripple var(--a-ripple,.36s) ease-out forwards; }
+  @keyframes ripple { to { transform:translate(-50%,-50%) scale(1.45); opacity:0; } }
+
+  /* ===== V2 随机增/炸块特效 ===== */
+  /* 爆炸：一团火球 + 四散碎片 + 冲击波环 */
+  .boom { position:fixed; z-index:62; pointer-events:none; transform:translate(-50%,-50%); }
+  .boom .core { position:absolute; left:0; top:0; width:10px; height:10px; border-radius:50%;
+    transform:translate(-50%,-50%);
+    background:radial-gradient(circle,#fff 0%,#ffe066 28%,#ff8a3d 55%,#ff3d4f 78%,transparent 80%);
+    animation:boomCore var(--a-boom,.48s) ease-out forwards; }
+  @keyframes boomCore { 0%{transform:translate(-50%,-50%) scale(.4);opacity:1}
+    55%{transform:translate(-50%,-50%) scale(4.2);opacity:1}
+    100%{transform:translate(-50%,-50%) scale(5.4);opacity:0} }
+  .boom .ring { position:absolute; left:0; top:0; width:20px; height:20px; border-radius:50%;
+    transform:translate(-50%,-50%); border:4px solid rgba(255,138,61,.9);
+    box-shadow:0 0 14px rgba(255,80,60,.7), inset 0 0 10px rgba(255,200,80,.6);
+    animation:boomRing var(--a-boom,.48s) ease-out forwards; }
+  @keyframes boomRing { 0%{transform:translate(-50%,-50%) scale(.3);opacity:1}
+    100%{transform:translate(-50%,-50%) scale(7);opacity:0} }
+  .boom .frag { position:absolute; left:0; top:0; width:9px; height:9px; border-radius:2px;
+    transform:translate(-50%,-50%) rotate(var(--rot,0deg));
+    background:var(--fc,#ff8a3d); box-shadow:0 0 6px rgba(255,120,40,.8);
+    animation:boomFrag var(--a-boom,.48s) ease-out forwards; }
+  @keyframes boomFrag { 0%{transform:translate(-50%,-50%) rotate(var(--rot,0deg)) scale(1);opacity:1}
+    100%{transform:translate(calc(-50% + var(--tx,0px)),calc(-50% + var(--ty,0px))) rotate(var(--rot,0deg)) scale(.2);opacity:0} }
+  /* 增块：金色光环 + 上升的 +N */
+  .hex.charged .in { animation:chargeGlow var(--a-charge,.6s) ease; }
+  @keyframes chargeGlow { 0%{filter:brightness(1)}
+    35%{filter:brightness(1.9) drop-shadow(0 0 10px #ffd23f)}
+    100%{filter:brightness(1)} }
+  .gain-pop { position:fixed; z-index:61; pointer-events:none; font-weight:900; font-size:17px;
+    color:#ff8a3d; text-shadow:0 2px 0 #fff, 0 0 10px rgba(255,180,60,.9);
+    transform:translate(-50%,-50%); animation:gainUp var(--a-gain,.7s) ease-out forwards; }
+  @keyframes gainUp { 0%{opacity:0;transform:translate(-50%,-20%) scale(.6)}
+    25%{opacity:1;transform:translate(-50%,-60%) scale(1.2)}
+    100%{opacity:0;transform:translate(-50%,-160%) scale(1)} }
+  /* 随机事件横幅提示 */
+  .event-banner { position:fixed; z-index:63; left:50%; top:22%; transform:translateX(-50%);
+    pointer-events:none; padding:8px 20px; border-radius:999px; font-weight:900; font-size:16px;
+    color:#fff; white-space:nowrap; box-shadow:0 6px 18px rgba(0,0,0,.28);
+    animation:bannerIn var(--a-banner,.9s) ease forwards; }
+  @keyframes bannerIn { 0%{opacity:0;transform:translateX(-50%) scale(.6) translateY(10px)}
+    18%{opacity:1;transform:translateX(-50%) scale(1.1) translateY(0)}
+    28%{transform:translateX(-50%) scale(1)}
+    80%{opacity:1} 100%{opacity:0;transform:translateX(-50%) scale(.95) translateY(-14px)} }
+  .hint { text-align:center; font-size:12px; color:#a98a63; margin-top:8px; min-height:16px; }
+
+  .overlay { position:fixed; inset:0; z-index:40; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:rgba(251,243,226,.94); backdrop-filter:blur(4px); text-align:center; padding:20px; }
+  .overlay.hidden { display:none; }
+  .overlay .big { font-size:72px; animation:popin .6s ease; }
+  @keyframes popin { 0%{transform:scale(.5)} 60%{transform:scale(1.15)} 100%{transform:scale(1)} }
+  .overlay h2 { font-size:28px; color:#e8384f; margin:8px 0; }
+  .overlay p { font-size:17px; color:#8b6b48; margin:4px 0 18px; }
+  .btn { border:none; border-radius:999px; padding:12px 32px; font-size:17px; font-weight:900; color:#fff; cursor:pointer;
+    background:linear-gradient(180deg,#ff9a5a,#f2713a); box-shadow:0 6px 0 #d55a26; }
+  .btn:active { transform:translateY(3px); box-shadow:0 3px 0 #d55a26; }
+</style>
+</head>
+<body>
+<a class="home-btn" href="../../" aria-label="返回主页" title="返回主页">🏠</a>
+
+<div class="head">
+  <div class="brand">
+    <div class="mini"><i>2</i><i>0</i><i>4</i><i>8</i></div>
+    <h1>六边形2048</h1>
+    <span class="v2tag">V2</span>
+  </div>
+  <div class="scores">
+    <div class="scorebox"><span>得分</span><b id="score">0</b></div>
+    <div class="scorebox"><span>最高分</span><b id="best">0</b></div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="ctrl">
+    <div class="nextbox">
+      <div class="nt">当前块 · 点空格放下</div>
+      <div class="balls" id="balls"></div>
+    </div>
+    <button class="cbtn swap" id="swapBtn"><span class="n" id="swapN">5</span><span class="ic">🔄</span><span class="lb">换一块</span></button>
+    <button class="cbtn hammer" id="hammerBtn"><span class="n" id="hammerN">3</span><span class="ic">🔨</span><span class="lb">锤子</span></button>
+  </div>
+
+  <div class="boardwrap">
+    <div class="board" id="board"></div>
+  </div>
+  <div class="hint" id="hint">点空格放下当前块 · 3 个相同数字相连合成 4 倍 · 每次落子会随机增块或炸块！</div>
+</div>
+
+<div class="overlay hidden" id="overlay">
+  <div class="big" id="ovIcon">🎉</div>
+  <h2 id="ovTitle">棋盘满啦！</h2>
+  <p id="ovText"></p>
+  <button class="btn" id="ovBtn">再玩一次</button>
+</div>
+
+<script src="../../icons.js"></script>
+<script src="../../quiz.js"></script>
+<script src="../../save.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var SAVE_KEY = "hex2048v2";
+
+  /* 动画时长统一配置（毫秒）—— 整体调快、消除拖沓感；同时同步到 CSS 变量，
+   * CSS 里以 var(--a-xxx, fallback) 消费，做到「一处修改、JS/CSS 同步」。 */
+  var ANIM = {
+    fly: 280,           // 数字球飞入（原 420）
+    ripple: 360,        // 落点涟漪
+    rippleRemove: 420,  // 涟漪节点移除（动画 + 缓冲）
+    slideSeg: 75,       // 滑行每段时长（原 120）
+    slideMin: 150,      // 滑行最短（原 220）
+    slideMax: 420,      // 滑行最长（原 640）
+    pull: 200,          // 合并吸附汇聚
+    pullDelay: 215,     // 吸附完成后清理（动画 + 缓冲，原 310）
+    flash: 300,         // 合并果冻闪光
+    flashRemove: 320,   // 闪光节点移除（原 460）
+    chain: 120,         // 连锁递归间隔（原 200）
+    born: 180, pop: 220, shake: 200, glow: 200, float: 620,
+    hammer: 220,        // 锤子敲击清理（原 280）
+    boom: 480, charge: 600, gain: 700, banner: 900  // V2：爆炸/增块闪光/增益飘字/事件横幅
+  };
+  (function () {
+    var st = document.documentElement.style;
+    st.setProperty("--a-pop", ANIM.pop + "ms");
+    st.setProperty("--a-born", ANIM.born + "ms");
+    st.setProperty("--a-shake", ANIM.shake + "ms");
+    st.setProperty("--a-pull", ANIM.pull + "ms");
+    st.setProperty("--a-glow", ANIM.glow + "ms");
+    st.setProperty("--a-flash", ANIM.flash + "ms");
+    st.setProperty("--a-float", ANIM.float + "ms");
+    st.setProperty("--a-ripple", ANIM.ripple + "ms");
+    st.setProperty("--a-boom", ANIM.boom + "ms");
+    st.setProperty("--a-charge", ANIM.charge + "ms");
+    st.setProperty("--a-gain", ANIM.gain + "ms");
+    st.setProperty("--a-banner", ANIM.banner + "ms");
+  })();
+
+  // 数字 -> 主色（覆盖 1 起递增的 2 的幂，×4 合成后延伸到大数）
+  var COLORS = {
+    1:"#6ec6f5", 2:"#ff8fb1", 4:"#a86ff0", 8:"#ff5d73", 16:"#ffa53a",
+    32:"#43c97b", 64:"#f6c945", 128:"#6c7cf5", 256:"#2ec5d3",
+    512:"#ef5da8", 1024:"#8a4fe8", 2048:"#ffb62e", 4096:"#ff6f5e",
+    8192:"#3ec6b0", 16384:"#7a5cf0", 32768:"#ff4d8d"
+  };
+  var NEXT_POOL = [1, 1, 1, 2, 2, 4, 8];   // 新数字随机池，偏低级
+  var QUEUE_LEN = 1;                         // V2：只显示当前可放置的 1 个块（取消后续提示）
+  var RADIUS = 3;                            // 棋盘半径：37 格
+  // V2 随机事件概率：增块 45% / 炸块 35% / 不随机 20%（每次落子触发一次）
+  var EV_GAIN = 0.45, EV_BLAST = 0.35;
+
+  var boardEl = document.getElementById("board");
+  var ballsEl = document.getElementById("balls");
+  var scoreEl = document.getElementById("score"), bestEl = document.getElementById("best");
+  var hintEl = document.getElementById("hint"), overlay = document.getElementById("overlay");
+  var swapBtn = document.getElementById("swapBtn"), hammerBtn = document.getElementById("hammerBtn");
+  var swapN = document.getElementById("swapN"), hammerN = document.getElementById("hammerN");
+
+  var cells = [], cellMap = {}, queue = [], selected = 0;
+  var score = 0, best = 0, swapLeft = 5, hammerLeft = 3;
+  var busy = false, finished = false, quizPaused = false, hammerMode = false, gen = 0;
+  var DIRS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+  var SQ3 = Math.sqrt(3);
+
+  try { best = parseInt(localStorage.getItem("hex2048v2best"), 10) || 0; } catch (e) { best = 0; }
+
+  // 存档：棋盘各格的值与移动标记、队列、选中、分数、道具、结束态
+  function saveGame() {
+    if (!window.GameSave) return;
+    var vals = [], moves = [];
+    for (var i = 0; i < cells.length; i++) { vals.push(cells[i].val); moves.push(cells[i].moved ? 1 : 0); }
+    GameSave.save(SAVE_KEY, {
+      vals: vals, moves: moves, queue: queue, selected: selected,
+      score: score, swapLeft: swapLeft, hammerLeft: hammerLeft, finished: finished
+    });
+  }
+
+  function key(q, r) { return q + "," + r; }
+  function colorOf(v) { return COLORS[v] || "#ffb62e"; }
+  function randNext() { return NEXT_POOL[Math.floor(Math.random() * NEXT_POOL.length)]; }
+
+  // 依据棋盘容器宽度计算六边形尺寸(size=中心到顶点)，生成蜂窝格
+  function layout() {
+    var wrapW = Math.min(420, document.querySelector(".boardwrap").clientWidth);
+    var s = (wrapW - 8) / (7 * SQ3);          // 横向约 7 个六边形宽
+    s = Math.max(18, s);
+    var hexW = SQ3 * s, hexH = 2 * s;
+    var bw = 7 * hexW + 8, bh = 11 * s + 8;   // 半径3：r 从 -3 到 3，纵向共 11 个 size 高
+    boardEl.style.width = bw + "px";
+    boardEl.style.height = bh + "px";
+    var cx = bw / 2, cy = bh / 2;
+    for (var i = 0; i < cells.length; i++) {
+      var c = cells[i];
+      var px = cx + s * SQ3 * (c.q + c.r / 2) - hexW / 2;
+      var py = cy + s * 1.5 * c.r - hexH / 2;
+      c.el.style.left = px + "px";
+      c.el.style.top = py + "px";
+      c.el.style.width = hexW + "px";
+      c.el.style.height = hexH + "px";
+      c.s = s;
+      if (c.val > 0) c.el.querySelector(".in").style.fontSize = Math.round(s * (String(c.val).length >= 3 ? .5 : .62)) + "px";
+    }
+  }
+
+  function makeCell(q, r) {
+    var el = document.createElement("div");
+    el.className = "hex empty";
+    var inn = document.createElement("div"); inn.className = "in";
+    el.appendChild(inn);
+    var c = { q:q, r:r, val:0, el:el, s:20, moved:false };
+    (function (cell) {
+      el.addEventListener("click", function () { tap(cell); });
+    })(c);
+    cells.push(c);
+    cellMap[key(q, r)] = c;
+    boardEl.appendChild(el);
+  }
+
+  function buildBoard() {
+    boardEl.innerHTML = "";
+    cells = []; cellMap = {};
+    for (var q = -RADIUS; q <= RADIUS; q++) {
+      var lo = Math.max(-RADIUS, -q - RADIUS), hi = Math.min(RADIUS, -q + RADIUS);
+      for (var r = lo; r <= hi; r++) makeCell(q, r);
+    }
+  }
+
+  function paint(cell, born) {
+    var inn = cell.el.querySelector(".in");
+    if (cell.val > 0) {
+      cell.el.classList.remove("empty");
+      cell.el.classList.toggle("used", !!cell.moved);
+      inn.style.background = "linear-gradient(160deg, rgba(255,255,255,.5) 0%, rgba(255,255,255,.12) 38%, rgba(0,0,0,.05) 70%, rgba(0,0,0,.14) 100%), " + colorOf(cell.val);
+      inn.textContent = cell.val;
+      inn.style.fontSize = Math.round(cell.s * (String(cell.val).length >= 3 ? .5 : .62)) + "px";
+      if (born) { cell.el.classList.remove("born"); void cell.el.offsetWidth; cell.el.classList.add("born"); }
+    } else {
+      cell.el.classList.add("empty");
+      cell.el.classList.remove("used");
+      cell.moved = false;
+      inn.style.background = "";
+      inn.textContent = "";
+    }
+  }
+
+  /* 数字球从预览队列沿弧线飞到目标格（移动端 fixed 定位，不受棋盘裁剪影响） */
+  function pixelCenter(el) {
+    var r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width };
+  }
+  function flyBall(from, cell, val, myGen, done) {
+    if (!from || !from.w) { done(); return; }
+    var to = pixelCenter(cell.el);
+    var el = document.createElement("div");
+    el.className = "fly-ball";
+    el.textContent = val;
+    el.style.width = el.style.height = Math.round(to.w * 0.82) + "px";
+    el.style.fontSize = Math.round(to.w * (String(val).length >= 3 ? .5 : .62)) + "px";
+    el.style.background = "linear-gradient(160deg, rgba(255,255,255,.45), rgba(0,0,0,.08)), " + colorOf(val);
+    document.body.appendChild(el);
+    var t0 = performance.now(), dur = ANIM.fly;
+    var lift = -Math.max(46, Math.abs(to.y - from.y) * 0.26); // 向上拱起
+    function frame(now) {
+      if (myGen !== gen) { if (el.parentNode) el.parentNode.removeChild(el); return; }
+      var p = Math.min(1, (now - t0) / dur);
+      var e = 1 - Math.pow(1 - p, 2.2);                        // 缓出，落点稳
+      var x = from.x + (to.x - from.x) * e;
+      var y = from.y + (to.y - from.y) * e + lift * Math.sin(Math.PI * p);
+      var sc = 0.82 + 0.3 * Math.sin(Math.PI * p);
+      el.style.transform = "translate(-50%,-50%) translate(" + x + "px," + y + "px) scale(" + sc + ")";
+      el.style.opacity = p > 0.86 ? String((1 - p) / 0.14) : "1";
+      if (p < 1) {
+        requestAnimationFrame(frame);
+      } else {
+        if (el.parentNode) el.parentNode.removeChild(el);
+        ripple(cell);
+        done();
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+  function ripple(cell) {
+    var c = pixelCenter(cell.el);
+    var el = document.createElement("div");
+    el.className = "ripple";
+    el.style.left = c.x + "px"; el.style.top = c.y + "px";
+    el.style.width = el.style.height = Math.round(c.w * 1.25) + "px";
+    document.body.appendChild(el);
+    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, ANIM.rippleRemove);
+  }
+
+  /* ---------- V2：已取消自由移动块逻辑（无 selectMoving/findPath/slideCell） ---------- */
+
+  function renderQueue() {
+    ballsEl.innerHTML = "";
+    for (var i = 0; i < queue.length; i++) {
+      (function (idx) {
+        var b = document.createElement("div");
+        b.className = "ball" + (idx === selected ? " sel" : "");
+        b.style.background = "linear-gradient(160deg, rgba(255,255,255,.4), rgba(0,0,0,.08)), " + colorOf(queue[idx]);
+        b.textContent = queue[idx];
+        b.addEventListener("click", function () {
+          if (quizPaused || busy || finished) return;
+          selected = idx; renderQueue();
+          hintEl.textContent = "选好当前块啦，点一个空格放下去～";
+        });
+        ballsEl.appendChild(b);
+      })(i);
+    }
+  }
+
+  function fillQueue() { while (queue.length < QUEUE_LEN) queue.push(randNext()); }
+
+  function connected(anchor) {
+    var group = [], seen = {}, stack = [anchor], val = anchor.val;
+    seen[key(anchor.q, anchor.r)] = true;
+    while (stack.length) {
+      var cur = stack.pop();
+      group.push(cur);
+      for (var i = 0; i < DIRS.length; i++) {
+        var nq = cur.q + DIRS[i][0], nr = cur.r + DIRS[i][1], k = key(nq, nr);
+        var nb = cellMap[k];
+        if (nb && !seen[k] && nb.val === val) { seen[k] = true; stack.push(nb); }
+      }
+    }
+    return group;
+  }
+
+  function updateScore() {
+    scoreEl.textContent = score;
+    if (score > best) {
+      best = score; bestEl.textContent = best;
+      try { localStorage.setItem("hex2048v2best", best); } catch (e) {}
+    }
+  }
+
+  // onSettled：整条合并连锁彻底结束后的回调（V2 在这里触发随机增/炸块）
+  function resolve(anchor, chain, onSettled) {
+    chain = chain || 1;
+    var group = connected(anchor);
+    if (group.length >= 3) {
+      busy = true;
+      var myGen = gen;
+      var nv = anchor.val * 4;                        // 合成翻两番：1→4、2→8、4→16、8→32
+      // 得分 = 合成值 × 连锁层数 × 参与块数：合得越多、连锁越深、数字越大，得分越高
+      var gained = nv * chain * group.length;
+      hintEl.textContent = "合并 " + group.length + " 个 " + anchor.val + " → " + nv +
+        (chain > 1 ? "（连锁 ×" + chain + "）" : "") + "  +" + gained + " 分！";
+      var ac = pixelCenter(anchor.el);
+      // 先集中读所有坐标，再集中写样式，避免读写交替触发强制同步布局（layout thrashing）
+      var gcs = [];
+      for (var i = 0; i < group.length; i++) gcs.push(group[i] === anchor ? null : pixelCenter(group[i].el));
+      for (var i = 0; i < group.length; i++) {
+        var g = group[i];
+        if (g === anchor) { g.el.classList.add("merging"); continue; }
+        var gc = gcs[i];
+        g.el.style.setProperty("--dx", (ac.x - gc.x) + "px");
+        g.el.style.setProperty("--dy", (ac.y - gc.y) + "px");
+        g.el.classList.add("pull");
+      }
+      setTimeout(function () {
+        if (myGen !== gen) return;
+        for (var j = 0; j < group.length; j++) {
+          var g2 = group[j];
+          g2.el.classList.remove("pull", "merging");
+          g2.el.style.removeProperty("--dx"); g2.el.style.removeProperty("--dy");
+          if (g2 !== anchor) { g2.val = 0; paint(g2); }
+        }
+        anchor.val = nv; anchor.moved = false; paint(anchor);  // 合成的新块
+        anchor.el.classList.add("flash");
+        setTimeout(function () { anchor.el.classList.remove("flash"); }, ANIM.flashRemove);
+        score += gained; updateScore();
+        floatScore(ac.x, ac.y, gained);
+        saveGame();
+        setTimeout(function () {
+          if (myGen !== gen) return;
+          resolve(anchor, chain + 1, onSettled); // 传递回调到连锁末端
+        }, ANIM.chain);
+      }, ANIM.pullDelay);
+    } else {
+      busy = false;
+      saveGame();
+      if (onSettled) onSettled(); else checkEnd();
+    }
+  }
+
+  // 合并得分飘字
+  function floatScore(x, y, amount) {
+    var el = document.createElement("div");
+    el.className = "float-score";
+    el.textContent = "+" + amount;
+    el.style.left = x + "px"; el.style.top = (y - 14) + "px";
+    document.body.appendChild(el);
+    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, ANIM.float + 40);
+  }
+
+  /* ================= V2：随机增/炸块 + 特效 ================= */
+  function eventBanner(text, bg) {
+    var el = document.createElement("div");
+    el.className = "event-banner";
+    el.textContent = text;
+    el.style.background = bg || "#ff6b3d";
+    document.body.appendChild(el);
+    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, ANIM.banner + 60);
+  }
+  function gainPop(x, y, text, color) {
+    var el = document.createElement("div");
+    el.className = "gain-pop";
+    el.textContent = text;
+    el.style.left = x + "px"; el.style.top = y + "px";
+    if (color) el.style.color = color;
+    document.body.appendChild(el);
+    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, ANIM.gain + 60);
+  }
+  // 爆炸特效：火球 + 冲击环 + 四散碎片
+  function spawnBoom(x, y, color) {
+    var el = document.createElement("div");
+    el.className = "boom";
+    el.style.left = x + "px"; el.style.top = y + "px";
+    var core = document.createElement("div"); core.className = "core"; el.appendChild(core);
+    var ring = document.createElement("div"); ring.className = "ring"; el.appendChild(ring);
+    var hot = ["#ffe066", "#ff8a3d", "#ff3d4f", "#fff", color || "#ff8a3d"];
+    for (var i = 0; i < 12; i++) {
+      var a = i / 12 * Math.PI * 2 + Math.random() * .35;
+      var dist = 36 + Math.random() * 52;
+      var f = document.createElement("div");
+      f.className = "frag";
+      f.style.setProperty("--tx", Math.round(Math.cos(a) * dist) + "px");
+      f.style.setProperty("--ty", Math.round(Math.sin(a) * dist) + "px");
+      f.style.setProperty("--rot", Math.round(Math.random() * 360) + "deg");
+      f.style.setProperty("--fc", hot[i % hot.length]);
+      f.style.animationDelay = (Math.random() * 60) + "ms";
+      el.appendChild(f);
+    }
+    document.body.appendChild(el);
+    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, ANIM.boom + 160);
+  }
+
+  function pickRandom(list) { return list[Math.floor(Math.random() * list.length)]; }
+
+  // 随机事件：45% 增块 / 35% 炸块 / 20% 不随机 —— 在落子并合并彻底结束后调用一次
+  function rollRandomEvent(done) {
+    var r = Math.random();
+    if (r < EV_GAIN) {
+      var empties = cells.filter(function (c) { return c.val === 0; });
+      if (empties.length) {
+        var c = pickRandom(empties), v = randNext(), myGen = gen;
+        c.val = v; paint(c, true);
+        c.el.classList.remove("charged"); void c.el.offsetWidth; c.el.classList.add("charged");
+        var p = pixelCenter(c.el);
+        ripple(c);
+        gainPop(p.x, p.y, "+" + v, "#ff9a2e");
+        eventBanner("✨ 随机增块 +" + v, "linear-gradient(135deg,#ffb703,#ff7b00)");
+        // 增的块可能与周围形成 3 连，检查一次合并；连锁结束后再 done
+        busy = true;
+        setTimeout(function () {
+          if (myGen !== gen) { done(); return; }
+          resolve(c, 1, done);
+        }, 200);
+        return;
+      }
+      eventBanner("✨ 想增块，但棋盘没空格啦", "#caa04a");
+    } else if (r < EV_GAIN + EV_BLAST) {
+      var filled = cells.filter(function (c) { return c.val > 0; });
+      if (filled.length) {
+        var t = pickRandom(filled), tv = t.val;
+        var tp = pixelCenter(t.el);
+        spawnBoom(tp.x, tp.y, colorOf(tv));
+        t.val = 0; paint(t);
+        eventBanner("💥 随机炸块 -" + tv, "linear-gradient(135deg,#ff5d6c,#c81d3a)");
+        done();
+        return;
+      }
+      eventBanner("💥 没有可炸的块", "#a97");
+    } else {
+      eventBanner("😌 这次风平浪静", "linear-gradient(135deg,#7bc6ff,#4d96ff)");
+    }
+    done();
+  }
+
+  // 落子完成（含合并连锁）后 → 触发一次随机事件 → 再检查结束
+  function afterPlace() {
+    rollRandomEvent(function () {
+      saveGame();
+      checkEnd();
+    });
+  }
+
+  function anyEmpty() {
+    for (var i = 0; i < cells.length; i++) if (cells[i].val === 0) return true;
+    return false;
+  }
+  function anyMove() {
+    // 只要还有空格且队列非空就还能放；无空格则结束
+    return anyEmpty();
+  }
+  function checkEnd() {
+    if (finished) return;
+    if (!anyMove()) {
+      finished = true;
+      document.getElementById("ovIcon").textContent = "🎉";
+      document.getElementById("ovTitle").textContent = "棋盘满啦！";
+      document.getElementById("ovText").textContent = "这次得了 " + score + " 分，你真棒！";
+      overlay.classList.remove("hidden");
+    }
+  }
+
+  function tap(cell) {
+    if (quizPaused || busy || finished) return;
+
+    if (hammerMode) {
+      if (cell.val > 0 && hammerLeft > 0) {
+        // 点击瞬间立即扣减，避免动画窗口内连点多敲、计数变负
+        hammerLeft--; hammerN.textContent = hammerLeft;
+        cell.el.classList.add("hammer");
+        var target = cell, hGen = gen;
+        var hp = pixelCenter(cell.el);
+        spawnBoom(hp.x, hp.y, colorOf(cell.val)); // V2：锤子也带爆炸反馈
+        setTimeout(function () {
+          if (hGen !== gen) return;
+          target.el.classList.remove("hammer");
+          target.val = 0; paint(target);
+          hintEl.textContent = "敲掉一个数字，腾出空格啦！";
+          if (hammerLeft <= 0) { hammerBtn.classList.add("dim"); hammerMode = false; hammerBtn.classList.remove("armed"); }
+          checkEnd();
+        }, ANIM.hammer);
+      }
+      return;
+    }
+
+    // V2：取消自由移动——点已有块仅提示，不再选中/滑行
+    if (cell.val > 0) {
+      hintEl.textContent = "V2 不能移动已有块，只能往空格放当前块哦～";
+      return;
+    }
+
+    // 点空格：从队列放置当前块
+    var v = queue[selected];
+    var srcBall = ballsEl.children[selected];
+    var srcPos = srcBall ? pixelCenter(srcBall) : null; // renderQueue 会重建 DOM，先存坐标
+    var myGen = gen;
+    busy = true;                                // 飞行期间锁住，避免连点错位
+    queue.splice(selected, 1); fillQueue();
+    if (selected >= queue.length) selected = queue.length - 1;
+    renderQueue();
+    hintEl.textContent = "放下去，看看能不能连成 3 个～";
+    flyBall(srcPos, cell, v, myGen, function () {
+      if (myGen !== gen) return;
+      cell.val = v; paint(cell, true);
+      busy = false;
+      resolve(cell, 1, afterPlace); // 合并连锁结束后触发一次随机增/炸块
+    });
+  }
+
+  function reset(fresh) {
+    gen++; // 作废进行中的飞行/合并/滑行回调，避免重开后串局
+    var saved = fresh ? null : (window.GameSave ? GameSave.load(SAVE_KEY, null) : null);
+    score = saved ? (saved.score || 0) : 0;
+    swapLeft = saved && typeof saved.swapLeft === "number" ? saved.swapLeft : 5;
+    hammerLeft = saved && typeof saved.hammerLeft === "number" ? saved.hammerLeft : 3;
+    finished = saved ? !!saved.finished : false;
+    busy = false; quizPaused = false; hammerMode = false;
+    scoreEl.textContent = String(score);
+    swapN.textContent = swapLeft; hammerN.textContent = hammerLeft;
+    overlay.classList.add("hidden");
+    hintEl.textContent = "点空格放下当前块 · 3 个相同数字相连合成 4 倍 · 每次落子会随机增块或炸块！";
+    swapBtn.classList.toggle("dim", swapLeft <= 0); hammerBtn.classList.toggle("dim", hammerLeft <= 0);
+    hammerBtn.classList.remove("armed");
+    queue = saved && saved.queue && saved.queue.length ? saved.queue.slice() : [];
+    fillQueue();
+    selected = saved && typeof saved.selected === "number" ? Math.min(saved.selected, queue.length - 1) : 0;
+    if (selected < 0) selected = 0;
+    renderQueue();
+    var temp = document.querySelectorAll(".fly-ball,.ripple,.slide-hex,.float-score,.boom,.gain-pop,.event-banner");
+    for (var t = 0; t < temp.length; t++) if (temp[t].parentNode) temp[t].parentNode.removeChild(temp[t]);
+    for (var i = 0; i < cells.length; i++) {
+      cells[i].val = saved && saved.vals && i < saved.vals.length ? (saved.vals[i] || 0) : 0;
+      cells[i].moved = !!(saved && saved.moves && saved.moves[i]);
+      paint(cells[i]);
+      cells[i].el.classList.remove("pull", "merging", "flash", "hammer", "moving", "charged");
+      cells[i].el.style.removeProperty("--dx"); cells[i].el.style.removeProperty("--dy");
+    }
+    if (fresh && window.GameSave) GameSave.clear(SAVE_KEY);
+  }
+
+  swapBtn.addEventListener("click", function () {
+    if (quizPaused || busy || finished || swapLeft <= 0) return;
+    queue = []; fillQueue(); selected = 0; renderQueue();
+    swapLeft--; swapN.textContent = swapLeft;
+    hintEl.textContent = "换了一块新数字～";
+    if (swapLeft <= 0) swapBtn.classList.add("dim");
+  });
+  hammerBtn.addEventListener("click", function () {
+    if (quizPaused || busy || finished || hammerLeft <= 0) return;
+    hammerMode = !hammerMode;
+    hammerBtn.classList.toggle("armed", hammerMode);
+    hintEl.textContent = hammerMode ? "点一个想敲掉的数字（锤子用一次少一次）" : "已取消锤子";
+  });
+  document.getElementById("ovBtn").addEventListener("click", function () { reset(true); });
+
+  buildBoard();
+  layout();
+  reset(false);   // 启动：优先恢复上次进度
+  window.addEventListener("resize", layout);
+
+  if (window.GameQuiz) {
+    GameQuiz.init({
+      isPlaying: function () { return !finished && overlay.classList.contains("hidden"); },
+      onOpen: function () { quizPaused = true; },
+      onClose: function () { quizPaused = false; },
+      onReward: function () { score += 5; updateScore(); }
+    });
+  }
+})();
+</script>
+</body>
+</html>
