@@ -34,9 +34,23 @@
   .levels button.active { background:linear-gradient(180deg,#ffca5b,#f5a623); color:#fff; border-color:#fff; box-shadow:0 3px 0 #d98609; }
   .levels.hidden { display:none; }
   .wrap { max-width:500px; margin:0 auto; padding:0 16px; text-align:center; }
-  .boardbox { display:inline-block; padding:10px; border-radius:18px; background:linear-gradient(180deg,#d9a86c,#c98f4e);
+  /* 缩放视口：放大后可滚动平移查看边缘；未超出时棋盘自动居中 */
+  .board-viewport { max-width:100%; max-height:64vh; overflow:auto; -webkit-overflow-scrolling:touch;
+    margin:0 auto; border-radius:18px; }
+  .boardbox { display:block; width:-moz-fit-content; width:fit-content; margin:0 auto; padding:10px;
+    border-radius:18px; background:linear-gradient(180deg,#d9a86c,#c98f4e);
     box-shadow:0 8px 18px rgba(120,80,40,.35), inset 0 2px 4px rgba(255,255,255,.4); }
-  canvas { display:block; border-radius:10px; touch-action:manipulation; }
+  canvas { display:block; border-radius:10px; touch-action:auto; }
+  /* 缩放控制条 */
+  .zoombar { display:flex; justify-content:center; align-items:center; gap:10px; margin:2px 0 10px; }
+  .zoombar .zbtn { border:3px solid #ffd23f; background:#fff; color:#e07a00; border-radius:999px;
+    min-width:42px; height:38px; padding:0 12px; font-size:21px; font-weight:900; line-height:1;
+    cursor:pointer; box-shadow:0 3px 0 #f0c000; }
+  .zoombar .zbtn.reset { font-size:13px; min-width:54px; background:#fff8e1; }
+  .zoombar .zbtn:active { transform:translateY(2px); box-shadow:0 1px 0 #f0c000; }
+  .zoombar .zlabel { display:inline-block; min-width:58px; text-align:center; font-size:14px;
+    font-weight:900; color:#8b5a00; background:#fff3cd; border:2px solid #ffd23f;
+    border-radius:999px; padding:5px 8px; }
   .tools { display:flex; justify-content:center; gap:12px; margin:16px 0 4px; flex-wrap:wrap; }
   .btn { border:none; border-radius:999px; padding:12px 24px; font-size:17px; font-weight:900; color:#fff; cursor:pointer;
     box-shadow:0 5px 0 rgba(0,0,0,.16); }
@@ -75,7 +89,15 @@
 </div>
 
 <div class="wrap">
-  <div class="boardbox"><canvas id="board"></canvas></div>
+  <div class="zoombar">
+    <button type="button" class="zbtn" id="zoomOut" aria-label="缩小棋盘">−</button>
+    <span class="zlabel" id="zoomLabel">100%</span>
+    <button type="button" class="zbtn" id="zoomIn" aria-label="放大棋盘">＋</button>
+    <button type="button" class="zbtn reset" id="zoomReset">复位</button>
+  </div>
+  <div class="board-viewport" id="boardViewport">
+    <div class="boardbox"><canvas id="board"></canvas></div>
+  </div>
   <div class="tools">
     <button class="btn mode" id="modeBtn">🤖 对战电脑</button>
     <button class="btn undo" id="undoBtn">↩️ 悔棋</button>
@@ -104,9 +126,12 @@
   var modeBtn = document.getElementById("modeBtn"), levelsEl = document.getElementById("levels");
   var levelBtns = levelsEl.querySelectorAll("button[data-level]");
   var overlay = document.getElementById("overlay");
-  var board = [], moves = [], current = 1, finished = false, quizPaused = false, cell = 0, size = 0;
+  var viewport = document.getElementById("boardViewport"), zoomLabel = document.getElementById("zoomLabel");
+  var board = [], moves = [], current = 1, finished = false, quizPaused = false, cell = 0, size = 0, baseSize = 0;
   var mode = "ai";                  // "ai"=对战电脑(默认)，"pvp"=双人对战
   var level = "low";                // 电脑等级：low(默认) / mid / high
+  var ZOOM_MIN = 70, ZOOM_MAX = 250, ZOOM_STEP = 20;
+  var zoomPct = 100;                // 棋盘缩放百分比（70%~250%，默认 100%）
   var lastMove = null;              // 最近一次落子（用于闪烁光晕提示）
   var aiTimer = null, aiThinking = false;
   var raf = 0;
@@ -118,7 +143,7 @@
   }
   function saveGame() {
     if (!window.GameSave) return;
-    GameSave.save(SAVE_KEY, { board: board, moves: moves, current: current, mode: mode, level: level, n: N });
+    GameSave.save(SAVE_KEY, { board: board, moves: moves, current: current, mode: mode, level: level, n: N, zoomPct: zoomPct });
   }
   // 通用校验：接受任意边长 n 的棋盘 / 走子列表（用于旧版棋盘迁移）
   function validBoardOf(b, n) {
@@ -146,12 +171,34 @@
   function setup() {
     var cssSize = Math.min(560, window.innerWidth - 40, 520);
     if (cssSize < 260) cssSize = 260;
+    baseSize = cssSize;                 // 逻辑基准边长，缩放在此基础上叠加
+    applyZoom();
+  }
+  // 依据当前缩放比例设置画布的实际显示/物理尺寸并居中视口
+  function applyZoom() {
+    size = Math.round(baseSize * zoomPct / 100);
+    if (size < 160) size = 160;
     var dpr = window.devicePixelRatio || 1;
-    size = cssSize; cell = size / (N + 1);
     canvas.style.width = size + "px"; canvas.style.height = size + "px";
     canvas.width = Math.round(size * dpr); canvas.height = Math.round(size * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cell = size / (N + 1);
+    if (zoomLabel) zoomLabel.textContent = zoomPct + "%";
     draw(performance.now());
+    centerViewport();
+  }
+  // 放大后把视口滚动到棋盘中心，方便从中心向四周查看
+  function centerViewport() {
+    if (!viewport) return;
+    viewport.scrollLeft = Math.max(0, (viewport.scrollWidth - viewport.clientWidth) / 2);
+    viewport.scrollTop = Math.max(0, (viewport.scrollHeight - viewport.clientHeight) / 2);
+  }
+  function setZoom(pct) {
+    pct = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(pct)));
+    if (pct === zoomPct) return;
+    zoomPct = pct;
+    applyZoom();
+    saveGame();
   }
 
   function draw(ts) {
@@ -449,6 +496,9 @@
         current = (saved.current === 1 || saved.current === 2) ? saved.current : 1;
         mode = (saved.mode === "ai" || saved.mode === "pvp") ? saved.mode : "ai";
         level = (saved.level === "low" || saved.level === "mid" || saved.level === "high") ? saved.level : "low";
+        // 缩放级别恢复（旧档无此字段则沿用当前值/默认 100%）
+        if (typeof saved.zoomPct === "number" && saved.zoomPct >= ZOOM_MIN && saved.zoomPct <= ZOOM_MAX)
+          zoomPct = Math.round(saved.zoomPct);
         lastMove = moves.length ? moves[moves.length - 1] : null;
       }
     }
@@ -484,10 +534,14 @@
   document.getElementById("undoBtn").addEventListener("click", undo);
   document.getElementById("restartBtn").addEventListener("click", function () { restart(true); });
   document.getElementById("ovBtn").addEventListener("click", function () { restart(true); });
+  document.getElementById("zoomIn").addEventListener("click", function () { setZoom(zoomPct + ZOOM_STEP); });
+  document.getElementById("zoomOut").addEventListener("click", function () { setZoom(zoomPct - ZOOM_STEP); });
+  document.getElementById("zoomReset").addEventListener("click", function () { setZoom(100); });
   canvas.addEventListener("click", function (e) {
     var rect = canvas.getBoundingClientRect();
-    var c = Math.round((e.clientX - rect.left) / cell) - 1;
-    var r = Math.round((e.clientY - rect.top) / cell) - 1;
+    // 按画布当前显示宽高换算比例，天然适配任意缩放与视口滚动
+    var c = Math.round((e.clientX - rect.left) / rect.width * (N + 1)) - 1;
+    var r = Math.round((e.clientY - rect.top) / rect.height * (N + 1)) - 1;
     if (r < 0 || r >= N || c < 0 || c >= N) return;
     humanPlace(r, c);
   });
