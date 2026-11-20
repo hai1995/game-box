@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#fff7e8">
+<title>记忆亮灯 · 儿童游戏盒子</title>
+<link rel="stylesheet" href="../../theme.css">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    min-height: 100svh;
+    padding: calc(14px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .wrap { width: min(100%, 420px); display: flex; flex-direction: column; gap: 12px; flex: 1; }
+  .brand { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0; }
+  .brand h1 { font-size: clamp(22px, 6vw, 28px); margin: 0; }
+  .brand svg { width: 1.1em; height: 1.1em; }
+  .tip { text-align: center; margin: -4px 0 0; font-size: 13px; }
+
+  .hud { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+  .hud .pill { padding: 6px 12px; font-size: 14px; }
+  .hud b { color: var(--gb-primary-d); }
+
+  .status {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 30px; margin: 0; font-weight: 900; font-size: 17px; color: var(--gb-ink);
+  }
+
+  .pads {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    width: min(100%, 360px); aspect-ratio: 1; margin: 0 auto;
+    padding: 4px;
+  }
+  .pad {
+    position: relative; padding: 0; border: 4px solid rgba(255,255,255,.9);
+    border-radius: 26px; overflow: hidden; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 0 rgba(150,100,90,.18), inset 0 -10px 0 rgba(0,0,0,.14), inset 0 4px 8px rgba(255,255,255,.4);
+    transition: filter .12s, transform .12s, box-shadow .12s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pad::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit;
+    background: radial-gradient(120% 90% at 25% 8%, rgba(255,255,255,.38), rgba(255,255,255,0) 58%);
+    pointer-events: none;
+  }
+  .pad .ico { width: 46%; height: 46%; display: block; position: relative; z-index: 1; filter: drop-shadow(0 3px 3px rgba(0,0,0,.18)); }
+  .pad .ico svg { width: 100%; height: 100%; display: block; }
+  .pad.p0 { background: linear-gradient(145deg, #ff9aae, #e83e5c); }
+  .pad.p1 { background: linear-gradient(145deg, #7cc8ff, #2f6fe4); }
+  .pad.p2 { background: linear-gradient(145deg, #8fe3a2, #2fa95a); }
+  .pad.p3 { background: linear-gradient(145deg, #ffd36b, #f0920f); }
+  .pad.lit {
+    filter: brightness(1.5) saturate(1.15);
+    transform: scale(.96);
+    box-shadow: 0 0 0 6px rgba(255,255,255,.6), 0 0 32px rgba(255,255,255,.85), inset 0 -6px 0 rgba(0,0,0,.1);
+  }
+  .pad.err { animation: errShake .4s ease; }
+  .pad:active { transform: scale(.97); }
+  @keyframes errShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-7px) rotate(-1deg); }
+    75% { transform: translateX(7px) rotate(1deg); }
+  }
+
+  .foot { display: flex; justify-content: center; gap: 10px; margin-top: 2px; }
+  .overlay[hidden] { display: none; }
+  .overlay h2 { margin: 0 0 8px; font-size: 24px; }
+  .overlay p { margin: 0 0 16px; line-height: 1.7; color: var(--gb-ink-soft); }
+  .overlay b { color: var(--gb-primary-d); font-size: 22px; }
+</style>
+</head>
+<body>
+<a class="home-btn" href="../../" aria-label="返回主页" title="返回主页">🏠</a>
+
+<div class="wrap">
+  <header class="brand">
+    <h1><span data-icon="bulb"></span> 记忆亮灯</h1>
+  </header>
+  <p class="tip">记住亮灯顺序，再按顺序点回来</p>
+
+  <div class="hud">
+    <span class="pill">本局 <b id="level">0</b> 盏</span>
+    <span class="pill">最高 <b id="best">0</b> 盏</span>
+  </div>
+
+  <p class="status" id="status">准备好就开始吧</p>
+
+  <div class="pads" id="pads">
+    <button class="pad p0" type="button" data-pad="0" aria-label="第一盏灯"><span class="ico"></span></button>
+    <button class="pad p1" type="button" data-pad="1" aria-label="第二盏灯"><span class="ico"></span></button>
+    <button class="pad p2" type="button" data-pad="2" aria-label="第三盏灯"><span class="ico"></span></button>
+    <button class="pad p3" type="button" data-pad="3" aria-label="第四盏灯"><span class="ico"></span></button>
+  </div>
+
+  <div class="foot">
+    <button class="btn restart" id="restart" type="button">重新开始</button>
+  </div>
+</div>
+
+<div class="overlay" id="over">
+  <div class="card">
+    <h2 id="overTitle">记忆亮灯</h2>
+    <p id="overText">看好哪几盏灯亮起，<br>再按同样的顺序点亮它们。</p>
+    <button class="btn" id="overBtn" type="button">开始游戏</button>
+  </div>
+</div>
+
+<script src="../../icons.js"></script>
+<script src="../../save.js"></script>
+<script src="../../quiz.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var BEST_KEY = "memory_lights_best";
+  var ICONS = ["star", "heart", "flower", "sparkle"];
+  var padEls = Array.prototype.slice.call(document.querySelectorAll(".pad"));
+  var statusEl = document.getElementById("status");
+  var levelEl = document.getElementById("level");
+  var bestEl = document.getElementById("best");
+  var over = document.getElementById("over");
+  var overTitle = document.getElementById("overTitle");
+  var overText = document.getElementById("overText");
+  var overBtn = document.getElementById("overBtn");
+  var restartBtn = document.getElementById("restart");
+
+  var seq = [];
+  var input = 0;
+  var level = 0;
+  var best = Number(GameSave.load(BEST_KEY, 0)) || 0;
+  var gameOver = true;
+  var paused = false;
+  var accept = false;
+  var awaitNext = false;
+  var timers = [];
+
+  bestEl.textContent = best;
+
+  for (var p = 0; p < padEls.length; p++) {
+    padEls[p].querySelector(".ico").innerHTML = GameIcons.symbol(ICONS[p]);
+  }
+
+  function say(text) { statusEl.textContent = text; }
+
+  function clearTimers() {
+    for (var i = 0; i < timers.length; i++) clearTimeout(timers[i]);
+    timers = [];
+  }
+
+  function unlightAll() {
+    for (var i = 0; i < padEls.length; i++) padEls[i].classList.remove("lit");
+  }
+
+  function light(idx, ms) {
+    var el = padEls[idx];
+    el.classList.add("lit");
+    timers.push(setTimeout(function () { el.classList.remove("lit"); }, ms));
+  }
+
+  function start() {
+    clearTimers();
+    unlightAll();
+    seq = [];
+    input = 0;
+    level = 0;
+    gameOver = false;
+    paused = false;
+    accept = false;
+    awaitNext = false;
+    levelEl.textContent = "0";
+    over.hidden = true;
+    nextRound();
+  }
+
+  function nextRound() {
+    if (gameOver) return;
+    awaitNext = false;
+    accept = false;
+    input = 0;
+    seq.push(Math.floor(Math.random() * 4));
+    level = seq.length;
+    levelEl.textContent = level;
+    say("看好啦…");
+    playSeq();
+  }
+
+  function playSeq() {
+    clearTimers();
+    unlightAll();
+    accept = false;
+    input = 0;
+    say("看好啦…");
+    var i = 0;
+    function step() {
+      if (paused || gameOver) return;
+      if (i >= seq.length) {
+        accept = true;
+        say("轮到你啦");
+        return;
+      }
+      var idx = seq[i++];
+      light(idx, 360);
+      timers.push(setTimeout(step, 620));
+    }
+    timers.push(setTimeout(step, 420));
+  }
+
+  function tap(idx) {
+    if (!accept || paused || gameOver) return;
+    light(idx, 200);
+    if (seq[input] !== idx) { fail(idx); return; }
+    input += 1;
+    if (input === seq.length) {
+      accept = false;
+      awaitNext = true;
+      say("太棒了！");
+      timers.push(setTimeout(function () {
+        if (paused || gameOver) return;
+        nextRound();
+      }, 780));
+    }
+  }
+
+  function fail(idx) {
+    accept = false;
+    gameOver = true;
+    clearTimers();
+    unlightAll();
+    padEls[idx].classList.add("err");
+    timers.push(setTimeout(function () { padEls[idx].classList.remove("err"); }, 430));
+
+    var done = Math.max(0, seq.length - 1);
+    if (done > best) {
+      best = done;
+      GameSave.save(BEST_KEY, best);
+      bestEl.textContent = best;
+    }
+    overTitle.textContent = "记错啦";
+    overText.innerHTML = "这次记住了 <b>" + done + "</b> 盏灯<br>最高纪录 " + best + " 盏";
+    overBtn.textContent = "再来一次";
+    over.hidden = false;
+  }
+
+  function pause() {
+    if (gameOver) return;
+    paused = true;
+    clearTimers();
+    unlightAll();
+  }
+
+  function resume() {
+    if (gameOver) { paused = false; return; }
+    paused = false;
+    if (awaitNext) {
+      awaitNext = false;
+      nextRound();
+    } else {
+      playSeq();
+    }
+  }
+
+  for (var i = 0; i < padEls.length; i++) {
+    padEls[i].addEventListener("click", function (e) {
+      tap(Number(e.currentTarget.getAttribute("data-pad")));
+    });
+  }
+
+  overBtn.addEventListener("click", start);
+  restartBtn.addEventListener("click", start);
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) pause(); else resume();
+  });
+
+  GameQuiz.init({
+    isPlaying: function () { return !gameOver && !paused; },
+    onOpen: pause,
+    onClose: resume
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#fff7e8">
+<title>接水果 · 儿童游戏盒子</title>
+<link rel="stylesheet" href="../../theme.css">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    min-height: 100svh;
+    padding: calc(10px + env(safe-area-inset-top)) 14px calc(12px + env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; align-items: center;
+    overflow-x: hidden;
+  }
+  .wrap { width: min(100%, 480px); display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; }
+  .brand { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0; }
+  .brand h1 { font-size: clamp(22px, 6vw, 28px); margin: 0; }
+  .brand svg { width: 1.1em; height: 1.1em; }
+  .tip { text-align: center; margin: 0 0 2px; font-size: 13px; }
+  .hud { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+  .hud .pill { padding: 6px 12px; font-size: 14px; }
+  .hud b { color: var(--gb-primary-d); }
+  #lives { display: inline-flex; align-items: center; gap: 2px; }
+  #lives svg { width: 17px; height: 17px; display: block; }
+  .life.off svg { opacity: .2; filter: grayscale(1); }
+
+  .play {
+    position: relative; flex: 1; min-height: 330px;
+    border-radius: 26px; overflow: hidden;
+    border: 4px solid #fff;
+    background: linear-gradient(180deg, #d9f2ff 0%, #f3fbff 44%, #fff4df 100%);
+    box-shadow: 0 10px 0 rgba(210,150,120,.2), 0 16px 30px rgba(150,100,90,.14);
+    touch-action: none; cursor: grab;
+  }
+  .play:active { cursor: grabbing; }
+  .cloud { position: absolute; background: rgba(255,255,255,.72); border-radius: 50%; pointer-events: none; }
+  .c1 { width: 120px; height: 52px; left: 8%; top: 9%; box-shadow: 52px 10px 0 -6px rgba(255,255,255,.72), -30px 12px 0 -10px rgba(255,255,255,.6); }
+  .c2 { width: 80px; height: 36px; right: 10%; top: 24%; box-shadow: -34px 8px 0 -4px rgba(255,255,255,.7); }
+
+  .item { position: absolute; left: 0; top: 0; will-change: transform; z-index: 2; pointer-events: none; }
+  .item svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 3px 2px rgba(120,80,60,.22)); }
+  .basket { position: absolute; left: 0; bottom: 8px; width: 96px; height: 66px; z-index: 4; pointer-events: none; will-change: transform; }
+  .basket svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 6px 4px rgba(120,70,40,.25)); }
+
+  .combo {
+    position: absolute; left: 50%; top: 12px; z-index: 3;
+    transform: translateX(-50%);
+    font-weight: 900; color: #fff; font-size: 14px;
+    background: linear-gradient(180deg, #ffb347, #ff7a3d);
+    padding: 4px 12px; border-radius: 999px;
+    box-shadow: 0 3px 0 rgba(200,90,30,.35);
+    opacity: 0; pointer-events: none;
+  }
+  .combo.on { animation: comboPop .75s ease forwards; }
+  @keyframes comboPop {
+    0% { opacity: 0; transform: translateX(-50%) scale(.6); }
+    20% { opacity: 1; transform: translateX(-50%) scale(1.08); }
+    70% { opacity: 1; transform: translateX(-50%) scale(1); }
+    100% { opacity: 0; transform: translateX(-50%) translateY(-10px) scale(.95); }
+  }
+  .float {
+    position: absolute; z-index: 5; font-weight: 900; font-size: 16px;
+    transform: translate(-50%, -50%); pointer-events: none;
+    text-shadow: 0 1px 0 #fff;
+    animation: floatUp .8s ease-out forwards;
+  }
+  @keyframes floatUp {
+    0% { opacity: 0; transform: translate(-50%,-50%) scale(.7); }
+    25% { opacity: 1; transform: translate(-50%,-60%) scale(1.1); }
+    100% { opacity: 0; transform: translate(-50%,-140%) scale(.95); }
+  }
+  .flash { position: absolute; inset: 0; background: #ff5b6e; opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 6; }
+  .foot { display: flex; justify-content: center; padding: 2px 0 0; }
+  .overlay[hidden] { display: none; }
+  .overlay h2 { margin: 0 0 8px; font-size: 24px; }
+  .overlay p { margin: 0 0 16px; line-height: 1.7; color: var(--gb-ink-soft); }
+  .overlay b { color: var(--gb-primary-d); font-size: 22px; }
+</style>
+</head>
+<body>
+<a class="home-btn" href="../../" aria-label="返回主页" title="返回主页">🏠</a>
+
+<div class="wrap">
+  <header class="brand">
+    <h1><span data-icon="apple"></span> 接水果</h1>
+  </header>
+  <p class="tip">拖动果篮接住水果，小心炸弹！</p>
+
+  <div class="hud">
+    <span class="pill">得分 <b id="score">0</b></span>
+    <span class="pill">最高 <b id="best">0</b></span>
+    <span class="pill">时间 <b id="time">60</b>s</span>
+    <span class="pill" id="lives" aria-label="生命"></span>
+  </div>
+
+  <div class="play" id="play">
+    <div class="cloud c1"></div>
+    <div class="cloud c2"></div>
+    <div class="combo" id="combo"></div>
+    <div class="basket" id="basket">
+      <svg viewBox="0 0 100 68" aria-hidden="true">
+        <defs>
+          <linearGradient id="bkG" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#ffcf7a"/>
+            <stop offset="1" stop-color="#e2802f"/>
+          </linearGradient>
+        </defs>
+        <path d="M22 24c0-9 8-14 28-14s28 5 28 14" fill="none" stroke="#b45d1c" stroke-width="4" opacity=".45"/>
+        <path d="M14 28h72l-7 30a9 9 0 0 1-9 7H30a9 9 0 0 1-9-7z" fill="url(#bkG)" stroke="#b45d1c" stroke-width="3.2" stroke-linejoin="round"/>
+        <rect x="7" y="21" width="86" height="13" rx="6.5" fill="#ffd98a" stroke="#b45d1c" stroke-width="3.2"/>
+        <path d="M31 36l-3 29M50 36v29M69 36l3 29" stroke="#b45d1c" stroke-width="2.4" opacity=".45" stroke-linecap="round"/>
+        <path d="M20 40c20 5 40 5 60 0" fill="none" stroke="#b45d1c" stroke-width="2.2" opacity=".28" stroke-linecap="round"/>
+        <path d="M35 25c1-6 6-9 11-9" fill="none" stroke="#fff" stroke-width="3" opacity=".55" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="flash" id="flash"></div>
+  </div>
+
+  <div class="foot">
+    <button class="btn restart" id="restart" type="button">重新开始</button>
+  </div>
+</div>
+
+<div class="overlay" id="over">
+  <div class="card">
+    <h2 id="overTitle">接水果</h2>
+    <p id="overText">拖动果篮接住水果，小心炸弹！<br>接到星星有额外加分。</p>
+    <button class="btn" id="overBtn" type="button">开始游戏</button>
+  </div>
+</div>
+
+<script src="../../icons.js"></script>
+<script src="../../save.js"></script>
+<script src="../../quiz.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var play = document.getElementById("play");
+  var basket = document.getElementById("basket");
+  var scoreEl = document.getElementById("score");
+  var bestEl = document.getElementById("best");
+  var timeEl = document.getElementById("time");
+  var livesEl = document.getElementById("lives");
+  var comboEl = document.getElementById("combo");
+  var flashEl = document.getElementById("flash");
+  var over = document.getElementById("over");
+  var overTitle = document.getElementById("overTitle");
+  var overText = document.getElementById("overText");
+  var overBtn = document.getElementById("overBtn");
+  var restartBtn = document.getElementById("restart");
+
+  var BEST_KEY = "catch_fruit_best";
+  var DURATION = 60;
+  var BASKET_W = 96;
+  var BASKET_H = 66;
+  var FRUITS = ["apple", "orange", "lemon", "watermelon", "strawberry", "cherry", "peach", "mango", "pineapple", "kiwi", "blueberry", "grapes"];
+
+  var best = Number(GameSave.load(BEST_KEY, 0)) || 0;
+  var score = 0, lives = 3, timeLeft = DURATION, combo = 0, bestCombo = 0;
+  var items = [];
+  var W = 0, H = 0;
+  var basketX = 0, targetX = 0;
+  var running = false, paused = false;
+  var elapsed = 0, spawnAcc = 0, timeAcc = 0, lastTs = 0;
+  var raf = 0;
+
+  bestEl.textContent = best;
+  renderLives();
+
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function rand(a, b) { return a + Math.random() * (b - a); }
+
+  function measure() {
+    W = play.clientWidth;
+    H = play.clientHeight;
+    if (!basketX) { basketX = targetX = W / 2; positionBasket(); }
+    else { basketX = clamp(basketX, BASKET_W / 2, W - BASKET_W / 2); targetX = clamp(targetX, BASKET_W / 2, W - BASKET_W / 2); positionBasket(); }
+  }
+  measure();
+  window.addEventListener("resize", measure);
+
+  function positionBasket() {
+    basket.style.transform = "translate3d(" + (basketX - BASKET_W / 2) + "px,0,0)";
+  }
+
+  function renderLives() {
+    var out = "";
+    for (var i = 0; i < 3; i++) {
+      out += '<span class="life' + (i < lives ? "" : " off") + '">' + GameIcons.get("heart") + "</span>";
+    }
+    livesEl.innerHTML = out;
+  }
+
+  function setTime() { timeEl.textContent = Math.max(0, Math.ceil(timeLeft)); }
+
+  function start() {
+    cancelAnimationFrame(raf);
+    for (var i = 0; i < items.length; i++) items[i].el.remove();
+    items = [];
+    score = 0; lives = 3; timeLeft = DURATION; combo = 0; bestCombo = 0;
+    elapsed = 0; spawnAcc = .5; timeAcc = 0; lastTs = 0;
+    running = true; paused = false;
+    scoreEl.textContent = "0";
+    setTime(); renderLives();
+    comboEl.classList.remove("on");
+    over.hidden = true;
+    measure();
+    basketX = targetX = W / 2;
+    positionBasket();
+    raf = requestAnimationFrame(loop);
+  }
+
+  function end() {
+    if (!running) return;
+    running = false;
+    cancelAnimationFrame(raf);
+    if (score > best) {
+      best = score;
+      GameSave.save(BEST_KEY, best);
+      bestEl.textContent = best;
+    }
+    overTitle.textContent = lives <= 0 ? "被炸弹炸到啦" : "时间到！";
+    overText.innerHTML = "本局得分 <b>" + score + "</b><br>最高分 " + best + " · 最长连击 " + bestCombo;
+    overBtn.textContent = "再来一局";
+    over.hidden = false;
+  }
+
+  function loop(ts) {
+    if (!running) return;
+    if (!lastTs) lastTs = ts;
+    var dt = Math.min(.05, (ts - lastTs) / 1000);
+    lastTs = ts;
+    if (!paused) update(dt);
+    raf = requestAnimationFrame(loop);
+  }
+
+  function update(dt) {
+    elapsed += dt;
+    timeAcc += dt;
+    if (timeAcc >= 1) {
+      timeAcc -= 1;
+      timeLeft -= 1;
+      setTime();
+      if (timeLeft <= 0) { end(); return; }
+    }
+
+    basketX += (targetX - basketX) * Math.min(1, dt * 16);
+    positionBasket();
+
+    spawnAcc -= dt;
+    if (spawnAcc <= 0) {
+      spawn();
+      spawnAcc = Math.max(.34, .8 - elapsed * .006) * rand(.85, 1.25);
+    }
+
+    var basketTop = H - 8 - BASKET_H;
+    for (var i = items.length - 1; i >= 0; i--) {
+      var it = items[i];
+      it.x += it.vx * dt;
+      if (it.x < it.size / 2 + 4) { it.x = it.size / 2 + 4; it.vx = Math.abs(it.vx); }
+      if (it.x > W - it.size / 2 - 4) { it.x = W - it.size / 2 - 4; it.vx = -Math.abs(it.vx); }
+      it.y += it.vy * dt;
+      it.rot += it.spin * dt;
+      it.el.style.transform = "translate3d(" + (it.x - it.size / 2) + "px," + (it.y - it.size / 2) + "px,0) rotate(" + it.rot + "deg)";
+
+      if (it.y + it.size * .3 >= basketTop && it.y < basketTop + 42 && Math.abs(it.x - basketX) < BASKET_W / 2 + it.size * .15) {
+        grab(it);
+        items.splice(i, 1);
+        continue;
+      }
+      if (it.y - it.size / 2 > H + 10) {
+        if (it.type === "fruit") combo = 0;
+        it.el.remove();
+        items.splice(i, 1);
+      }
+    }
+  }
+
+  function spawn() {
+    var r = Math.random();
+    var type = "fruit";
+    if (elapsed > 8 && r < .14) type = "bomb";
+    else if (r < .21) type = "star";
+
+    var size = type === "fruit" ? rand(34, 46) : 38;
+    var name = FRUITS[Math.floor(Math.random() * FRUITS.length)];
+    var el = document.createElement("div");
+    el.className = "item " + type;
+    el.innerHTML = type === "bomb" ? GameIcons.get("bomb") : (type === "star" ? GameIcons.get("star") : GameIcons.get(name));
+    el.style.width = size + "px";
+    el.style.height = size + "px";
+    play.appendChild(el);
+
+    var vy = Math.min(360, 120 + elapsed * 2.6 + rand(0, 55));
+    items.push({
+      el: el, type: type, name: name,
+      x: rand(size / 2 + 6, Math.max(size / 2 + 7, W - size / 2 - 6)),
+      y: -size, vy: vy, vx: rand(-26, 26),
+      size: size, rot: rand(-8, 8), spin: rand(-40, 40)
+    });
+  }
+
+  function grab(it) {
+    it.el.remove();
+    if (it.type === "bomb") {
+      lives -= 1;
+      combo = 0;
+      renderLives();
+      flashEl.style.opacity = ".5";
+      setTimeout(function () { flashEl.style.opacity = "0"; }, 90);
+      float(it.x, it.y, "-1 生命", "#e23b4e");
+      if (lives <= 0) end();
+      return;
+    }
+
+    combo += 1;
+    if (combo > bestCombo) bestCombo = combo;
+
+    if (it.type === "star") {
+      score += 50;
+      scoreEl.textContent = score;
+      float(it.x, it.y, "+50", "#e6a100");
+    } else {
+      var gain = 10 * Math.min(combo, 5);
+      score += gain;
+      scoreEl.textContent = score;
+      float(it.x, it.y, "+" + gain, "#2f9b48");
+    }
+    if (combo >= 2) showCombo(combo);
+  }
+
+  function showCombo(n) {
+    comboEl.textContent = "连击 x" + n;
+    comboEl.classList.remove("on");
+    void comboEl.offsetWidth;
+    comboEl.classList.add("on");
+  }
+
+  function float(x, y, txt, color) {
+    var d = document.createElement("div");
+    d.className = "float";
+    d.textContent = txt;
+    d.style.left = x + "px";
+    d.style.top = y + "px";
+    d.style.color = color;
+    play.appendChild(d);
+    setTimeout(function () { d.remove(); }, 820);
+  }
+
+  function pause() { paused = true; }
+  function resume() { if (!running) return; paused = false; lastTs = 0; }
+
+  function moveTo(e) {
+    var r = play.getBoundingClientRect();
+    targetX = clamp(e.clientX - r.left, BASKET_W / 2, W - BASKET_W / 2);
+  }
+
+  play.addEventListener("pointerdown", function (e) {
+    moveTo(e);
+    if (play.setPointerCapture) { try { play.setPointerCapture(e.pointerId); } catch (err) {} }
+    e.preventDefault();
+  });
+  play.addEventListener("pointermove", function (e) { moveTo(e); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "ArrowLeft") targetX = clamp(targetX - 26, BASKET_W / 2, W - BASKET_W / 2);
+    if (e.key === "ArrowRight") targetX = clamp(targetX + 26, BASKET_W / 2, W - BASKET_W / 2);
+  });
+
+  overBtn.addEventListener("click", start);
+  restartBtn.addEventListener("click", start);
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) pause(); else resume();
+  });
+
+  GameQuiz.init({
+    isPlaying: function () { return running && !paused; },
+    onOpen: pause,
+    onClose: resume
+  });
+})();
+</script>
+</body>
+</html>

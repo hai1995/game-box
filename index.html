@@ -174,7 +174,7 @@
     0%, 100% { transform: translateY(0) rotate(-4deg); }
     50%      { transform: translateY(-6px) rotate(4deg); }
   }
-  /* 错开浮动节奏，避免 29 个图标整齐同步 */
+  /* 错开浮动节奏，避免所有图标整齐同步 */
   .app:nth-child(3n)   .em { animation-delay: -1.2s; }
   .app:nth-child(3n+1) .em { animation-delay: -.4s; }
   .app:nth-child(3n+2) .em { animation-delay: -2.4s; }
@@ -223,6 +223,9 @@
   .c-tetris  { background: linear-gradient(135deg, #7c9cff 0%, #4263eb 100%); }
   .c-suika   { background: linear-gradient(135deg, #ffb36b 0%, #e8590c 100%); }
   .c-bubble  { background: linear-gradient(135deg, #64b5f6 0%, #1e88e5 100%); }
+  .c-catch   { background: linear-gradient(135deg, #ffb347 0%, #ff6a3d 100%); }
+  .c-ttt     { background: linear-gradient(135deg, #6a8dff 0%, #3f4bd8 100%); }
+  .c-lights  { background: linear-gradient(135deg, #b388ff 0%, #6a3de8 100%); }
   .c-quiz    { background: linear-gradient(135deg, #ff6b9d 0%, #ff9f43 100%); }
   /* 题目练习入口：加个「练习」小角标，与其他游戏区分 */
   .app-icon.quiz-icon { position: relative; }
@@ -420,6 +423,21 @@
     <a class="app" href="games/bubble-shooter/index.html" aria-label="打开 泡泡龙">
       <div class="app-icon c-bubble"><span class="em" data-app-icon="bubble">🫧</span></div>
       <div class="app-name">泡泡龙</div>
+    </a>
+
+    <a class="app" href="games/catch-fruit/" aria-label="打开 接水果">
+      <div class="app-icon c-catch"><span class="em" data-app-icon="basket">🧺</span></div>
+      <div class="app-name">接水果</div>
+    </a>
+
+    <a class="app" href="games/tic-tac-toe/" aria-label="打开 井字棋">
+      <div class="app-icon c-ttt"><span class="em" data-app-icon="grid">⭕</span></div>
+      <div class="app-name">井字棋</div>
+    </a>
+
+    <a class="app" href="games/memory-lights/" aria-label="打开 记忆亮灯">
+      <div class="app-icon c-lights"><span class="em" data-app-icon="bulb">💡</span></div>
+      <div class="app-name">记忆<br>亮灯</div>
     </a>
 
     <a class="app" href="practice/index.html" aria-label="打开 题目练习">

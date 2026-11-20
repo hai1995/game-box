@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#fff7e8">
+<title>井字棋 · 儿童游戏盒子</title>
+<link rel="stylesheet" href="../../theme.css">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    min-height: 100svh;
+    padding: calc(14px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .wrap { width: min(100%, 420px); display: flex; flex-direction: column; gap: 12px; flex: 1; }
+  .brand { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0; }
+  .brand h1 { font-size: clamp(22px, 6vw, 28px); margin: 0; }
+  .brand svg { width: 1.1em; height: 1.1em; }
+  .tip { text-align: center; margin: -4px 0 0; font-size: 13px; }
+
+  .hud { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+  .hud .pill { padding: 6px 12px; font-size: 14px; }
+  .hud b { color: var(--gb-primary-d); }
+
+  .modes { display: flex; justify-content: center; gap: 8px; }
+  .mode-btn {
+    border: 3px solid var(--gb-line); background: #fff; color: var(--gb-ink-soft);
+    border-radius: 999px; padding: 7px 18px; font: inherit; font-weight: 800; font-size: 14px;
+    cursor: pointer; box-shadow: 0 3px 0 rgba(210,150,120,.16);
+  }
+  .mode-btn.on {
+    color: #fff; border-color: #fff;
+    background: linear-gradient(180deg, #ff9bb8, var(--gb-primary));
+    box-shadow: 0 4px 0 var(--gb-primary-d), 0 6px 14px rgba(150,100,90,.16);
+  }
+
+  .status {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 34px; margin: 0; font-weight: 900; font-size: 16px; color: var(--gb-ink);
+    text-align: center;
+  }
+  .status svg { width: 30px; height: 30px; display: block; }
+  .status.win { color: #e08a00; }
+  .status.lose { color: #4a7ad9; }
+  .status.draw { color: #8a7361; }
+
+  .board {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+    width: min(100%, 360px); aspect-ratio: 1; margin: 0 auto;
+    padding: 4px;
+  }
+  .cell {
+    position: relative; padding: 0; border: 3px solid #fff; border-radius: 22px;
+    background: linear-gradient(180deg, #fffdf9, #fff6ec);
+    box-shadow: 0 6px 0 rgba(210,150,120,.22), 0 8px 16px rgba(150,100,90,.12);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font: inherit;
+    transition: transform .14s cubic-bezier(.2,.8,.3,1.2), box-shadow .14s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cell svg { width: 72%; height: 72%; display: block; filter: drop-shadow(0 3px 2px rgba(120,70,60,.22)); animation: pop .24s cubic-bezier(.2,.8,.3,1.4); }
+  .cell.p1 { background: linear-gradient(180deg, #fff2f7, #ffe0ec); cursor: default; }
+  .cell.p2 { background: linear-gradient(180deg, #eef7ff, #dcecff); cursor: default; }
+  .cell.win {
+    box-shadow: 0 0 0 4px #ffd166, 0 8px 18px rgba(240,170,40,.35);
+    animation: winPulse .7s ease-in-out infinite alternate;
+  }
+  .cell:active:not(.p1):not(.p2) { transform: scale(.95); }
+  @media (hover: hover) {
+    .cell:not(.p1):not(.p2):hover { transform: translateY(-3px); box-shadow: 0 10px 0 rgba(210,150,120,.2), 0 14px 20px rgba(150,100,90,.16); }
+  }
+  @keyframes pop { 0% { transform: scale(.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  @keyframes winPulse { from { transform: scale(1); } to { transform: scale(1.05); } }
+
+  .foot { display: flex; justify-content: center; gap: 10px; margin-top: 2px; }
+</style>
+</head>
+<body>
+<a class="home-btn" href="../../" aria-label="返回主页" title="返回主页">🏠</a>
+
+<div class="wrap">
+  <header class="brand">
+    <h1><span data-icon="cat"></span> 井字棋</h1>
+  </header>
+  <p class="tip">小猫先走，三子连成一线就获胜</p>
+
+  <div class="hud">
+    <span class="pill">小猫 <b id="catScore">0</b></span>
+    <span class="pill">平局 <b id="drawScore">0</b></span>
+    <span class="pill">小狗 <b id="dogScore">0</b></span>
+  </div>
+
+  <div class="modes">
+    <button class="mode-btn on" type="button" data-mode="ai">电脑对战</button>
+    <button class="mode-btn" type="button" data-mode="2p">双人</button>
+  </div>
+
+  <p class="status" id="status"></p>
+
+  <div class="board" id="board">
+    <button class="cell" type="button" data-i="0" aria-label="第 1 格"></button>
+    <button class="cell" type="button" data-i="1" aria-label="第 2 格"></button>
+    <button class="cell" type="button" data-i="2" aria-label="第 3 格"></button>
+    <button class="cell" type="button" data-i="3" aria-label="第 4 格"></button>
+    <button class="cell" type="button" data-i="4" aria-label="第 5 格"></button>
+    <button class="cell" type="button" data-i="5" aria-label="第 6 格"></button>
+    <button class="cell" type="button" data-i="6" aria-label="第 7 格"></button>
+    <button class="cell" type="button" data-i="7" aria-label="第 8 格"></button>
+    <button class="cell" type="button" data-i="8" aria-label="第 9 格"></button>
+  </div>
+
+  <div class="foot">
+    <button class="btn" id="again" type="button">再来一局</button>
+  </div>
+</div>
+
+<script src="../../icons.js"></script>
+<script src="../../save.js"></script>
+<script src="../../quiz.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var STATS_KEY = "tic_tac_toe_stats";
+  var LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  var cells = Array.prototype.slice.call(document.querySelectorAll(".cell"));
+  var statusEl = document.getElementById("status");
+  var catScoreEl = document.getElementById("catScore");
+  var dogScoreEl = document.getElementById("dogScore");
+  var drawScoreEl = document.getElementById("drawScore");
+  var modeBtns = Array.prototype.slice.call(document.querySelectorAll(".mode-btn"));
+
+  var stats = GameSave.load(STATS_KEY, null);
+  if (!stats || typeof stats.cat !== "number" || typeof stats.dog !== "number" || typeof stats.draw !== "number") {
+    stats = { cat: 0, dog: 0, draw: 0 };
+  }
+
+  var board = [];
+  var mode = "ai";
+  var turn = 1;
+  var gameOver = false;
+  var paused = false;
+  var aiTimer = 0;
+
+  function saveStats() { GameSave.save(STATS_KEY, stats); }
+  function paintStats() {
+    catScoreEl.textContent = stats.cat;
+    dogScoreEl.textContent = stats.dog;
+    drawScoreEl.textContent = stats.draw;
+  }
+  paintStats();
+
+  function setStatus(icon, text, cls) {
+    statusEl.className = "status" + (cls ? " " + cls : "");
+    statusEl.innerHTML = (icon ? GameIcons.get(icon) : "") + "<span>" + text + "</span>";
+  }
+
+  function newRound() {
+    clearTimeout(aiTimer);
+    board = [0,0,0,0,0,0,0,0,0];
+    turn = 1;
+    gameOver = false;
+    for (var i = 0; i < cells.length; i++) {
+      cells[i].className = "cell";
+      cells[i].innerHTML = "";
+    }
+    sayTurn();
+  }
+
+  function sayTurn() {
+    if (turn === 1) setStatus("cat", "轮到小猫", "");
+    else setStatus("dog", mode === "ai" ? "小狗思考中…" : "轮到小狗", "");
+  }
+
+  function winner() {
+    for (var i = 0; i < LINES.length; i++) {
+      var a = board[LINES[i][0]], b = board[LINES[i][1]], c = board[LINES[i][2]];
+      if (a && a === b && b === c) return { who: a, line: LINES[i] };
+    }
+    return null;
+  }
+
+  function place(i, who) {
+    if (gameOver || board[i]) return;
+    board[i] = who;
+    cells[i].className = "cell p" + who;
+    cells[i].innerHTML = GameIcons.get(who === 1 ? "cat" : "dog");
+
+    var win = winner();
+    if (win) {
+      gameOver = true;
+      for (var k = 0; k < win.line.length; k++) cells[win.line[k]].classList.add("win");
+      if (win.who === 1) { stats.cat += 1; setStatus("cat", "小猫赢啦！", "win"); }
+      else {
+        stats.dog += 1;
+        setStatus("dog", (mode === "ai" ? "小狗（电脑）赢啦！" : "小狗赢啦！"), "lose");
+      }
+      saveStats(); paintStats();
+      return;
+    }
+
+    for (var j = 0; j < 9; j++) {
+      if (!board[j]) break;
+      if (j === 8) {
+        gameOver = true;
+        stats.draw += 1; saveStats(); paintStats();
+        setStatus("sparkle", "平局，再来一局吧", "draw");
+        return;
+      }
+    }
+
+    turn = who === 1 ? 2 : 1;
+    sayTurn();
+    if (mode === "ai" && turn === 2) scheduleAI();
+  }
+
+  function scheduleAI() {
+    clearTimeout(aiTimer);
+    aiTimer = setTimeout(function () {
+      if (gameOver) return;
+      if (paused) { scheduleAI(); return; }
+      if (mode !== "ai" || turn !== 2) return;
+      var mv = chooseMove();
+      if (mv >= 0) place(mv, 2);
+    }, 430);
+  }
+
+  function emptyCells() {
+    var out = [];
+    for (var i = 0; i < 9; i++) if (!board[i]) out.push(i);
+    return out;
+  }
+
+  function randomEmpty() {
+    var e = emptyCells();
+    return e.length ? e[Math.floor(Math.random() * e.length)] : -1;
+  }
+
+  function chooseMove() {
+    if (Math.random() < .22) return randomEmpty();   // 偶尔放水，给小朋友赢的机会
+
+    var i;
+    for (i = 0; i < 9; i++) {
+      if (!board[i]) { board[i] = 2; var w1 = winner(); board[i] = 0; if (w1 && w1.who === 2) return i; }
+    }
+    for (i = 0; i < 9; i++) {
+      if (!board[i]) { board[i] = 1; var w2 = winner(); board[i] = 0; if (w2 && w2.who === 1) return i; }
+    }
+    if (!board[4]) return 4;
+    var corners = [0, 2, 6, 8].filter(function (n) { return !board[n]; });
+    if (corners.length) return corners[Math.floor(Math.random() * corners.length)];
+    return randomEmpty();
+  }
+
+  function onCellClick(e) {
+    if (gameOver || paused) return;
+    var i = Number(e.currentTarget.getAttribute("data-i"));
+    if (board[i]) return;
+    if (mode === "ai" && turn !== 1) return;
+    place(i, turn);
+  }
+
+  for (var c = 0; c < cells.length; c++) cells[c].addEventListener("click", onCellClick);
+
+  for (var m = 0; m < modeBtns.length; m++) {
+    modeBtns[m].addEventListener("click", function (e) {
+      var next = e.currentTarget.getAttribute("data-mode");
+      if (next === mode) return;
+      mode = next;
+      for (var n = 0; n < modeBtns.length; n++) modeBtns[n].classList.toggle("on", modeBtns[n] === e.currentTarget);
+      newRound();
+    });
+  }
+
+  document.getElementById("again").addEventListener("click", newRound);
+
+  GameQuiz.init({
+    isPlaying: function () { return !gameOver && !paused; },
+    onOpen: function () { paused = true; clearTimeout(aiTimer); },
+    onClose: function () {
+      paused = false;
+      if (mode === "ai" && turn === 2 && !gameOver) scheduleAI();
+    }
+  });
+
+  newRound();
+})();
+</script>
+</body>
+</html>

@@ -287,6 +287,10 @@
     cloud:     '<path d="M18 45a10 10 0 0 1-1-20 13 13 0 0 1 25-3 10 10 0 0 1 3 23z" fill="#fff"/>',
     puzzle:    '<path d="M17 17h11a5 5 0 1 1 9 0h10v11a5 5 0 1 0 0 9v10H36a5 5 0 1 0-9 0H17V37a5 5 0 1 1 0-9z" fill="#fff"/>',
     gamepad:   '<path d="M19 23h26c6 0 9 4 9 10v6c0 6-4 9-9 9-4 0-6-2-9-4h-8c-3 2-5 4-9 4-5 0-9-3-9-9v-6c0-6 3-10 9-10z" fill="#fff"/><path d="M19 33v9m-4.5-4.5h9" stroke="#000" stroke-width="3" opacity=".38" stroke-linecap="round"/><circle cx="44" cy="34" r="2.6" fill="#000" opacity=".38"/><circle cx="49" cy="40" r="2.6" fill="#000" opacity=".38"/>',
+    star:      '<path d="M32 10l7 15 16 2-12 11 3 16-14-8-14 8 3-16-12-11 16-2z" fill="#fff"/>',
+    heart:     '<path d="M32 53C19 44 11 36 11 26c0-8 6-13 13-13 4 0 7 2 8 6 1-4 4-6 8-6 7 0 13 5 13 13 0 10-8 18-21 27z" fill="#fff"/>',
+    flower:    '<g fill="#fff"><circle cx="32" cy="19" r="8.5"/><circle cx="32" cy="45" r="8.5"/><circle cx="19" cy="32" r="8.5"/><circle cx="45" cy="32" r="8.5"/></g><circle cx="32" cy="32" r="5" fill="#000" opacity=".22"/>',
+    sparkle:   '<path d="M32 8l4 16 16 4-16 4-4 16-4-16-16-4 16-4z" fill="#fff"/>',
     hash:      '<path d="M25 15 20 49m19-34-5 34M15 26h34M13 38h34" stroke="#fff" stroke-width="5" stroke-linecap="round"/>',
     hex:       '<path d="M32 11 51 22v20L32 53 13 42V22z" fill="#fff"/>',
     link:      '<path d="M26 38 38 26m-16 2-4 4c-5 5-5 12 0 17s12 5 17 0l4-4m4-16 4-4c5-5 5-12 0-17s-12-5-17 0l-4 4" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>',
@@ -494,6 +498,26 @@
       '<rect x="34" y="9" width="21" height="21" rx="5" fill="#fff" opacity=".75"/>' +
       '<rect x="9" y="34" width="21" height="21" rx="5" fill="#fff" opacity=".75"/>' +
       '<path d="M39 50h10M44 45v10" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".55"/>'
+    ),
+    basket: wrap(
+      '<path d="M20 24c0-8 5-12 12-12s12 4 12 12" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".7"/>' +
+      '<path d="M12 22h40l-4 24a9 9 0 0 1-9 8H25a9 9 0 0 1-9-8z" fill="#fff"/>' +
+      '<path d="M23 27l-2 22M32 27v22M41 27l2 22" stroke="#000" stroke-width="2" opacity=".14" stroke-linecap="round"/>' +
+      '<path d="M16 30c10 3 22 3 32 0" stroke="#000" stroke-width="2" opacity=".1" stroke-linecap="round"/>' +
+      '<ellipse cx="24" cy="25" rx="5" ry="2.2" fill="#fff" opacity=".65" transform="rotate(-8 24 25)"/>'
+    ),
+    grid: wrap(
+      '<rect x="10" y="10" width="44" height="44" rx="11" fill="#fff"/>' +
+      '<path d="M25 15v34M39 15v34M15 25h34M15 39h34" stroke="#000" stroke-width="2.4" opacity=".16"/>' +
+      '<path d="M17 17l5 5M22 17l-5 5" stroke="#000" stroke-width="2.2" opacity=".3" stroke-linecap="round"/>' +
+      '<circle cx="47" cy="17" r="3.4" fill="none" stroke="#000" stroke-width="2.2" opacity=".3"/>'
+    ),
+    bulb: wrap(
+      '<path d="M32 8c-10 0-18 7-18 16 0 6 4 10 7 13 2 2 3 4 3 6h16c0-2 1-4 3-6 3-3 7-7 7-13 0-9-8-16-18-16z" fill="#fff"/>' +
+      '<rect x="25" y="42" width="14" height="10" rx="3" fill="#fff"/>' +
+      '<path d="M27 46h10M28 50h8" stroke="#000" stroke-width="2" opacity=".18" stroke-linecap="round"/>' +
+      '<path d="M25 30c2-5 6-7 11-7" fill="none" stroke="#000" stroke-width="2" opacity=".1" stroke-linecap="round"/>' +
+      '<ellipse cx="26" cy="19" rx="5" ry="2.4" fill="#fff" opacity=".7" transform="rotate(-35 26 19)"/>'
     )
   };
   function appSvgOf(name) { return APP[name] || ""; }
