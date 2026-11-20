@@ -385,6 +385,7 @@
 
   function tick() {
     if (opened) return;
+    if (typeof document !== "undefined" && document.hidden) return; // 页面不可见时不累计，省电
     if (typeof cfg.isPlaying === "function" && !cfg.isPlaying()) return;
     elapsed++;
     if (elapsed >= (cfg.interval || QUIZ_INTERVAL_SECONDS)) open();

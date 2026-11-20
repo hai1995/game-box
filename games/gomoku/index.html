@@ -8,7 +8,7 @@
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { width:100%; min-height:100%; overflow-x:hidden; font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
-  body { background:linear-gradient(160deg,#fff3e0 0%,#e8f5ff 55%,#f3e9ff 100%); background-attachment:fixed; color:#3b2f2f; padding-bottom:calc(26px + env(safe-area-inset-bottom)); }
+  body { background:linear-gradient(160deg,#fff3e0 0%,#e8f5ff 55%,#f3e9ff 100%);color:#3b2f2f; padding-bottom:calc(26px + env(safe-area-inset-bottom)); }
   .home-btn { position:fixed; left:12px; top:calc(12px + env(safe-area-inset-top)); z-index:30;
     width:46px; height:46px; border-radius:50%; background:rgba(255,255,255,.92);
     border:3px solid #ffb703; box-shadow:0 4px 0 rgba(0,0,0,.14); color:#d62828;
@@ -135,6 +135,8 @@
   var lastMove = null;              // 最近一次落子（用于闪烁光晕提示）
   var aiTimer = null, aiThinking = false;
   var raf = 0;
+  // 静态棋盘离屏缓存：网格/星位/棋子只画一次，每帧仅叠加最近落子光晕
+  var staticCv = document.createElement("canvas"), sctx = staticCv.getContext("2d"), staticDirty = true;
 
   function emptyBoard(n) {
     var b = [];
@@ -178,10 +180,13 @@
   function applyZoom() {
     size = Math.round(baseSize * zoomPct / 100);
     if (size < 160) size = 160;
-    var dpr = window.devicePixelRatio || 1;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);   // 限制 2x，减少高分辨率屏绘制量
     canvas.style.width = size + "px"; canvas.style.height = size + "px";
     canvas.width = Math.round(size * dpr); canvas.height = Math.round(size * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    staticCv.width = canvas.width; staticCv.height = canvas.height;
+    sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    staticDirty = true;
     cell = size / (N + 1);
     if (zoomLabel) zoomLabel.textContent = zoomPct + "%";
     draw(performance.now());
@@ -201,30 +206,38 @@
     saveGame();
   }
 
-  function draw(ts) {
-    if (typeof ts !== "number") ts = performance.now();
-    ctx.fillStyle = "#f0c987";
-    ctx.fillRect(0, 0, size, size);
-    ctx.strokeStyle = "#7a5230"; ctx.lineWidth = 1;
-    ctx.beginPath();
+  // 把棋盘底色/网格/星位/棋子一次性画进离屏画布；棋盘变化时只重绘一次
+  function renderStatic() {
+    var c = sctx;
+    c.clearRect(0, 0, size, size);
+    c.fillStyle = "#f0c987";
+    c.fillRect(0, 0, size, size);
+    c.strokeStyle = "#7a5230"; c.lineWidth = 1;
+    c.beginPath();
     for (var i = 0; i < N; i++) {
       var p = cell * (i + 1);
-      ctx.moveTo(cell, p); ctx.lineTo(size - cell, p);
-      ctx.moveTo(p, cell); ctx.lineTo(p, size - cell);
+      c.moveTo(cell, p); c.lineTo(size - cell, p);
+      c.moveTo(p, cell); c.lineTo(p, size - cell);
     }
-    ctx.stroke();
+    c.stroke();
     // 星位：四个角星 + 天元（随棋盘大小自适应）
     var far = N - 4, mid = Math.floor((N - 1) / 2);
     var stars = [[3,3],[3,far],[far,3],[far,far],[mid,mid]];
-    ctx.fillStyle = "#7a5230";
+    c.fillStyle = "#7a5230";
     for (var s = 0; s < stars.length; s++) {
-      ctx.beginPath();
-      ctx.arc(cell * (stars[s][0] + 1), cell * (stars[s][1] + 1), Math.max(2, cell * 0.09), 0, Math.PI * 2);
-      ctx.fill();
+      c.beginPath();
+      c.arc(cell * (stars[s][0] + 1), cell * (stars[s][1] + 1), Math.max(2, cell * 0.09), 0, Math.PI * 2);
+      c.fill();
     }
-    for (var r = 0; r < N; r++) for (var c = 0; c < N; c++) {
-      if (board[r][c]) stone(cell * (c + 1), cell * (r + 1), board[r][c]);
+    for (var r = 0; r < N; r++) for (var cc = 0; cc < N; cc++) {
+      if (board[r][cc]) stone(c, cell * (cc + 1), cell * (r + 1), board[r][cc]);
     }
+  }
+  function draw(ts) {
+    if (typeof ts !== "number") ts = performance.now();
+    if (staticDirty) { renderStatic(); staticDirty = false; }
+    ctx.clearRect(0, 0, size, size);
+    ctx.drawImage(staticCv, 0, 0, size, size);
     // 最近落子：四周闪烁光晕提示（玩家 / 电脑都适用）
     if (lastMove) drawLastGlow(ts);
   }
@@ -257,18 +270,18 @@
     ctx.restore();
   }
 
-  function stone(x, y, color) {
+  function stone(c, x, y, color) {
     var rad = cell * 0.42;
-    ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2);
-    ctx.fillStyle = color === 1 ? "#2a2a2a" : "#fdfdfd";
-    ctx.shadowColor = "rgba(0,0,0,.35)"; ctx.shadowBlur = 4; ctx.shadowOffsetY = 2;
-    ctx.fill();
-    ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-    ctx.strokeStyle = "rgba(0,0,0,.25)"; ctx.lineWidth = 1; ctx.stroke();
-    var g = ctx.createRadialGradient(x - rad * .35, y - rad * .35, rad * .1, x, y, rad);
+    c.beginPath(); c.arc(x, y, rad, 0, Math.PI * 2);
+    c.fillStyle = color === 1 ? "#2a2a2a" : "#fdfdfd";
+    c.shadowColor = "rgba(0,0,0,.35)"; c.shadowBlur = 4; c.shadowOffsetY = 2;
+    c.fill();
+    c.shadowColor = "transparent"; c.shadowBlur = 0; c.shadowOffsetY = 0;
+    c.strokeStyle = "rgba(0,0,0,.25)"; c.lineWidth = 1; c.stroke();
+    var g = c.createRadialGradient(x - rad * .35, y - rad * .35, rad * .1, x, y, rad);
     if (color === 1) { g.addColorStop(0, "rgba(255,255,255,.4)"); g.addColorStop(1, "rgba(255,255,255,0)"); }
     else { g.addColorStop(0, "rgba(255,255,255,1)"); g.addColorStop(1, "rgba(190,190,190,.25)"); }
-    ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fillStyle = g; ctx.fill();
+    c.beginPath(); c.arc(x, y, rad, 0, Math.PI * 2); c.fillStyle = g; c.fill();
   }
   function countDir(r, c, dr, dc, color) {
     var n = 0, rr = r + dr, cc = c + dc;
@@ -318,6 +331,7 @@
   }
   function commit(r, c, color) {
     board[r][c] = color;
+    staticDirty = true;
     moves.push({ r: r, c: c, color: color });
     lastMove = { r: r, c: c, color: color };
     stepsEl.textContent = moves.length;
@@ -453,6 +467,7 @@
       var m = moves.pop();
       board[m.r][m.c] = 0;
     }
+    staticDirty = true;
     lastMove = moves.length ? moves[moves.length - 1] : null;
     if (mode === "ai") {
       current = 1;  // 人机模式退回到玩家（黑棋）
@@ -475,7 +490,7 @@
   function restart(fresh) {
     var saved = fresh ? null : (window.GameSave ? GameSave.load(SAVE_KEY, null) : null);
     clearAITimer();
-    board = emptyBoard(N); moves = []; current = 1; finished = false; lastMove = null;
+    board = emptyBoard(N); moves = []; current = 1; finished = false; lastMove = null; staticDirty = true;
     // 注意：mode / level 保留当前值作为默认，不在此重置——
     // setMode()/setLevel() 会先设置再调用 restart，重置会导致切换失效。
     // 读档并迁移：兼容任意旧棋盘尺寸（如 15×15），居中嵌入新棋盘，保留走子与设置

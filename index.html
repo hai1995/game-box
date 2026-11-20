@@ -24,7 +24,6 @@
     font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
     color: var(--ink);
     background: linear-gradient(160deg, #fff6e5 0%, #ffeaf1 55%, #e9f4ff 100%);
-    background-attachment: fixed;
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
@@ -222,6 +221,15 @@
   footer .heart { color: #ff6b81; }
   /* 页脚爱心跟随文字大小，不要撑成大图 */
   footer [data-icon] svg { width: 1em; height: 1em; }
+
+  /* 尊重系统「减少动态效果」：关闭装饰动画，避免低端设备持续重绘 29 个图标 */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: .001ms !important;
+    }
+  }
 </style>
 </head>
 <body>

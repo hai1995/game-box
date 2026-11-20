@@ -29,7 +29,6 @@ body {
   font-family: var(--gb-font);
   color: var(--gb-ink);
   background: var(--gb-bg);
-  background-attachment: fixed;
   margin: 0;
   min-height: 100vh;
 }
@@ -150,3 +149,13 @@ body {
 
 /* 统一的小提示文字 */
 .hint, .tip { color: var(--gb-ink-soft); font-size: 13px; }
+
+/* 尊重系统「减少动态效果」：关闭装饰动画与过渡，降低低端设备的持续重绘与耗电 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -8,7 +8,7 @@
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { width:100%; min-height:100%; overflow-x:hidden; font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
-  body { background:linear-gradient(160deg,#eef2ff 0%,#e8f0fe 50%,#f3ecff 100%); background-attachment:fixed; color:#2f3550; padding-bottom:calc(28px + env(safe-area-inset-bottom)); }
+  body { background:linear-gradient(160deg,#eef2ff 0%,#e8f0fe 50%,#f3ecff 100%);color:#2f3550; padding-bottom:calc(28px + env(safe-area-inset-bottom)); }
   .home-btn { position:fixed; left:12px; top:calc(12px + env(safe-area-inset-top)); z-index:30;
     width:46px; height:46px; border-radius:50%; background:rgba(255,255,255,.94);
     border:3px solid #7c9cff; box-shadow:0 4px 0 rgba(70,100,200,.25); color:#3b5bdb;
@@ -115,6 +115,8 @@
   var COLS = 10, ROWS = 20, CELL = 26;
   var canvas = document.getElementById("board"), ctx = canvas.getContext("2d");
   var nextCv = document.getElementById("next"), nctx = nextCv.getContext("2d");
+  var bgCv = document.createElement("canvas"), bgctx = bgCv.getContext("2d");   // 静态棋盘背景缓存
+  var NEXT_W = 84, NEXT_H = 54;
   var overlay = document.getElementById("overlay");
   var scorePill = document.getElementById("scorePill"), bestPill = document.getElementById("bestPill");
   var levelV = document.getElementById("levelV"), linesV = document.getElementById("linesV");
@@ -230,10 +232,7 @@
   }
   function draw(){
     var W=COLS*CELL,H=ROWS*CELL;
-    ctx.fillStyle="#1b2140"; ctx.fillRect(0,0,W,H);
-    // 网格
-    ctx.strokeStyle="rgba(255,255,255,.05)"; ctx.lineWidth=1;
-    for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++) ctx.strokeRect(c*CELL,r*CELL,CELL,CELL);
+    ctx.drawImage(bgCv,0,0,W,H);   // 预绘制的深色底 + 网格线
     // 已落定方块
     for(var rr=0;rr<ROWS;rr++)for(var cc=0;cc<COLS;cc++) if(grid[rr][cc]) drawCell(ctx,cc*CELL,rr*CELL,grid[rr][cc]);
     // 当前方块
@@ -252,7 +251,7 @@
       ctx.fillStyle="#fff"; ctx.font="bold 28px sans-serif"; ctx.textAlign="center"; ctx.fillText("暂停中",W/2,H/2); }
   }
   function drawNext(){
-    var w=nextCv.width/ (window.devicePixelRatio||1), h=nextCv.height/(window.devicePixelRatio||1);
+    var w=NEXT_W, h=NEXT_H;
     nctx.clearRect(0,0,w,h);
     if(!next)return;
     var cells=SHAPES[next.t].s[0], col=SHAPES[next.t].c;
@@ -267,17 +266,24 @@
     }
   }
   function setup(){
-    var dpr=window.devicePixelRatio||1;
+    var dpr=Math.min(window.devicePixelRatio||1,2);   // 限制 2x，减少高分辨率屏绘制量
     var availH=Math.min(window.innerHeight-330, ROWS*CELL);
     var sc=Math.min(1, availH/(ROWS*CELL));
     var cw=Math.round(COLS*CELL*sc), chh=Math.round(ROWS*CELL*sc);
     canvas.style.width=cw+"px"; canvas.style.height=chh+"px";
     canvas.width=Math.round(cw*dpr); canvas.height=Math.round(chh*dpr);
     ctx.setTransform(dpr*sc,0,0,dpr*sc,0,0);
+    // 预绘制静态背景（深色底 + 网格线），之后每帧直接贴图
+    var W=COLS*CELL, H=ROWS*CELL;
+    bgCv.width=canvas.width; bgCv.height=canvas.height;
+    bgctx.setTransform(dpr*sc,0,0,dpr*sc,0,0);
+    bgctx.fillStyle="#1b2140"; bgctx.fillRect(0,0,W,H);
+    bgctx.strokeStyle="rgba(255,255,255,.05)"; bgctx.lineWidth=1;
+    for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++) bgctx.strokeRect(c*CELL,r*CELL,CELL,CELL);
     // next 画布
-    var ncss=84;
-    nextCv.style.width=ncss+"px"; nextCv.style.height="54px";
-    nextCv.width=Math.round(ncss*dpr); nextCv.height=Math.round(54*dpr);
+    NEXT_W=84; NEXT_H=54;
+    nextCv.style.width=NEXT_W+"px"; nextCv.style.height=NEXT_H+"px";
+    nextCv.width=Math.round(NEXT_W*dpr); nextCv.height=Math.round(NEXT_H*dpr);
     nctx.setTransform(dpr,0,0,dpr,0,0);
     draw(); drawNext();
   }

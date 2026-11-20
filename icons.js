@@ -356,9 +356,9 @@
 
   var imgCache = {};
   function image(name, cb) {
+    if (imgCache[name]) { if (cb && imgCache[name].complete) cb(imgCache[name]); return imgCache[name]; }
     var svg = ICONS[name] || (UI[name] ? badge(name) : null);
     if (!svg) return null;
-    if (imgCache[name]) { if (cb && imgCache[name].complete) cb(imgCache[name]); return imgCache[name]; }
     var img = new Image();
     // 显式补 width/height，保证作为 <img> 绘制时有内在尺寸
     var full = svg.replace("<svg ", '<svg width="64" height="64" ');
@@ -368,12 +368,16 @@
     return img;
   }
 
-  // 把一段 inner 包成 SVG（供自动装饰用）
+  // 把一段 inner 包成 SVG（供自动装饰用）。结果按 名称+模式 缓存，避免重复拼接字符串。
+  var svgCache = {};
   function svgOf(name, mode) {
-    if (ICONS[name]) return ICONS[name];
-    if (!UI[name]) return "";
-    if (mode === "badge") return badge(name);
-    return wrap(UI[name]);
+    var k = (mode || "symbol") + ":" + name;
+    if (svgCache[k] !== undefined) return svgCache[k];
+    var out = "";
+    if (ICONS[name]) out = ICONS[name];
+    else if (UI[name]) out = (mode === "badge") ? badge(name) : wrap(UI[name]);
+    svgCache[k] = out;
+    return out;
   }
 
   // emoji -> 图标名，用于把页面里的装饰 emoji 自动换成 SVG
@@ -462,13 +466,30 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", autoDecorate);
   else autoDecorate();
 
+  // 对外 API 的结果缓存：游戏可能在绘制循环里反复取同一个图标，避免重复拼接 SVG 字符串
+  var apiCache = {};
   window.GameIcons = {
     // 完整彩色图标（水果/动物/场景）——独立展示用
-    get: function (name) { ensureDefs(); return ICONS[name] || (UI[name] ? badge(name) : ""); },
+    get: function (name) {
+      ensureDefs();
+      var k = "g:" + name;
+      if (apiCache[k] !== undefined) return apiCache[k];
+      return (apiCache[k] = ICONS[name] || (UI[name] ? badge(name) : ""));
+    },
     // 纯白符号——放进已有彩色底的按钮/胶囊/返回键里
-    symbol: function (name) { ensureDefs(); return UI[name] ? wrap(UI[name]) : ""; },
+    symbol: function (name) {
+      ensureDefs();
+      var k = "s:" + name;
+      if (apiCache[k] !== undefined) return apiCache[k];
+      return (apiCache[k] = UI[name] ? wrap(UI[name]) : "");
+    },
     // 带圆角底的 UI 徽章（独立小图标）
-    badge: function (name) { ensureDefs(); return UI[name] ? badge(name) : ""; },
+    badge: function (name) {
+      ensureDefs();
+      var k = "b:" + name;
+      if (apiCache[k] !== undefined) return apiCache[k];
+      return (apiCache[k] = UI[name] ? badge(name) : "");
+    },
     decorate: autoDecorate,
     image: image,
     has: function (name) { return !!(ICONS[name] || UI[name]); }

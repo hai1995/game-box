@@ -8,7 +8,7 @@
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { width:100%; min-height:100%; overflow-x:hidden; font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
-  body { background:linear-gradient(160deg,#e8f7ff 0%,#eef0ff 55%,#fdeaff 100%); background-attachment:fixed; color:#33415c; padding-bottom:calc(28px + env(safe-area-inset-bottom)); }
+  body { background:linear-gradient(160deg,#e8f7ff 0%,#eef0ff 55%,#fdeaff 100%);color:#33415c; padding-bottom:calc(28px + env(safe-area-inset-bottom)); }
   .home-btn { position:fixed; left:12px; top:calc(12px + env(safe-area-inset-top)); z-index:30;
     width:46px; height:46px; border-radius:50%; background:rgba(255,255,255,.94);
     border:3px solid #4facfe; box-shadow:0 4px 0 rgba(40,120,200,.25); color:#1e88e5;
@@ -108,6 +108,7 @@
   var aimAngle = -Math.PI/2;
   var score=0, best=0, muted=false, over=false, won=false, quizPaused=false;
   var audioCtx=null, lastT=0, raf=0, firing=false;
+  var bgGrad=null, spriteCache={}, SPRITE_SCALE=2;   // 背景渐变 & 泡泡精灵缓存
 
   function load(){ var s=window.GameSave?GameSave.load(SAVE_KEY,null):null;
     if(s&&typeof s==="object"){ best=(typeof s.best==="number"&&s.best>=0)?Math.floor(s.best):0; muted=s.muted===true; } }
@@ -139,13 +140,14 @@
   function setup(){
     var w=Math.min(380,window.innerWidth-28); if(w<260)w=260;
     W=w; COLS=Math.floor((W-2*R)/(2*R)); H=ROWS*2*R*0.87+R+70;
-    var dpr=window.devicePixelRatio||1;
+    var dpr=Math.min(window.devicePixelRatio||1,2);   // 高分辨率手机上限制 2x
     canvas.style.width=W+"px"; canvas.style.height=H+"px";
     canvas.width=Math.round(W*dpr); canvas.height=Math.round(H*dpr);
     ctx.setTransform(dpr,0,0,dpr,0,0);
     var ncss=48; nextCv.style.width=ncss+"px"; nextCv.style.height=ncss+"px";
     nextCv.width=Math.round(ncss*dpr); nextCv.height=Math.round(ncss*dpr);
     nctx.setTransform(dpr,0,0,dpr,0,0);
+    bgGrad=null;
     shooter.x=W/2; shooter.y=H-30;
     drawNext();
   }
@@ -264,21 +266,31 @@
     }
     for(var k=particles.length-1;k>=0;k--){var pt=particles[k];pt.x+=pt.vx;pt.y+=pt.vy;pt.vy+=0.1;pt.life-=0.03;if(pt.life<=0)particles.splice(k,1);}
   }
-  function drawBubble(c,x,y,colorIdx,scale){
-    var r=R*(scale||1), col=COLORS[colorIdx].c;
+  // 预渲染每种颜色的泡泡为离屏精灵，之后每帧 drawImage，避免反复创建径向渐变
+  function bubbleSprite(colorIdx){
+    if(spriteCache[colorIdx]) return spriteCache[colorIdx];
+    var col=COLORS[colorIdx].c, r=R*SPRITE_SCALE, pad=r*0.3, size=Math.ceil((r+pad)*2);
+    var cv=document.createElement("canvas"); cv.width=size; cv.height=size;
+    var c=cv.getContext("2d"), x=size/2, y=size/2;
     var g=c.createRadialGradient(x-r*0.35,y-r*0.4,r*0.1,x,y,r);
     g.addColorStop(0,"#ffffff"); g.addColorStop(0.25,col); g.addColorStop(1,shade(col,0.7));
     c.fillStyle=g; c.beginPath(); c.arc(x,y,r,0,Math.PI*2); c.fill();
-    c.strokeStyle="rgba(0,0,0,.1)";c.lineWidth=1;c.stroke();
-    c.fillStyle="rgba(255,255,255,.6)";c.beginPath();c.ellipse(x-r*0.3,y-r*0.35,r*0.22,r*0.12,-0.5,0,Math.PI*2);c.fill();
+    c.strokeStyle="rgba(0,0,0,.1)"; c.lineWidth=SPRITE_SCALE; c.stroke();
+    c.fillStyle="rgba(255,255,255,.6)"; c.beginPath(); c.ellipse(x-r*0.3,y-r*0.35,r*0.22,r*0.12,-0.5,0,Math.PI*2); c.fill();
+    spriteCache[colorIdx]=cv;
+    return cv;
+  }
+  function drawBubble(c,x,y,colorIdx,scale){
+    var r=R*(scale||1), s=r*2.6;
+    c.drawImage(bubbleSprite(colorIdx), x-s/2, y-s/2, s, s);
   }
   function shade(h,t){h=h.replace("#","");if(h.length===3)h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
     var r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
     return "rgb("+Math.round(r*t)+","+Math.round(g*t)+","+Math.round(b*t)+")";}
   function draw(){
     ctx.clearRect(0,0,W,H);
-    var g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,"#eaf7ff");g.addColorStop(1,"#f3edff");
-    ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+    if(!bgGrad){ bgGrad=ctx.createLinearGradient(0,0,0,H); bgGrad.addColorStop(0,"#eaf7ff"); bgGrad.addColorStop(1,"#f3edff"); }
+    ctx.fillStyle=bgGrad;ctx.fillRect(0,0,W,H);
     // 底部危险线
     ctx.strokeStyle="rgba(230,80,80,.4)";ctx.lineWidth=2;ctx.setLineDash([6,5]);
     ctx.beginPath();ctx.moveTo(0,H-58);ctx.lineTo(W,H-58);ctx.stroke();ctx.setLineDash([]);
