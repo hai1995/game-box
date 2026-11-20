@@ -10,10 +10,11 @@
   html,body { width:100%; min-height:100%; overflow-x:hidden; font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
   body { background:linear-gradient(160deg,#fff6e0 0%,#ffeaf0 55%,#eaf6ff 100%);color:#4a3a2f; padding-bottom:calc(28px + env(safe-area-inset-bottom)); }
   .home-btn { position:fixed; left:12px; top:calc(12px + env(safe-area-inset-top)); z-index:30;
-    width:46px; height:46px; border-radius:50%; background:rgba(255,255,255,.94);
-    border:3px solid #ffb703; box-shadow:0 4px 0 rgba(200,140,0,.25); color:#e07a00;
+    width:46px; height:46px; border-radius:50%; background:linear-gradient(180deg,#ffb36b,#f4883a);
+    border:3px solid #fff; box-shadow:0 4px 0 rgba(200,140,0,.35);
     display:flex; align-items:center; justify-content:center; font-size:26px; text-decoration:none; }
-  .home-btn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(200,140,0,.25); }
+  .home-btn svg { width:26px; height:26px; display:block; }
+  .home-btn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(200,140,0,.35); }
   .hero { text-align:center; padding:calc(18px + env(safe-area-inset-top)) 12px 2px; }
   .hero .logo { font-size:40px; animation:bob 3.4s ease-in-out infinite; }
   @keyframes bob { 0%,100%{transform:translateY(0) rotate(-6deg)} 50%{transform:translateY(-6px) rotate(6deg)} }
@@ -127,7 +128,17 @@
 
   function setup(){
     var w=Math.min(400, window.innerWidth-28); if(w<260)w=260;
-    W=w; H=w*1.28; DANGER_Y=H*0.13;
+    var h=w*1.28;
+    // 按视口高度收缩棋盘，保证下方「下一个 / 重新开始 / 提示」完整可见
+    var outerH=function(el){ if(!el)return 0; var cs=getComputedStyle(el);
+      return el.offsetHeight+(parseFloat(cs.marginTop)||0)+(parseFloat(cs.marginBottom)||0); };
+    var below=outerH(document.querySelector(".nextbar"))+outerH(document.querySelector(".tools"))+outerH(document.querySelector(".hint"));
+    var padB=parseFloat(getComputedStyle(document.body).paddingBottom)||0;
+    var topDoc=canvas.getBoundingClientRect().top+(window.scrollY||0);
+    var maxH=window.innerHeight-topDoc-below-padB-6;
+    if(maxH>240&&h>maxH){ h=maxH; w=Math.round(h/1.28); }
+    if(w<240){ w=240; h=Math.round(w*1.28); }
+    W=w; H=Math.round(h); DANGER_Y=H*0.13;
     var dpr=Math.min(window.devicePixelRatio||1,2);   // 高分辨率手机上限制 2x，降低绘制像素量
     canvas.style.width=W+"px"; canvas.style.height=H+"px";
     canvas.width=Math.round(W*dpr); canvas.height=Math.round(H*dpr);
@@ -182,7 +193,8 @@
       var A=balls[p],B=balls[q], fA=FRUITS[A.t], fB=FRUITS[B.t];
       var dx=B.x-A.x, dy=B.y-A.y, dist=Math.sqrt(dx*dx+dy*dy)||0.01, min=fA.r+fB.r;
       if(dist<min){
-        if(A.t===B.t){ mergeBalls(A,B); p=-1; break; } // 重新遍历
+        // 已到最大水果（西瓜）时不能再合成，否则会反复进入合并分支导致死循环卡死
+        if(A.t===B.t && A.t<FRUITS.length-1){ mergeBalls(A,B); p=-1; break; } // 重新遍历
         var overlap=(min-dist)/2, nx2=dx/dist, ny2=dy/dist;
         A.x-=nx2*overlap; A.y-=ny2*overlap; B.x+=nx2*overlap; B.y+=ny2*overlap;
         var rvx=B.vx-A.vx, rvy=B.vy-A.vy, dot=rvx*nx2+rvy*ny2;
