@@ -124,13 +124,15 @@
     var y=R+row*2*R*0.87;
     return {x:x,y:y};
   }
+  // 奇数行向右错半格，列数少一列，保证网格与 neighbors() 的六边形邻接一致
+  function rowCols(r){ return (r%2===0) ? COLS : Math.max(1, COLS-1); }
   function initGrid(){
     grid=[];
-    for(var r=0;r<6;r++){ grid[r]=[];
-      var cols = ROWS%2===0 ? (r%2?COLS-1:COLS) : (r%2?COLS:COLS-1);
-      for(var c=0;c<cols;c++) grid[r][c]=Math.floor(Math.random()*COLORS.length);
+    for(var r=0;r<ROWS;r++){
+      grid[r]=[];
+      var cols=rowCols(r);
+      for(var c=0;c<cols;c++) grid[r][c]=(r<6)?Math.floor(Math.random()*COLORS.length):-1;
     }
-    for(var rr=6;rr<ROWS;rr++)grid[rr]=[];
   }
   function setup(){
     var w=Math.min(380,window.innerWidth-28); if(w<260)w=260;
