@@ -259,16 +259,17 @@
     var opts = { duration: ms, easing: "cubic-bezier(.34,1.05,.64,1)", fill: "forwards" };
     sa.style.position = "relative"; sb.style.position = "relative";
     sa.style.zIndex = "3"; sb.style.zIndex = "3";
-    sa.animate([
+    var aa = sa.animate([
       { transform: "translate(0,0) scale(1)" },
       { transform: "translate(" + dx * 0.5 + "px," + dy * 0.5 + "px) scale(1.1)", offset: 0.5 },
       { transform: "translate(" + dx + "px," + dy + "px) scale(1)" }
     ], opts);
-    sb.animate([
+    var ab = sb.animate([
       { transform: "translate(0,0) scale(1)" },
       { transform: "translate(" + (-dx * 0.5) + "px," + (-dy * 0.5) + "px) scale(1.1)", offset: 0.5 },
       { transform: "translate(" + (-dx) + "px," + (-dy) + "px) scale(1)" }
     ], opts);
+    return [aa, ab];
   }
   function makesMatch(a, b) {
     swapValues(a, b);
@@ -376,12 +377,27 @@
         resolve(findMatches(), 0);
       }, 190);
     } else {
-      cells[a.r][a.c].classList.add("wrong");
-      cells[b.r][b.c].classList.add("wrong");
+      // 无效交换：先换过去，再原路弹回，最后抖动提示
+      busy = true;
+      var seq2 = animSeq;
+      var anims = animateSwap(a, b, 120);
+      if (anims) setTimeout(function () {
+        if (seq2 !== animSeq) return;
+        anims[0].reverse();
+        anims[1].reverse();
+      }, 135);
       setTimeout(function () {
-        cells[a.r][a.c].classList.remove("wrong");
-        cells[b.r][b.c].classList.remove("wrong");
-      }, 320);
+        if (seq2 !== animSeq) { busy = false; return; }
+        if (anims) { anims[0].cancel(); anims[1].cancel(); }
+        cells[a.r][a.c].classList.add("wrong");
+        cells[b.r][b.c].classList.add("wrong");
+        setTimeout(function () {
+          if (seq2 !== animSeq) return;
+          cells[a.r][a.c].classList.remove("wrong");
+          cells[b.r][b.c].classList.remove("wrong");
+          busy = false;
+        }, 280);
+      }, anims ? 275 : 0);
     }
   }
   function reset(fresh) {
