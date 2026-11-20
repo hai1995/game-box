@@ -131,32 +131,63 @@
     to   { opacity: 1; transform: translateY(0); }
   }
 
-  /* App 图标本体 */
+  /* App 图标本体：果冻立体感 + 玻璃高光 */
   .app {
-    width: 92px;
+    width: 94px;
   }
   .app-icon {
-    width: 100%; max-width: 92px; aspect-ratio: 1 / 1;
-    border-radius: 24px;
+    position: relative;
+    width: 100%; max-width: 94px; aspect-ratio: 1 / 1;
+    border-radius: 27%;
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 8px 16px rgba(120, 90, 90, .2), inset 0 2px 6px rgba(255,255,255,.5);
-    transition: transform .18s ease, box-shadow .18s ease;
+    border: 3px solid rgba(255,255,255,.75);
+    box-shadow:
+      0 10px 20px -8px rgba(96, 70, 70, .45),
+      0 3px 8px rgba(96, 70, 70, .16),
+      inset 0 2px 8px rgba(255,255,255,.5),
+      inset 0 -8px 14px rgba(0,0,0,.14);
+    transition: transform .22s cubic-bezier(.2,.8,.3,1.2), box-shadow .22s ease;
   }
+  /* 顶部高光 + 斜向反光 + 底部弧光（只做装饰，不拦截点击） */
+  .app-icon::before {
+    content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    border-radius: inherit;
+    background:
+      radial-gradient(120% 85% at 22% 4%, rgba(255,255,255,.38), rgba(255,255,255,.1) 34%, rgba(255,255,255,0) 58%),
+      linear-gradient(135deg, rgba(255,255,255,0) 42%, rgba(255,255,255,.18) 49%, rgba(255,255,255,0) 56%),
+      radial-gradient(90% 60% at 50% 118%, rgba(255,255,255,.16), rgba(255,255,255,0) 62%);
+  }
+  /* 图标落在半透明圆形托盘上，白色 SVG 更有层次 */
   .app-icon .em {
+    position: relative; z-index: 1;
+    width: 70%; height: 70%; border-radius: 50%;
     font-size: 46px; line-height: 1;
-    filter: drop-shadow(0 4px 5px rgba(0,0,0,.16));
-    animation: floatEm 3.5s ease-in-out infinite;
     display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 32% 26%, rgba(255,255,255,.24), rgba(255,255,255,.06) 56%, rgba(255,255,255,0) 72%);
+    filter: drop-shadow(0 4px 4px rgba(0,0,0,.22));
+    animation: floatEm 3.8s ease-in-out infinite;
   }
   /* 统一白色 SVG 图标：自动装饰会把 .em 里的 emoji 换成 [data-icon] */
-  .app-icon .em [data-icon] svg { width: 50px; height: 50px; display: block; }
+  .app-icon .em [data-icon] svg { width: 54px; height: 54px; display: block; }
   @keyframes floatEm {
-    0%, 100% { transform: translateY(0) rotate(-5deg); }
-    50%      { transform: translateY(-7px) rotate(5deg); }
+    0%, 100% { transform: translateY(0) rotate(-4deg); }
+    50%      { transform: translateY(-6px) rotate(4deg); }
   }
-  .app:active .app-icon { transform: scale(.92); }
+  /* 错开浮动节奏，避免 29 个图标整齐同步 */
+  .app:nth-child(3n)   .em { animation-delay: -1.2s; }
+  .app:nth-child(3n+1) .em { animation-delay: -.4s; }
+  .app:nth-child(3n+2) .em { animation-delay: -2.4s; }
+  .app:active .app-icon { transform: scale(.9) rotate(-1deg); }
   @media (hover: hover) {
-    .app:hover .app-icon { transform: translateY(-5px); box-shadow: 0 14px 24px rgba(120, 90, 90, .26); }
+    .app:hover .app-icon {
+      transform: translateY(-6px) rotate(-2deg);
+      box-shadow:
+        0 18px 28px -10px rgba(96, 70, 70, .5),
+        0 6px 12px rgba(96, 70, 70, .18),
+        inset 0 2px 8px rgba(255,255,255,.6),
+        inset 0 -8px 14px rgba(0,0,0,.14);
+    }
+    .app:hover .em { animation-play-state: paused; }
   }
 
   .app-name {
