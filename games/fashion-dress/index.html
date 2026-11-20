@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>👗 时尚换装</title>
+<link rel="stylesheet" href="../../theme.css">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { width:100%; min-height:100%; overflow-x:hidden; font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
+  body { background:linear-gradient(160deg,#fff0f6 0%,#f7ecff 50%,#eaf0ff 100%); background-attachment:fixed; color:#4a3a58; padding-bottom:calc(28px + env(safe-area-inset-bottom)); }
+  .home-btn { position:fixed; left:12px; top:calc(12px + env(safe-area-inset-top)); z-index:30;
+    width:46px; height:46px; border-radius:50%; background:rgba(255,255,255,.94);
+    border:3px solid #c9a6ff; box-shadow:0 4px 0 rgba(140,90,200,.25); color:#8b5cf6;
+    display:flex; align-items:center; justify-content:center; font-size:26px; text-decoration:none; }
+  .home-btn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(140,90,200,.25); }
+  .hero { text-align:center; padding:calc(18px + env(safe-area-inset-top)) 12px 2px; }
+  .hero .logo { font-size:42px; animation:bob 3.4s ease-in-out infinite; }
+  @keyframes bob { 0%,100%{transform:translateY(0) rotate(-5deg)} 50%{transform:translateY(-6px) rotate(5deg)} }
+  .hero h1 { font-size:clamp(22px,6vw,29px); margin:3px 0; color:#8b5cf6; letter-spacing:1px; }
+  .hero p { font-size:12.5px; color:#9484a5; max-width:420px; margin:0 auto; }
+  .wrap { max-width:470px; margin:0 auto; padding:0 14px; text-align:center; }
+  .hud { display:flex; justify-content:center; align-items:center; gap:10px; margin:12px 0; flex-wrap:wrap; }
+  .pill { background:#fff; border:3px solid #ddc9ff; border-radius:999px; padding:6px 15px;
+    font-size:14px; font-weight:800; color:#8b5cf6; box-shadow:0 4px 0 #e8dcff; white-space:nowrap; }
+  .icon-btn { border:3px solid #ddc9ff; background:#fff; color:#8b5cf6; border-radius:999px;
+    width:42px; height:38px; font-size:18px; font-weight:900; cursor:pointer; box-shadow:0 4px 0 #e8dcff; }
+  .icon-btn:active { transform:translateY(2px); box-shadow:0 1px 0 #e8dcff; }
+  canvas { display:block; margin:0 auto; border-radius:16px; touch-action:manipulation;
+    box-shadow:0 8px 20px rgba(140,90,200,.2); }
+  .tabs { display:flex; justify-content:center; gap:6px; margin:14px 0 10px; flex-wrap:wrap; }
+  .tab { border:2px solid #e0d0ff; background:#fff; color:#8b5cf6; border-radius:999px;
+    padding:7px 13px; font-size:13px; font-weight:800; cursor:pointer; box-shadow:0 3px 0 #ede4ff; }
+  .tab:active { transform:translateY(2px); }
+  .tab.sel { background:linear-gradient(180deg,#b48cff,#8b5cf6); color:#fff; border-color:#fff; box-shadow:0 3px 0 #6d3fd6; }
+  .opts { display:flex; flex-wrap:wrap; justify-content:center; gap:9px; min-height:48px; }
+  .opt { border:2px solid #e6dbff; background:#fff; border-radius:14px; padding:8px 12px; cursor:pointer;
+    font-size:13px; font-weight:800; color:#6d5a80; box-shadow:0 3px 0 #efe8ff; position:relative; overflow:hidden; }
+  .opt:active { transform:translateY(2px); box-shadow:0 1px 0 #efe8ff; }
+  .opt.sel { outline:3px solid #8b5cf6; outline-offset:1px; color:#8b5cf6; }
+  .opt .chip { display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:5px; vertical-align:-1px; border:1px solid rgba(0,0,0,.12); }
+  .tools { display:flex; justify-content:center; gap:10px; margin:16px 0 2px; flex-wrap:wrap; }
+  .btn { border:none; border-radius:999px; padding:11px 20px; font-size:15px; font-weight:900; color:#fff; cursor:pointer; box-shadow:0 5px 0 rgba(0,0,0,.14); }
+  .btn:active { transform:translateY(3px); box-shadow:0 2px 0 rgba(0,0,0,.14); }
+  .btn.rand { background:linear-gradient(180deg,#ff9ec4,#ff6b9d); box-shadow:0 5px 0 #e83e7a; }
+  .btn.done { background:linear-gradient(180deg,#7bdcb5,#38c48c); box-shadow:0 5px 0 #1e9c6a; }
+  .overlay { position:fixed; inset:0; z-index:40; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:rgba(248,242,255,.95); backdrop-filter:blur(4px); text-align:center; padding:20px; }
+  .overlay.hidden { display:none; }
+  .overlay .big { font-size:72px; animation:pop .6s ease; }
+  @keyframes pop { 0%{transform:scale(.6)} 60%{transform:scale(1.15)} 100%{transform:scale(1)} }
+  .overlay h2 { font-size:28px; color:#8b5cf6; margin:8px 0; }
+  .overlay p { font-size:16px; color:#7a6a8a; margin:4px 0 6px; line-height:1.6; }
+  .overlay .score { font-size:44px; font-weight:900; color:#ff7a3d; margin:6px 0 14px; }
+  .overlay .btn { background:linear-gradient(180deg,#7bdcb5,#38c48c); box-shadow:0 5px 0 #1e9c6a; }
+</style>
+</head>
+<body>
+<a class="home-btn" href="../../" aria-label="返回主页" title="返回主页">🏠</a>
+
+<header class="hero">
+  <div class="logo">👗</div>
+  <h1>时尚换装</h1>
+  <p>发型、上衣、裙子、鞋子、配饰自由搭配，看看你能拿多少分！</p>
+</header>
+
+<div class="wrap">
+  <div class="hud">
+    <div class="pill" id="bestPill">最佳搭配 0</div>
+    <div class="pill" id="looksPill">造型 0</div>
+    <button class="icon-btn" id="soundBtn" title="音效开关">🔊</button>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="opts" id="opts"></div>
+
+  <div class="tools">
+    <button class="btn rand" id="randBtn">🎲 随机一套</button>
+    <button class="btn done" id="doneBtn">⭐ 给搭配打分</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="overlay">
+  <div class="big">👗</div>
+  <h2>今日穿搭</h2>
+  <p id="ovText"></p>
+  <div class="score" id="ovScore">0</div>
+  <p id="ovBest"></p>
+  <button class="btn" id="ovBtn">继续搭配</button>
+</div>
+
+<script src="../../icons.js"></script>
+<script src="../../quiz.js"></script>
+<script src="../../save.js"></script>
+<script>
+(function () {
+  "use strict";
+  var SAVE_KEY = "fashion-dress";
+  var canvas = document.getElementById("canvas"), ctx = canvas.getContext("2d");
+  var overlay = document.getElementById("overlay");
+  var bestPill = document.getElementById("bestPill"), looksPill = document.getElementById("looksPill");
+  var soundBtn = document.getElementById("soundBtn");
+  var tabsEl = document.getElementById("tabs"), optsEl = document.getElementById("opts");
+
+  // 5 个部位，每个若干选项（name + 主色 + 次色）
+  var PARTS = [
+    { key:"hair", label:"发型", items:[
+      { name:"栗色长发", c:"#6d4c3d", c2:"#8b6249" },
+      { name:"金色卷发", c:"#e8b84b", c2:"#f5d67a" },
+      { name:"黑色短发", c:"#2b2b33", c2:"#45454f" },
+      { name:"酒红长发", c:"#8e2b45", c2:"#b23a5b" },
+      { name:"亚麻色", c:"#c9a06b", c2:"#e0bd8c" }
+    ]},
+    { key:"top", label:"上衣", items:[
+      { name:"白衬衫", c:"#ffffff", c2:"#e8e8e8" },
+      { name:"粉色针织", c:"#ff9ec4", c2:"#ffc0d8" },
+      { name:"蓝色条纹", c:"#5b9bd5", c2:"#dbeaf7" },
+      { name:"黑色上衣", c:"#33333b", c2:"#55555f" },
+      { name:"绿色开衫", c:"#6fbf9a", c2:"#a9dcc5" },
+      { name:"鹅黄毛衣", c:"#f4cf5e", c2:"#f9e59a" }
+    ]},
+    { key:"bottom", label:"下装", items:[
+      { name:"蓝色牛仔裤", c:"#4a6fa5", c2:"#6f91bd" },
+      { name:"黑色短裙", c:"#2f2f37", c2:"#4a4a55" },
+      { name:"米色长裙", c:"#e6d3b3", c2:"#f2e5cd" },
+      { name:"红色半裙", c:"#d64550", c2:"#eb6f78" },
+      { name:"灰色西裤", c:"#8d8d99", c2:"#adadb8" }
+    ]},
+    { key:"shoes", label:"鞋子", items:[
+      { name:"红色高跟", c:"#d64550", c2:"#a52f39" },
+      { name:"白色运动鞋", c:"#ffffff", c2:"#dcdcdc" },
+      { name:"黑色短靴", c:"#33333b", c2:"#50505a" },
+      { name:"裸色单鞋", c:"#e3bfa6", c2:"#f0d5c1" },
+      { name:"棕色乐福", c:"#8b5a2b", c2:"#a9743f" }
+    ]},
+    { key:"acc", label:"配饰", items:[
+      { name:"无配饰", c:"#cccccc", c2:"#cccccc" },
+      { name:"珍珠项链", c:"#f5f0e6", c2:"#ffffff" },
+      { name:"红色围巾", c:"#d64550", c2:"#eb6f78" },
+      { name:"太阳镜", c:"#33333b", c2:"#6f6f7a" },
+      { name:"金色耳环", c:"#e8b84b", c2:"#f5d67a" },
+      { name:"蓝色手包", c:"#5b9bd5", c2:"#8bb8e0" }
+    ]}
+  ];
+  var sel = [0,0,0,0,0];             // 各部位当前选项
+  var activePart = 0;
+  var best = 0, looks = 0, muted = false, quizPaused = false;
+  var audioCtx = null, size = 0;
+
+  function load() {
+    var s = window.GameSave ? GameSave.load(SAVE_KEY, null) : null;
+    if (s && typeof s === "object") {
+      best = (typeof s.best === "number" && s.best >= 0) ? Math.floor(s.best) : 0;
+      looks = (typeof s.looks === "number" && s.looks >= 0) ? Math.floor(s.looks) : 0;
+      muted = s.muted === true;
+      if (Array.isArray(s.sel) && s.sel.length === PARTS.length) {
+        var ok = true;
+        for (var i=0;i<PARTS.length;i++) {
+          if (typeof s.sel[i] !== "number" || s.sel[i] < 0 || s.sel[i] >= PARTS[i].items.length) { ok=false; break; }
+        }
+        if (ok) sel = s.sel.slice();
+      }
+    }
+  }
+  function save() {
+    if (!window.GameSave) return;
+    GameSave.save(SAVE_KEY, { best:best, looks:looks, muted:muted, sel:sel });
+  }
+  function refreshHud() {
+    bestPill.textContent = "最佳搭配 " + best;
+    looksPill.textContent = "造型 " + looks;
+    soundBtn.textContent = muted ? "🔇" : "🔊";
+  }
+  function ensureAudio() {
+    if (muted) return null;
+    try { if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume(); return audioCtx; } catch(e){ return null; }
+  }
+  function beep(freq, dur, type, vol) {
+    var ac = ensureAudio(); if (!ac) return;
+    try { var o=ac.createOscillator(), g=ac.createGain(); o.type=type||"sine"; o.frequency.value=freq;
+      g.gain.setValueAtTime(vol||0.1, ac.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime+dur);
+      o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime+dur); } catch(e){}
+  }
+  function sfxTap(){ beep(600,.07,"sine",.09); }
+  function sfxNice(){ beep(523,.09,"sine",.09); setTimeout(function(){beep(659,.09,"sine",.09);},80); setTimeout(function(){beep(784,.14,"sine",.09);},160); }
+
+  function setup() {
+    var w = Math.min(420, window.innerWidth - 28); if (w<260) w=260;
+    size = w; var dpr = window.devicePixelRatio||1;
+    canvas.style.width = size+"px"; canvas.style.height = size+"px";
+    canvas.width = Math.round(size*dpr); canvas.height = Math.round(size*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    draw();
+  }
+  function item(partIdx){ return PARTS[partIdx].items[sel[partIdx]]; }
+  function hexRgb(h){ h=h.replace("#",""); if(h.length===3)h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+    return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; }
+  function shade(h, t){ var c=hexRgb(h); return "rgb("+Math.round(c[0]*t)+","+Math.round(c[1]*t)+","+Math.round(c[2]*t)+")"; }
+
+  function draw() {
+    var W = size, H = size, cx = W/2;
+    // 背景：柔和影棚
+    var g = ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,"#fdf6ff"); g.addColorStop(1,"#f0e9ff");
+    ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle = "rgba(180,150,220,.12)";
+    ctx.beginPath(); ctx.ellipse(cx,H*0.9,W*0.3,H*0.05,0,0,Math.PI*2); ctx.fill();
+    // 展台圆
+    ctx.fillStyle = "rgba(255,255,255,.55)";
+    ctx.beginPath(); ctx.ellipse(cx,H*0.88,W*0.24,H*0.045,0,0,Math.PI*2); ctx.fill();
+
+    var top = H*0.14, footY = H*0.86;
+    var headR = W*0.085, headY = top + headR;
+    var shoulderY = headY + headR*1.5;
+    var waistY = shoulderY + H*0.17;
+    var hipY = waistY + H*0.06;
+    var kneeY = hipY + H*0.18;
+
+    // ===== 头发（后层）=====
+    var hair = item(0);
+    ctx.fillStyle = hair.c;
+    ctx.beginPath();
+    ctx.ellipse(cx, headY+headR*0.1, headR*1.28, headR*1.7, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // ===== 腿 =====
+    ctx.strokeStyle = "#f0c9a8"; ctx.lineWidth = W*0.045; ctx.lineCap="round";
+    ctx.beginPath(); ctx.moveTo(cx-W*0.045, hipY); ctx.lineTo(cx-W*0.05, kneeY); ctx.lineTo(cx-W*0.05, footY-W*0.06); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx+W*0.045, hipY); ctx.lineTo(cx+W*0.05, kneeY); ctx.lineTo(cx+W*0.05, footY-W*0.06); ctx.stroke();
+
+    // ===== 鞋子 =====
+    var shoes = item(3);
+    ctx.fillStyle = shoes.c;
+    drawShoe(cx-W*0.05, footY-W*0.05, W*0.085, shoes.c2);
+    drawShoe(cx+W*0.05, footY-W*0.05, W*0.085, shoes.c2);
+
+    // ===== 下装 =====
+    var bottom = item(2), isSkirt = /裙/.test(bottom.name);
+    ctx.fillStyle = bottom.c;
+    if (isSkirt) {
+      ctx.beginPath();
+      ctx.moveTo(cx-W*0.075, waistY);
+      ctx.lineTo(cx+W*0.075, waistY);
+      ctx.lineTo(cx+W*0.13, hipY+H*0.12);
+      ctx.lineTo(cx-W*0.13, hipY+H*0.12);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = bottom.c2;
+      for (var f=-2;f<=2;f++){ ctx.beginPath(); ctx.moveTo(cx+f*W*0.05,waistY); ctx.lineTo(cx+f*W*0.056,hipY+H*0.12); ctx.lineTo(cx+(f+0.4)*W*0.05,hipY+H*0.12); ctx.closePath(); ctx.fill(); }
+    } else {
+      ctx.fillRect(cx-W*0.085, waistY, W*0.075, kneeY+H*0.02);
+      ctx.fillRect(cx+W*0.01, waistY, W*0.075, kneeY+H*0.02);
+      ctx.fillStyle = shade(bottom.c,1.15);
+      ctx.fillRect(cx-W*0.086, waistY, W*0.012, kneeY+H*0.02);
+      ctx.fillRect(cx+W*0.074, waistY, W*0.012, kneeY+H*0.02);
+    }
+
+    // ===== 上衣 =====
+    var topI = item(1);
+    ctx.fillStyle = topI.c;
+    ctx.beginPath();
+    ctx.moveTo(cx-W*0.10, shoulderY);
+    ctx.lineTo(cx-W*0.075, waistY+2);
+    ctx.lineTo(cx+W*0.075, waistY+2);
+    ctx.lineTo(cx+W*0.10, shoulderY);
+    ctx.quadraticCurveTo(cx, shoulderY-W*0.04, cx-W*0.10, shoulderY);
+    ctx.closePath(); ctx.fill();
+    // 领口
+    ctx.fillStyle = "#f0c9a8";
+    ctx.beginPath(); ctx.ellipse(cx, shoulderY-W*0.005, W*0.032, W*0.02, 0,0,Math.PI*2); ctx.fill();
+    // 条纹/针织纹理
+    if (/条纹/.test(topI.name)) {
+      ctx.strokeStyle = topI.c2; ctx.lineWidth = W*0.012;
+      for (var st=0;st<5;st++){ var yy=shoulderY+H*0.02+st*H*0.022; ctx.beginPath(); ctx.moveTo(cx-W*0.09,yy); ctx.lineTo(cx+W*0.09,yy); ctx.stroke(); }
+    } else if (/针织|毛衣|开衫/.test(topI.name)) {
+      ctx.strokeStyle = topI.c2; ctx.lineWidth=2;
+      for (var st2=0;st2<6;st2++){ var yy2=shoulderY+H*0.02+st2*H*0.018; ctx.beginPath(); ctx.moveTo(cx-W*0.07,yy2); ctx.lineTo(cx+W*0.07,yy2); ctx.stroke(); }
+    }
+    // 手臂
+    ctx.strokeStyle = topI.c; ctx.lineWidth = W*0.032; ctx.lineCap="round";
+    ctx.beginPath(); ctx.moveTo(cx-W*0.095, shoulderY+H*0.01); ctx.lineTo(cx-W*0.13, waistY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx+W*0.095, shoulderY+H*0.01); ctx.lineTo(cx+W*0.13, waistY); ctx.stroke();
+    ctx.strokeStyle = "#f0c9a8"; ctx.lineWidth = W*0.022;
+    ctx.beginPath(); ctx.moveTo(cx-W*0.13, waistY); ctx.lineTo(cx-W*0.14, waistY+H*0.06); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx+W*0.13, waistY); ctx.lineTo(cx+W*0.14, waistY+H*0.06); ctx.stroke();
+
+    // ===== 脸 + 头发（前层）=====
+    ctx.fillStyle = "#f6d3b6";
+    ctx.beginPath(); ctx.ellipse(cx, headY, headR*0.86, headR, 0,0,Math.PI*2); ctx.fill();
+    // 眼睛 & 微笑
+    ctx.fillStyle = "#4a3a3a";
+    ctx.beginPath(); ctx.arc(cx-headR*0.3, headY, headR*0.07,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx+headR*0.3, headY, headR*0.07,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle="#c76b7a"; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(cx, headY+headR*0.28, headR*0.22, 0.15*Math.PI, 0.85*Math.PI); ctx.stroke();
+    // 腮红
+    ctx.fillStyle="rgba(255,120,150,.25)";
+    ctx.beginPath(); ctx.arc(cx-headR*0.5, headY+headR*0.2, headR*0.14,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx+headR*0.5, headY+headR*0.2, headR*0.14,0,Math.PI*2); ctx.fill();
+    // 刘海
+    ctx.fillStyle = hair.c;
+    ctx.beginPath();
+    ctx.ellipse(cx, headY-headR*0.55, headR*0.9, headR*0.55, 0, Math.PI, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath(); ctx.moveTo(cx-headR*0.85,headY-headR*0.4); ctx.quadraticCurveTo(cx-headR*0.2,headY+headR*0.1,cx+headR*0.2,headY-headR*0.35);
+    ctx.quadraticCurveTo(cx+headR*0.6,headY+headR*0.05,cx+headR*0.9,headY-headR*0.5); ctx.lineTo(cx+headR*0.9,headY-headR*0.8); ctx.lineTo(cx-headR*0.85,headY-headR*0.8); ctx.closePath(); ctx.fill();
+    // 长发两侧
+    if (/长发|卷发|亚麻|酒红/.test(hair.name)) {
+      ctx.fillStyle = hair.c2;
+      ctx.fillRect(cx-headR*1.2, headY, headR*0.36, H*0.22);
+      ctx.fillRect(cx+headR*0.84, headY, headR*0.36, H*0.22);
+    }
+
+    // ===== 配饰 =====
+    var acc = item(4), an = acc.name;
+    if (an === "珍珠项链") {
+      ctx.strokeStyle="#fff"; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(cx, shoulderY+H*0.01, W*0.05, 0.1*Math.PI, 0.9*Math.PI); ctx.stroke();
+      for (var q=0;q<5;q++){ var a=Math.PI*(0.15+q*0.175); ctx.fillStyle="#fff"; ctx.beginPath(); ctx.arc(cx+Math.cos(a)*W*0.05, shoulderY+H*0.01+Math.sin(a)*W*0.05, 2.4,0,Math.PI*2); ctx.fill(); }
+    } else if (an === "红色围巾") {
+      ctx.fillStyle=acc.c; ctx.fillRect(cx-W*0.06, shoulderY-W*0.01, W*0.12, W*0.04);
+      ctx.fillRect(cx+W*0.02, shoulderY, W*0.035, H*0.08);
+    } else if (an === "太阳镜") {
+      ctx.fillStyle="#333"; ctx.fillRect(cx-headR*0.75,headY-headR*0.12,headR*0.55,headR*0.28);
+      ctx.fillRect(cx+headR*0.2,headY-headR*0.12,headR*0.55,headR*0.28);
+      ctx.fillRect(cx-headR*0.2,headY-headR*0.04,headR*0.4,headR*0.06);
+    } else if (an === "金色耳环") {
+      ctx.strokeStyle=acc.c; ctx.lineWidth=2.5;
+      ctx.beginPath(); ctx.arc(cx-headR*0.86,headY+headR*0.25,headR*0.13,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx+headR*0.86,headY+headR*0.25,headR*0.13,0,Math.PI*2); ctx.stroke();
+    } else if (an === "蓝色手包") {
+      ctx.fillStyle=acc.c; roundRectPath(cx+W*0.14, waistY+H*0.04, W*0.09, H*0.06, 6); ctx.fill();
+      ctx.strokeStyle=acc.c2; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(cx+W*0.185,waistY+H*0.04,W*0.02,Math.PI,Math.PI*2); ctx.stroke();
+    }
+
+    // 台标
+    ctx.fillStyle="rgba(120,90,150,.35)"; ctx.font="11px sans-serif"; ctx.textAlign="center";
+    ctx.fillText("FASHION  STUDIO", cx, H-8);
+  }
+  function drawShoe(x,y,w,c2){
+    ctx.fillRect(x-w/2,y-w*0.1,w,w*0.7);
+    ctx.fillStyle=c2; ctx.fillRect(x-w/2,y+w*0.45,w*1.2,w*0.16);
+    ctx.fillStyle=item(3).c;
+  }
+  function roundRectPath(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+  /* ---------- 面板 ---------- */
+  function buildTabs(){
+    for (var i=0;i<PARTS.length;i++){
+      (function(idx){
+        var b=document.createElement("button"); b.className="tab"+(idx===activePart?" sel":""); b.textContent=PARTS[idx].label;
+        b.addEventListener("click",function(){ activePart=idx; var ts=tabsEl.children; for(var j=0;j<ts.length;j++)ts[j].classList.toggle("sel",j===idx); buildOpts(); sfxTap(); });
+        tabsEl.appendChild(b);
+      })(i);
+    }
+  }
+  function buildOpts(){
+    optsEl.innerHTML="";
+    var items = PARTS[activePart].items;
+    for (var i=0;i<items.length;i++){
+      (function(idx){
+        var it=items[idx], b=document.createElement("button"); b.className="opt"+(sel[activePart]===idx?" sel":"");
+        var chip=document.createElement("span"); chip.className="chip"; chip.style.background=it.c;
+        b.appendChild(chip); b.appendChild(document.createTextNode(it.name));
+        b.addEventListener("click",function(){ sel[activePart]=idx; var os=optsEl.children; for(var j=0;j<os.length;j++)os[j].classList.toggle("sel",j===idx); sfxTap(); draw(); save(); });
+        optsEl.appendChild(b);
+      })(i);
+    }
+  }
+
+  document.getElementById("randBtn").addEventListener("click", function(){
+    for (var i=0;i<PARTS.length;i++) sel[i]=Math.floor(Math.random()*PARTS[i].items.length);
+    sfxNice(); draw(); save(); buildTabsRefresh();
+  });
+  function buildTabsRefresh(){ /* 选项高亮在切 tab 时按 sel 重建即可 */ buildOpts(); }
+  soundBtn.addEventListener("click", function(){ muted=!muted; refreshHud(); save(); if(!muted)sfxTap(); });
+  document.getElementById("doneBtn").addEventListener("click", function(){
+    // 配色和谐度：主色之间的接近度 + 成套色系奖励
+    var mainColors = [ item(0).c, item(1).c, item(2).c, item(3).c ];
+    var warmth = 0, cool = 0, neutral = 0;
+    for (var i=0;i<mainColors.length;i++){
+      var c=hexRgb(mainColors[i]), mx=Math.max(c[0],c[1],c[2]), mn=Math.min(c[0],c[1],c[2]);
+      if (mx-mn<28) neutral++; else if (c[0]>=c[2]) warmth++; else cool++;
+    }
+    var dominant = Math.max(warmth,cool,neutral);
+    var harmony = dominant*14;                    // 色系统一
+    var accessoryBonus = sel[4]===0 ? 0 : 16;     // 有配饰加分
+    var neutralBonus = neutral*4;                 // 基础色百搭
+    var score = 40 + harmony + accessoryBonus + neutralBonus;
+    if (score>100) score=100;
+    looks++; var isBest = score>best; if(isBest)best=score; save(); refreshHud(); sfxNice();
+    var styleName = dominant===warmth?"暖色系":(dominant===cool?"冷色系":"简约中性色");
+    document.getElementById("ovText").textContent =
+      "发型「"+item(0).name+"」+ "+item(1).name+" + "+item(2).name+"　整体偏向"+styleName+(sel[4]===0?"":"，配饰点睛！");
+    document.getElementById("ovScore").textContent = score+" 分";
+    document.getElementById("ovBest").textContent = isBest?"🎉 新的最佳搭配值！":("最佳搭配："+best+" 分");
+    overlay.classList.remove("hidden");
+  });
+  document.getElementById("ovBtn").addEventListener("click",function(){ overlay.classList.add("hidden"); });
+
+  window.addEventListener("resize", setup);
+  load(); buildTabs(); buildOpts(); refreshHud(); setup();
+
+  if (window.GameQuiz) {
+    GameQuiz.init({
+      isPlaying: function(){ return overlay.classList.contains("hidden"); },
+      onOpen: function(){ quizPaused=true; },
+      onClose: function(){ quizPaused=false; },
+      onReward: function(){ beep(880,.12,"sine",.1); }
+    });
+  }
+})();
+</script>
+</body>
+</html>

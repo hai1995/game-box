@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>🧁 甜品烘培屋</title>
+<link rel="stylesheet" href="../../theme.css">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { width:100%; min-height:100%; overflow-x:hidden; font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
+  body { background:linear-gradient(160deg,#fff4ec 0%,#ffeaf0 50%,#f6eaff 100%); background-attachment:fixed; color:#5a4038; padding-bottom:calc(28px + env(safe-area-inset-bottom)); }
+  .home-btn { position:fixed; left:12px; top:calc(12px + env(safe-area-inset-top)); z-index:30;
+    width:46px; height:46px; border-radius:50%; background:rgba(255,255,255,.94);
+    border:3px solid #ffb59b; box-shadow:0 4px 0 rgba(200,110,80,.25); color:#e8633a;
+    display:flex; align-items:center; justify-content:center; font-size:26px; text-decoration:none; }
+  .home-btn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(200,110,80,.25); }
+  .hero { text-align:center; padding:calc(18px + env(safe-area-inset-top)) 12px 2px; }
+  .hero .logo { font-size:42px; animation:bob 3.4s ease-in-out infinite; }
+  @keyframes bob { 0%,100%{transform:translateY(0) rotate(-5deg)} 50%{transform:translateY(-6px) rotate(5deg)} }
+  .hero h1 { font-size:clamp(22px,6vw,29px); margin:3px 0; color:#e8633a; letter-spacing:1px; }
+  .hero p { font-size:12.5px; color:#a8887a; max-width:420px; margin:0 auto; }
+  .wrap { max-width:470px; margin:0 auto; padding:0 14px; text-align:center; }
+  .hud { display:flex; justify-content:center; align-items:center; gap:10px; margin:12px 0; flex-wrap:wrap; }
+  .pill { background:#fff; border:3px solid #ffd0b8; border-radius:999px; padding:6px 15px;
+    font-size:14px; font-weight:800; color:#e8633a; box-shadow:0 4px 0 #ffe2d2; white-space:nowrap; }
+  .icon-btn { border:3px solid #ffd0b8; background:#fff; color:#e8633a; border-radius:999px;
+    width:42px; height:38px; font-size:18px; font-weight:900; cursor:pointer; box-shadow:0 4px 0 #ffe2d2; }
+  .icon-btn:active { transform:translateY(2px); box-shadow:0 1px 0 #ffe2d2; }
+  canvas { display:block; margin:0 auto; border-radius:16px; touch-action:manipulation;
+    box-shadow:0 8px 20px rgba(200,110,80,.2); }
+  .tabs { display:flex; justify-content:center; gap:6px; margin:14px 0 10px; flex-wrap:wrap; }
+  .tab { border:2px solid #ffd8c4; background:#fff; color:#d9623a; border-radius:999px;
+    padding:7px 13px; font-size:13px; font-weight:800; cursor:pointer; box-shadow:0 3px 0 #ffe8dc; }
+  .tab:active { transform:translateY(2px); }
+  .tab.sel { background:linear-gradient(180deg,#ff9f68,#f4773a); color:#fff; border-color:#fff; box-shadow:0 3px 0 #d55a24; }
+  .opts { display:flex; flex-wrap:wrap; justify-content:center; gap:9px; min-height:48px; }
+  .opt { border:2px solid #ffe0cf; background:#fff; border-radius:14px; padding:8px 13px; cursor:pointer;
+    font-size:13px; font-weight:800; color:#8a6a5a; box-shadow:0 3px 0 #ffede2; }
+  .opt:active { transform:translateY(2px); box-shadow:0 1px 0 #ffede2; }
+  .opt.sel { outline:3px solid #f4773a; outline-offset:1px; color:#e8633a; }
+  .opt .chip { display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:5px; vertical-align:-1px; border:1px solid rgba(0,0,0,.12); }
+  .tools { display:flex; justify-content:center; gap:10px; margin:16px 0 2px; flex-wrap:wrap; }
+  .btn { border:none; border-radius:999px; padding:11px 20px; font-size:15px; font-weight:900; color:#fff; cursor:pointer; box-shadow:0 5px 0 rgba(0,0,0,.14); }
+  .btn:active { transform:translateY(3px); box-shadow:0 2px 0 rgba(0,0,0,.14); }
+  .btn.rand { background:linear-gradient(180deg,#ff9ec4,#ff6b9d); box-shadow:0 5px 0 #e83e7a; }
+  .btn.clear { background:linear-gradient(180deg,#ffcf8f,#f5a623); box-shadow:0 5px 0 #d48309; }
+  .btn.done { background:linear-gradient(180deg,#7bdcb5,#38c48c); box-shadow:0 5px 0 #1e9c6a; }
+  .overlay { position:fixed; inset:0; z-index:40; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:rgba(255,247,240,.95); backdrop-filter:blur(4px); text-align:center; padding:20px; }
+  .overlay.hidden { display:none; }
+  .overlay .big { font-size:72px; animation:pop .6s ease; }
+  @keyframes pop { 0%{transform:scale(.6)} 60%{transform:scale(1.15)} 100%{transform:scale(1)} }
+  .overlay h2 { font-size:28px; color:#e8633a; margin:8px 0; }
+  .overlay p { font-size:16px; color:#8a6a5a; margin:4px 0 6px; line-height:1.6; }
+  .overlay .score { font-size:44px; font-weight:900; color:#ff7a3d; margin:6px 0 14px; }
+  .overlay .btn { background:linear-gradient(180deg,#7bdcb5,#38c48c); box-shadow:0 5px 0 #1e9c6a; }
+</style>
+</head>
+<body>
+<a class="home-btn" href="../../" aria-label="返回主页" title="返回主页">🏠</a>
+
+<header class="hero">
+  <div class="logo">🧁</div>
+  <h1>甜品烘培屋</h1>
+  <p>DIY 一个专属小蛋糕！选蛋糕胚、奶油、水果和装饰，甜度满分～</p>
+</header>
+
+<div class="wrap">
+  <div class="hud">
+    <div class="pill" id="bestPill">最佳甜品 0</div>
+    <div class="pill" id="worksPill">作品 0</div>
+    <button class="icon-btn" id="soundBtn" title="音效开关">🔊</button>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="opts" id="opts"></div>
+
+  <div class="tools">
+    <button class="btn rand" id="randBtn">🎲 随机甜品</button>
+    <button class="btn clear" id="clearBtn">🧹 清空装饰</button>
+    <button class="btn done" id="doneBtn">✨ 完成出品</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="overlay">
+  <div class="big">🎂</div>
+  <h2>甜品出炉啦！</h2>
+  <p id="ovText"></p>
+  <div class="score" id="ovScore">0</div>
+  <p id="ovBest"></p>
+  <button class="btn" id="ovBtn">继续烘培</button>
+</div>
+
+<script src="../../icons.js"></script>
+<script src="../../quiz.js"></script>
+<script src="../../save.js"></script>
+<script>
+(function () {
+  "use strict";
+  var SAVE_KEY = "dessert-shop";
+  var canvas = document.getElementById("canvas"), ctx = canvas.getContext("2d");
+  var overlay = document.getElementById("overlay");
+  var bestPill = document.getElementById("bestPill"), worksPill = document.getElementById("worksPill");
+  var soundBtn = document.getElementById("soundBtn");
+  var tabsEl = document.getElementById("tabs"), optsEl = document.getElementById("opts");
+
+  // 五个装饰维度
+  var PARTS = [
+    { key:"base", label:"蛋糕胚", items:[
+      { name:"香草", c:"#f6d9a0" }, { name:"巧克力", c:"#8b5a3c" }, { name:"草莓", c:"#f5b8c4" },
+      { name:"抹茶", c:"#a8c87a" }, { name:"芋泥", c:"#c9a8e0" }
+    ]},
+    { key:"cream", label:"奶油", items:[
+      { name:"纯白", c:"#fffaf2" }, { name:"粉色", c:"#ffc2d8" }, { name:"巧克力", c:"#a9714b" },
+      { name:"薄荷绿", c:"#bfe6cf" }, { name:"香芋紫", c:"#d8c2f0" }, { name:"柠檬黄", c:"#ffe79a" }
+    ]},
+    { key:"fruit", label:"水果", items:[
+      { name:"不加", c:"#dddddd" }, { name:"草莓", c:"#e63946" }, { name:"蓝莓", c:"#5b5fbd" },
+      { name:"猕猴桃", c:"#8ac24a" }, { name:"橙片", c:"#ff9f1c" }, { name:"樱桃", c:"#c1121f" }
+    ]},
+    { key:"deco", label:"装饰", items:[
+      { name:"无", c:"#dddddd" }, { name:"蜡烛", c:"#ff6b9d" }, { name:"糖珠", c:"#7bdff2" },
+      { name:"巧克力片", c:"#6b4423" }, { name:"薄荷叶", c:"#4caf7d" }, { name:"星星", c:"#ffd166" }
+    ]},
+    { key:"plate", label:"餐盘", items:[
+      { name:"白瓷盘", c:"#ffffff" }, { name:"粉边盘", c:"#ffd6e5" }, { name:"蓝边盘", c:"#d4e6ff" },
+      { name:"金边盘", c:"#f5dfa0" }, { name:"竹托", c:"#d8b98a" }
+    ]}
+  ];
+  var sel = [0,0,0,0,0], activePart = 0;
+  var best = 0, works = 0, muted = false, quizPaused = false;
+  var audioCtx = null, size = 0;
+
+  function load(){
+    var s = window.GameSave ? GameSave.load(SAVE_KEY, null) : null;
+    if (s && typeof s === "object"){
+      best = (typeof s.best==="number" && s.best>=0) ? Math.floor(s.best) : 0;
+      works = (typeof s.works==="number" && s.works>=0) ? Math.floor(s.works) : 0;
+      muted = s.muted === true;
+      if (Array.isArray(s.sel) && s.sel.length===PARTS.length){
+        var ok=true; for(var i=0;i<PARTS.length;i++){ if(typeof s.sel[i]!=="number"||s.sel[i]<0||s.sel[i]>=PARTS[i].items.length){ok=false;break;} }
+        if(ok) sel=s.sel.slice();
+      }
+    }
+  }
+  function save(){ if(!window.GameSave)return; GameSave.save(SAVE_KEY,{best:best,works:works,muted:muted,sel:sel}); }
+  function refreshHud(){ bestPill.textContent="最佳甜品 "+best; worksPill.textContent="作品 "+works; soundBtn.textContent=muted?"🔇":"🔊"; }
+  function ensureAudio(){ if(muted)return null; try{ if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==="suspended")audioCtx.resume(); return audioCtx; }catch(e){return null;} }
+  function beep(freq,dur,type,vol){ var ac=ensureAudio(); if(!ac)return; try{ var o=ac.createOscillator(),g=ac.createGain(); o.type=type||"sine"; o.frequency.value=freq; g.gain.setValueAtTime(vol||0.1,ac.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+dur); o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+dur); }catch(e){} }
+  function sfxTap(){ beep(620,.07,"sine",.09); }
+  function sfxNice(){ beep(523,.09,"sine",.09); setTimeout(function(){beep(659,.09,"sine",.09);},80); setTimeout(function(){beep(880,.16,"sine",.09);},160); }
+
+  function setup(){ var w=Math.min(420,window.innerWidth-28); if(w<260)w=260; size=w; var dpr=window.devicePixelRatio||1;
+    canvas.style.width=size+"px"; canvas.style.height=size+"px"; canvas.width=Math.round(size*dpr); canvas.height=Math.round(size*dpr); ctx.setTransform(dpr,0,0,dpr,0,0); draw(); }
+  function item(i){ return PARTS[i].items[sel[i]]; }
+  function hexRgb(h){ h=h.replace("#",""); if(h.length===3)h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2]; return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; }
+  function shade(h,t){ var c=hexRgb(h); return "rgb("+Math.min(255,Math.round(c[0]*t))+","+Math.min(255,Math.round(c[1]*t))+","+Math.min(255,Math.round(c[2]*t))+")"; }
+
+  function draw(){
+    var W=size,H=size,cx=W/2;
+    var g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,"#fff8f2"); g.addColorStop(1,"#fbeaf0");
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // 背景点缀
+    ctx.fillStyle="rgba(255,180,150,.25)";
+    for(var d=0;d<6;d++){ var a=d*1.05; ctx.beginPath(); ctx.arc(W*(0.12+0.13*d), H*(0.12+0.05*Math.sin(a)), 4,0,Math.PI*2); ctx.fill(); }
+    var baseY=H*0.66, cakeW=W*0.5, cakeH=H*0.34, baseC=item(0).c, creamC=item(1).c;
+
+    // 餐盘
+    var plate=item(4);
+    ctx.fillStyle="#e8d9cf";
+    ctx.beginPath(); ctx.ellipse(cx,baseY+cakeH*0.28,cakeW*0.82,cakeH*0.18,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=plate.c;
+    ctx.beginPath(); ctx.ellipse(cx,baseY+cakeH*0.2,cakeW*0.78,cakeH*0.15,0,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle=shade(plate.c,0.85); ctx.lineWidth=3;
+    ctx.beginPath(); ctx.ellipse(cx,baseY+cakeH*0.2,cakeW*0.7,cakeH*0.12,0,0,Math.PI*2); ctx.stroke();
+
+    // 蛋糕胚（两层）
+    ctx.fillStyle=baseC;
+    roundRectPath(cx-cakeW/2, baseY-cakeH*0.5, cakeW, cakeH*0.55, W*0.03); ctx.fill();
+    ctx.fillStyle=shade(baseC,0.88);
+    ctx.fillRect(cx-cakeW/2, baseY-cakeH*0.5+cakeH*0.44, cakeW, cakeH*0.11);
+    // 奶油层
+    ctx.fillStyle=creamC;
+    roundRectPath(cx-cakeW/2-W*0.01, baseY-cakeH*0.62, cakeW+W*0.02, cakeH*0.2, W*0.03); ctx.fill();
+    // 奶油滴边
+    ctx.beginPath();
+    var drops=7, dx=cakeW/drops;
+    ctx.moveTo(cx-cakeW/2-W*0.01, baseY-cakeH*0.5);
+    for(var i=0;i<=drops;i++){
+      var px=cx-cakeW/2+i*dx;
+      ctx.quadraticCurveTo(px+dx*0.25, baseY-cakeH*0.5+cakeH*(0.06+0.06*((i*3)%3)/2), px+dx*0.5, baseY-cakeH*0.5);
+    }
+    ctx.lineTo(cx+cakeW/2+W*0.01, baseY-cakeH*0.66); ctx.lineTo(cx-cakeW/2-W*0.01, baseY-cakeH*0.66); ctx.closePath();
+    ctx.fillStyle=creamC; ctx.fill();
+    // 奶油高光
+    ctx.fillStyle="rgba(255,255,255,.35)";
+    roundRectPath(cx-cakeW/2, baseY-cakeH*0.6, cakeW*0.9, cakeH*0.04, 4); ctx.fill();
+
+    // 水果（环绕）
+    var fruit=item(2);
+    if (sel[2]>0){
+      var cnt=5;
+      for(var f=0;f<cnt;f++){
+        var fx=cx-cakeW*0.36+f*(cakeW*0.72/(cnt-1)), fy=baseY-cakeH*0.66;
+        drawFruit(fx,fy,sel[2],fruit.c,W*0.045);
+      }
+    }
+    // 顶部装饰
+    var deco=item(3);
+    if (sel[3]>0) drawDeco(cx, baseY-cakeH*0.7, sel[3], deco.c, W);
+
+    // 香气/闪光
+    ctx.strokeStyle="rgba(255,255,255,.7)"; ctx.lineWidth=2;
+    for(var s=0;s<3;s++){ var sx=cx-cakeW*0.3+s*cakeW*0.3; ctx.beginPath(); ctx.moveTo(sx,baseY-cakeH*0.95); ctx.quadraticCurveTo(sx+8,baseY-cakeH*1.05,sx,baseY-cakeH*1.15); ctx.stroke(); }
+
+    ctx.fillStyle="rgba(150,100,80,.35)"; ctx.font="11px sans-serif"; ctx.textAlign="center";
+    ctx.fillText("SWEET  BAKERY", cx, H-8);
+  }
+  function drawFruit(x,y,type,c,r){
+    if(type===1){ // 草莓
+      ctx.fillStyle=c; ctx.beginPath(); ctx.moveTo(x,y-r); ctx.quadraticCurveTo(x+r,y-r*0.3,x,y+r); ctx.quadraticCurveTo(x-r,y-r*0.3,x,y-r); ctx.fill();
+      ctx.fillStyle="#4caf7d"; ctx.fillRect(x-r*0.35,y-r*1.15,r*0.7,r*0.35);
+      ctx.fillStyle="rgba(255,255,255,.7)"; ctx.beginPath();ctx.arc(x-r*0.3,y-r*0.2,r*0.12,0,Math.PI*2);ctx.fill();
+    } else if(type===2){ // 蓝莓
+      ctx.fillStyle=c; for(var i=0;i<3;i++){ctx.beginPath();ctx.arc(x+(i-1)*r*0.7,y+((i%2)*r*0.3),r*0.55,0,Math.PI*2);ctx.fill();}
+      ctx.fillStyle="rgba(255,255,255,.5)";ctx.beginPath();ctx.arc(x-r*0.8,y-r*0.5,r*0.12,0,Math.PI*2);ctx.fill();
+    } else if(type===3){ // 猕猴桃片
+      ctx.fillStyle="#8ac24a";ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle="#e8f3d0";ctx.beginPath();ctx.arc(x,y,r*0.7,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(x,y,r*0.2,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle="#4a6b2a";ctx.lineWidth=1; for(var k=0;k<8;k++){var a=k*Math.PI/4;ctx.beginPath();ctx.moveTo(x+Math.cos(a)*r*0.22,y+Math.sin(a)*r*0.22);ctx.lineTo(x+Math.cos(a)*r*0.65,y+Math.sin(a)*r*0.65);ctx.stroke();}
+    } else if(type===4){ // 橙片
+      ctx.fillStyle=c;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle="#ffe0a0";ctx.beginPath();ctx.arc(x,y,r*0.82,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle=c;ctx.lineWidth=1.5;for(var q=0;q<6;q++){var a2=q*Math.PI/3;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(a2)*r*0.8,y+Math.sin(a2)*r*0.8);ctx.stroke();}
+    } else if(type===5){ // 樱桃
+      ctx.strokeStyle="#4caf7d";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x,y);ctx.quadraticCurveTo(x-r,y-r,x-r*1.2,y-r*1.4);ctx.stroke();
+      ctx.fillStyle=c;ctx.beginPath();ctx.arc(x-r*0.5,y,r*0.6,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(x+r*0.5,y,r*0.6,0,Math.PI*2);ctx.fill();
+    }
+  }
+  function drawDeco(cx,y,type,c,W){
+    if(type===1){ // 蜡烛
+      var cw=W*0.03;
+      for(var i=-1;i<=1;i++){
+        var x=cx+i*cw*2.2;
+        ctx.fillStyle= i===0?"#ff6b9d":"#ffd166"; ctx.fillRect(x-cw/2,y-cw*5,cw,cw*5);
+        ctx.strokeStyle="#fff";ctx.lineWidth=1.5; for(var s=0;s<3;s++){ctx.beginPath();ctx.moveTo(x-cw/2,y-cw*4+s*cw*1.5);ctx.lineTo(x+cw/2,y-cw*3.5+s*cw*1.5);ctx.stroke();}
+        ctx.fillStyle="#ff9800";ctx.beginPath();ctx.ellipse(x,y-cw*5.3,cw*0.35,cw*0.8,0,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle="#ffe082";ctx.beginPath();ctx.ellipse(x,y-cw*5.2,cw*0.16,cw*0.45,0,0,Math.PI*2);ctx.fill();
+      }
+    } else if(type===2){ // 糖珠
+      var cols=["#7bdff2","#ff9ec4","#ffd166","#a8e6a1"];
+      for(var i2=0;i2<12;i2++){ var a=i2*2.4, rr=W*(0.03+0.08*((i2*7%10)/10)); ctx.fillStyle=cols[i2%4]; ctx.beginPath();ctx.arc(cx+Math.cos(a)*rr,y+8+Math.sin(a)*rr*0.4,W*0.009,0,Math.PI*2);ctx.fill(); }
+    } else if(type===3){ // 巧克力片
+      ctx.fillStyle=c; for(var i3=-2;i3<=2;i3++){ ctx.save();ctx.translate(cx+i3*W*0.035,y+6);ctx.rotate(i3*0.3);ctx.fillRect(-W*0.012,-W*0.03,W*0.024,W*0.06);ctx.restore(); }
+    } else if(type===4){ // 薄荷叶
+      ctx.fillStyle=c; for(var i4=-1;i4<=1;i4+=2){ ctx.beginPath();ctx.ellipse(cx+i4*W*0.03,y+4,W*0.035,W*0.018,i4*0.5,0,Math.PI*2);ctx.fill(); }
+    } else if(type===5){ // 星星
+      ctx.fillStyle=c; for(var i5=-1;i5<=1;i5++){ drawStar(cx+i5*W*0.06,y-2,W*0.022,W*0.01,5); }
+    }
+  }
+  function drawStar(cx,cy,R,r,n){ ctx.beginPath(); for(var i=0;i<n*2;i++){ var rad=i%2?r:R, a=i*Math.PI/n-Math.PI/2; var x=cx+Math.cos(a)*rad,y=cy+Math.sin(a)*rad; if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y); } ctx.closePath(); ctx.fill(); }
+  function roundRectPath(x,y,w,h,r){ ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath(); }
+
+  /* ---------- 面板 ---------- */
+  function buildTabs(){ for(var i=0;i<PARTS.length;i++){(function(idx){ var b=document.createElement("button");b.className="tab"+(idx===activePart?" sel":"");b.textContent=PARTS[idx].label;
+    b.addEventListener("click",function(){ activePart=idx;var ts=tabsEl.children;for(var j=0;j<ts.length;j++)ts[j].classList.toggle("sel",j===idx);buildOpts();sfxTap(); }); tabsEl.appendChild(b); })(i);} }
+  function buildOpts(){ optsEl.innerHTML=""; var items=PARTS[activePart].items;
+    for(var i=0;i<items.length;i++){(function(idx){ var it=items[idx],b=document.createElement("button");b.className="opt"+(sel[activePart]===idx?" sel":"");
+      var chip=document.createElement("span");chip.className="chip";chip.style.background=it.c;b.appendChild(chip);b.appendChild(document.createTextNode(it.name));
+      b.addEventListener("click",function(){ sel[activePart]=idx;var os=optsEl.children;for(var j=0;j<os.length;j++)os[j].classList.toggle("sel",j===idx);sfxTap();draw();save(); }); optsEl.appendChild(b); })(i);} }
+
+  document.getElementById("randBtn").addEventListener("click",function(){ for(var i=0;i<PARTS.length;i++)sel[i]=Math.floor(Math.random()*PARTS[i].items.length); sfxNice();buildOpts();draw();save(); });
+  document.getElementById("clearBtn").addEventListener("click",function(){ sel=[0,0,0,0,0]; beep(300,.12,"sine",.08);buildOpts();draw();save(); });
+  soundBtn.addEventListener("click",function(){ muted=!muted;refreshHud();save();if(!muted)sfxTap(); });
+  document.getElementById("doneBtn").addEventListener("click",function(){
+    var richness=(sel[2]>0?18:0)+(sel[3]>0?18:0);           // 有水果/装饰
+    var colorBonus=0; var cs=[item(1).c, item(0).c];
+    // 奶油与蛋糕胚是否同色系（暖/冷）
+    var warmCream=(hexRgb(item(1).c)[0]>=hexRgb(item(1).c)[2]);
+    var warmBase=(hexRgb(item(0).c)[0]>=hexRgb(item(0).c)[2]);
+    colorBonus=(warmCream===warmBase)?18:10;
+    var score=44+richness+colorBonus; if(score>100)score=100;
+    works++; var isBest=score>best; if(isBest)best=score; save();refreshHud();sfxNice();
+    document.getElementById("ovText").textContent=item(0).name+"胚 · "+item(1).name+"奶油"+(sel[2]>0?" · "+item(2).name:"")+(sel[3]>0?" · "+item(3).name:"")+" · "+item(4).name;
+    document.getElementById("ovScore").textContent=score+" 分";
+    document.getElementById("ovBest").textContent=isBest?"🎉 新的最佳甜品记录！":("最佳甜品："+best+" 分");
+    overlay.classList.remove("hidden");
+  });
+  document.getElementById("ovBtn").addEventListener("click",function(){overlay.classList.add("hidden");});
+
+  window.addEventListener("resize",setup);
+  load();buildTabs();buildOpts();refreshHud();setup();
+
+  if(window.GameQuiz){ GameQuiz.init({
+    isPlaying:function(){return overlay.classList.contains("hidden");},
+    onOpen:function(){quizPaused=true;},onClose:function(){quizPaused=false;},
+    onReward:function(){beep(880,.12,"sine",.1);} }); }
+})();
+</script>
+</body>
+</html>
