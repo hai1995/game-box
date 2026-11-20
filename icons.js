@@ -328,6 +328,176 @@
     );
   }
 
+  // 首页 App 图标：白色玻璃质感 + 半透明暗部细节，专为彩色渐变底座绘制
+  var APP = {
+    plane: wrap(
+      '<path d="M55 9 8 30l17 7z" fill="#fff"/>' +
+      '<path d="M55 9 25 37l7 17z" fill="#fff" opacity=".76"/>' +
+      '<path d="M25 37 55 9" stroke="#000" stroke-width="2" opacity=".12"/>'
+    ),
+    crown: wrap(
+      '<path d="M12 46 16 19l12 11 4-16 4 16 12-11 4 27z" fill="#fff"/>' +
+      '<rect x="12" y="48" width="40" height="8" rx="4" fill="#fff"/>' +
+      '<path d="M12 48h40" stroke="#000" stroke-width="1.5" opacity=".12"/>' +
+      '<circle cx="16" cy="19" r="3" fill="#fff"/><circle cx="32" cy="14" r="3" fill="#fff"/><circle cx="48" cy="19" r="3" fill="#fff"/>' +
+      '<circle cx="32" cy="38" r="2.2" fill="#000" opacity=".16"/>' +
+      '<ellipse cx="24" cy="38" rx="7" ry="2" fill="#fff" opacity=".35"/>'
+    ),
+    train: wrap(
+      '<rect x="29" y="10" width="7" height="12" rx="2.5" fill="#fff"/>' +
+      '<rect x="15" y="20" width="34" height="30" rx="9" fill="#fff"/>' +
+      '<rect x="21" y="26" width="22" height="10" rx="3" fill="#000" opacity=".2"/>' +
+      '<rect x="24" y="42" width="16" height="3" rx="1.5" fill="#000" opacity=".16"/>' +
+      '<circle cx="22" cy="53" r="5" fill="#fff"/><circle cx="42" cy="53" r="5" fill="#fff"/>' +
+      '<circle cx="22" cy="53" r="2" fill="#000" opacity=".22"/><circle cx="42" cy="53" r="2" fill="#000" opacity=".22"/>' +
+      '<path d="M18 24c1-3 4-5 7-5" stroke="#fff" stroke-width="2" opacity=".55" fill="none" stroke-linecap="round"/>'
+    ),
+    brain: wrap(
+      '<path d="M32 15c-3-5-10-6-14-2-5-1-9 3-8 8-5 2-5 9 0 11-2 6 4 11 9 9 2 4 8 5 13 2z" fill="#fff"/>' +
+      '<path d="M32 15c3-5 10-6 14-2 5-1 9 3 8 8 5 2 5 9 0 11 2 6-4 11-9 9-2 4-8 5-13 2z" fill="#fff" opacity=".82"/>' +
+      '<path d="M32 16v34" stroke="#000" stroke-width="2" opacity=".14"/>' +
+      '<path d="M24 24c-4 2-4 7 0 9s2 7-1 9M40 24c4 2 4 7 0 9s-2 7 1 9" fill="none" stroke="#000" stroke-width="2" opacity=".12" stroke-linecap="round"/>' +
+      '<ellipse cx="23" cy="24" rx="5" ry="2.6" fill="#fff" opacity=".6" transform="rotate(-30 23 24)"/>'
+    ),
+    bubble: wrap(
+      '<circle cx="25" cy="39" r="15" fill="#fff" opacity=".95"/>' +
+      '<circle cx="44" cy="21" r="9" fill="#fff" opacity=".8"/>' +
+      '<circle cx="47" cy="43" r="6.5" fill="#fff" opacity=".55"/>' +
+      '<circle cx="19" cy="33" r="3.4" fill="#000" opacity=".1"/>' +
+      '<circle cx="41" cy="18" r="2.2" fill="#000" opacity=".1"/>' +
+      '<path d="M15 30c2-4 5-6 9-7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity=".7" fill="none"/>'
+    ),
+    hammer: wrap(
+      '<rect x="20" y="10" width="26" height="14" rx="4" fill="#fff"/>' +
+      '<rect x="29" y="23" width="6" height="31" rx="3" fill="#fff"/>' +
+      '<path d="M23 13c4-2 8-2 12-1" stroke="#000" stroke-width="2" opacity=".1" fill="none" stroke-linecap="round"/>' +
+      '<ellipse cx="41" cy="14" rx="4.5" ry="2" fill="#fff" opacity=".75" transform="rotate(-18 41 14)"/>' +
+      '<path d="M31 28v22" stroke="#000" stroke-width="1.6" opacity=".12" stroke-linecap="round"/>'
+    ),
+    watermelon: wrap(
+      '<circle cx="32" cy="35" r="19" fill="#fff"/>' +
+      '<path d="M18 24c6 6 6 15 6 22M31 18c6 8 6 18 6 28M43 22c4 7 4 15 3 22" fill="none" stroke="#000" stroke-width="3" opacity=".14" stroke-linecap="round"/>' +
+      '<path d="M32 17c0-3 2-5 5-5" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/>' +
+      '<path d="M37 12c3-2 6-1 7 1-3 2-5 2-7-1z" fill="#fff"/>'
+    ),
+    map: wrap(
+      '<path d="M10 20 24 14l16 6 14-6v30l-14 6-16-6-14 6z" fill="#fff"/>' +
+      '<path d="M24 14v30M40 20v30" stroke="#000" stroke-width="2" opacity=".13"/>' +
+      '<path d="M18 37c6-11 10-7 14-11s8-2 12-9" fill="none" stroke="#000" stroke-width="2" opacity=".28" stroke-dasharray="3 3" stroke-linecap="round"/>' +
+      '<path d="M45 18c3 0 5 2 5 5 0 4-5 8-5 8s-5-4-5-8c0-3 2-5 5-5z" fill="#000" opacity=".3"/><circle cx="45" cy="23" r="1.8" fill="#fff"/>'
+    ),
+    hash: wrap(
+      '<path d="M26 14 20 50M40 14 34 50M15 26h34M13 39h34" stroke="#fff" stroke-width="6" stroke-linecap="round"/>' +
+      '<path d="M27 17 21 47M41 17 35 47" stroke="#000" stroke-width="1.6" opacity=".1" stroke-linecap="round"/>'
+    ),
+    hex: wrap(
+      '<path d="M32 8 53 20v24L32 56 11 44V20z" fill="#fff"/>' +
+      '<path d="M32 17 45 25v14L32 47 19 39V25z" fill="#000" opacity=".16"/>' +
+      '<path d="M32 23 40 28v8l-8 5-8-5v-8z" fill="#fff" opacity=".72"/>'
+    ),
+    "stone-black": wrap(
+      '<circle cx="32" cy="33" r="20" fill="#fff"/>' +
+      '<path d="M32 53a20 20 0 0 0 0-40c10 4 16 11 16 20s-6 16-16 20z" fill="#000" opacity=".2"/>' +
+      '<circle cx="32" cy="33" r="20" fill="none" stroke="#000" stroke-width="2" opacity=".2"/>' +
+      '<ellipse cx="25" cy="25" rx="6" ry="3.4" fill="#fff" opacity=".9" transform="rotate(-30 25 25)"/>'
+    ),
+    link: wrap(
+      '<path d="M26 38l12-12" stroke="#fff" stroke-width="5" stroke-linecap="round"/>' +
+      '<path d="M24 35l-5 5a9 9 0 0 0 13 13l5-5" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/>' +
+      '<path d="M40 29l5-5a9 9 0 0 0-13-13l-5 5" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/>' +
+      '<path d="M25 45l4 4M39 19l4 4" stroke="#000" stroke-width="1.5" opacity=".14" stroke-linecap="round"/>'
+    ),
+    candy: wrap(
+      '<circle cx="32" cy="24" r="16" fill="#fff"/>' +
+      '<path d="M32 15a9 9 0 0 1 0 18 5 5 0 0 1 0-10" fill="none" stroke="#000" stroke-width="2.6" opacity=".14" stroke-linecap="round"/>' +
+      '<path d="M32 40v16" stroke="#fff" stroke-width="5" stroke-linecap="round"/>' +
+      '<ellipse cx="24" cy="17" rx="5" ry="2.4" fill="#fff" opacity=".7" transform="rotate(-30 24 17)"/>'
+    ),
+    snake: wrap(
+      '<path d="M18 50c0-12 20-9 20-20S26 22 26 14" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round"/>' +
+      '<circle cx="26" cy="14" r="8" fill="#fff"/>' +
+      '<circle cx="23" cy="12" r="2" fill="#000" opacity=".38"/>' +
+      '<path d="M31 18l6 4" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>' +
+      '<circle cx="31" cy="37" r="1.6" fill="#000" opacity=".16"/><circle cx="24" cy="44" r="1.6" fill="#000" opacity=".16"/>' +
+      '<path d="M18 50c0-12 20-9 20-20" fill="none" stroke="#000" stroke-width="2" opacity=".1"/>'
+    ),
+    brick: wrap(
+      '<g fill="#fff"><rect x="10" y="16" width="20" height="9" rx="2"/><rect x="34" y="16" width="20" height="9" rx="2"/>' +
+      '<rect x="10" y="29" width="10" height="9" rx="2"/><rect x="24" y="29" width="20" height="9" rx="2"/><rect x="48" y="29" width="6" height="9" rx="2"/>' +
+      '<rect x="10" y="42" width="20" height="9" rx="2"/><rect x="34" y="42" width="20" height="9" rx="2"/></g>' +
+      '<path d="M12 18h16M36 18h16M12 44h16M36 44h16" stroke="#fff" stroke-width="2" opacity=".5" stroke-linecap="round"/>'
+    ),
+    eye: wrap(
+      '<path d="M8 32c10-15 38-15 48 0-10 15-38 15-48 0z" fill="#fff"/>' +
+      '<circle cx="32" cy="32" r="9" fill="#000" opacity=".22"/>' +
+      '<circle cx="32" cy="32" r="4.5" fill="#000" opacity=".35"/>' +
+      '<circle cx="29" cy="29" r="1.8" fill="#fff"/>' +
+      '<path d="M13 25l-3-5M32 20v-6M51 25l3-5" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".8"/>'
+    ),
+    pencil: wrap(
+      '<path d="M14 50l4-13 24-24 9 9-24 24z" fill="#fff"/>' +
+      '<path d="M14 50l4-13 5 5z" fill="#000" opacity=".2"/>' +
+      '<path d="M37 18l9 9" stroke="#000" stroke-width="2" opacity=".1"/>' +
+      '<path d="M43 12l7 7" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".8"/>'
+    ),
+    arrow: wrap(
+      '<path d="M14 26h19V14l19 18-19 18v-12H14z" fill="#fff"/>' +
+      '<path d="M33 28v8" stroke="#000" stroke-width="2" opacity=".1"/>' +
+      '<path d="M8 38h7M8 45h4" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".5"/>' +
+      '<path d="M16 28h16" stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity=".5"/>'
+    ),
+    dino: wrap(
+      '<path d="M8 42c5 0 9-2 12-6" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/>' +
+      '<ellipse cx="30" cy="38" rx="15" ry="10" fill="#fff"/>' +
+      '<path d="M40 34c0-8 4-14 10-18" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/>' +
+      '<ellipse cx="51" cy="16" rx="7" ry="5.5" fill="#fff"/>' +
+      '<circle cx="54" cy="15" r="1.5" fill="#000" opacity=".4"/>' +
+      '<path d="M24 46v8M36 46v8" stroke="#fff" stroke-width="5" stroke-linecap="round"/>' +
+      '<path d="M22 40c5 2 10 2 14 0" fill="none" stroke="#000" stroke-width="2" opacity=".1" stroke-linecap="round"/>'
+    ),
+    ninja: wrap(
+      '<path d="M32 10c-12 0-20 9-20 21 0 14 9 23 20 23s20-9 20-23c0-12-8-21-20-21z" fill="#fff"/>' +
+      '<rect x="14" y="27" width="36" height="9" rx="4.5" fill="#000" opacity=".22"/>' +
+      '<circle cx="26" cy="31.5" r="2" fill="#fff"/><circle cx="38" cy="31.5" r="2" fill="#fff"/>' +
+      '<path d="M16 24c4-4 9-6 16-6" stroke="#fff" stroke-width="2" opacity=".6" fill="none" stroke-linecap="round"/>'
+    ),
+    rocket: wrap(
+      '<path d="M32 6c9 8 13 20 11 32L32 46 21 38C19 26 23 14 32 6z" fill="#fff"/>' +
+      '<circle cx="32" cy="26" r="6" fill="#000" opacity=".22"/>' +
+      '<circle cx="30" cy="24" r="1.8" fill="#fff"/>' +
+      '<path d="M22 38l-8 9 9-3M42 38l8 9-9-3" fill="#fff"/>' +
+      '<path d="M28 46l4 12 4-12z" fill="#fff" opacity=".85"/>' +
+      '<path d="M32 46v9" stroke="#000" stroke-width="1.6" opacity=".1"/>'
+    ),
+    car: wrap(
+      '<path d="M12 32l5-11c1-3 3-4 6-4h18c3 0 5 1 6 4l5 11" fill="#fff"/>' +
+      '<path d="M12 31h40c3 0 4 2 4 4v12c0 2-1 3-3 3H11c-2 0-3-1-3-3V35c0-2 1-4 4-4z" fill="#fff"/>' +
+      '<path d="M21 21h9v8H17zM34 21h6l5 8H34z" fill="#000" opacity=".17"/>' +
+      '<rect x="12" y="36" width="6" height="4" rx="2" fill="#000" opacity=".16"/>' +
+      '<circle cx="20" cy="50" r="6" fill="#fff"/><circle cx="44" cy="50" r="6" fill="#fff"/>' +
+      '<circle cx="20" cy="50" r="2.6" fill="#000" opacity=".22"/><circle cx="44" cy="50" r="2.6" fill="#000" opacity=".22"/>'
+    ),
+    pickaxe: wrap(
+      '<path d="M28 25l10 33" stroke="#fff" stroke-width="6" stroke-linecap="round"/>' +
+      '<path d="M10 24c8-11 36-11 44 0-7-4-12-4-16 0-1-4-3-6-6-6s-5 2-6 6c-4-4-9-4-16 0z" fill="#fff"/>' +
+      '<path d="M18 21c4-2 8-2 12-1M34 20c4-1 8-1 12 1" stroke="#000" stroke-width="2" opacity=".1" stroke-linecap="round"/>' +
+      '<path d="M33 30l2 6" stroke="#000" stroke-width="1.5" opacity=".1"/>'
+    ),
+    tetromino: wrap(
+      '<rect x="11" y="11" width="20" height="20" rx="4" fill="#fff"/>' +
+      '<rect x="33" y="11" width="20" height="20" rx="4" fill="#fff" opacity=".85"/>' +
+      '<rect x="11" y="33" width="20" height="20" rx="4" fill="#fff" opacity=".62"/>' +
+      '<path d="M15 15h12v4H19v8h-4zM37 15h12v4H41v8h-4z" fill="#000" opacity=".08"/>'
+    ),
+    tiles: wrap(
+      '<rect x="9" y="9" width="21" height="21" rx="5" fill="#fff"/>' +
+      '<rect x="34" y="9" width="21" height="21" rx="5" fill="#fff" opacity=".75"/>' +
+      '<rect x="9" y="34" width="21" height="21" rx="5" fill="#fff" opacity=".75"/>' +
+      '<path d="M39 50h10M44 45v10" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".55"/>'
+    )
+  };
+  function appSvgOf(name) { return APP[name] || ""; }
+
   // 统一渐变定义（左上光源 -> 右下加深），一次注入，供所有内联 SVG 引用
   var GRADS =
     '<linearGradient id="gRed" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff8a80"/><stop offset="1" stop-color="#e53935"/></linearGradient>' +
@@ -461,6 +631,12 @@
       var svg = svgOf(name, mode);
       if (svg) el.innerHTML = svg + (el.getAttribute("data-label") || "");
     }
+    // 首页大图标使用专属的白色玻璃图标集（带暗部细节），未命中时保留 emoji 走通用流程
+    var apps = document.querySelectorAll("[data-app-icon]");
+    for (i = 0; i < apps.length; i++) {
+      var aSvg = appSvgOf(apps[i].getAttribute("data-app-icon"));
+      if (aSvg) apps[i].innerHTML = aSvg;
+    }
     scanText(document.body);
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", autoDecorate);
@@ -490,8 +666,10 @@
       if (apiCache[k] !== undefined) return apiCache[k];
       return (apiCache[k] = UI[name] ? badge(name) : "");
     },
+    // 首页 App 专属大图标（白色玻璃质感）
+    app: function (name) { return appSvgOf(name); },
     decorate: autoDecorate,
     image: image,
-    has: function (name) { return !!(ICONS[name] || UI[name]); }
+    has: function (name) { return !!(ICONS[name] || UI[name] || APP[name]); }
   };
 })();

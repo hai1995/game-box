@@ -168,7 +168,8 @@
     animation: floatEm 3.8s ease-in-out infinite;
   }
   /* 统一白色 SVG 图标：自动装饰会把 .em 里的 emoji 换成 [data-icon] */
-  .app-icon .em [data-icon] svg { width: 54px; height: 54px; display: block; }
+  .app-icon .em [data-icon] svg,
+  .app-icon .em > svg { width: 54px; height: 54px; display: block; }
   @keyframes floatEm {
     0%, 100% { transform: translateY(0) rotate(-4deg); }
     50%      { transform: translateY(-6px) rotate(4deg); }
@@ -282,147 +283,147 @@
 
   <main class="games">
     <a class="app" href="games/flight-adventure/index.html" aria-label="打开 3D 飞行大冒险">
-      <div class="app-icon c-flight"><span class="em">✈️</span></div>
+      <div class="app-icon c-flight"><span class="em" data-app-icon="plane">✈️</span></div>
       <div class="app-name">3D 飞行<br>大冒险</div>
     </a>
 
     <a class="app" href="games/little-hero/index.html" aria-label="打开 小英雄打怪兽">
-      <div class="app-icon c-hero"><span class="em">👑</span></div>
+      <div class="app-icon c-hero"><span class="em" data-app-icon="crown">👑</span></div>
       <div class="app-name">小英雄<br>打怪兽</div>
     </a>
 
     <a class="app" href="games/little-train/index.html" aria-label="打开 小火车呜呜开">
-      <div class="app-icon c-train"><span class="em">🚂</span></div>
+      <div class="app-icon c-train"><span class="em" data-app-icon="train">🚂</span></div>
       <div class="app-name">小火车<br>呜呜开</div>
     </a>
 
     <a class="app" href="games/memory-match/index.html" aria-label="打开 动物记忆翻翻乐">
-      <div class="app-icon c-memory"><span class="em">🧠</span></div>
+      <div class="app-icon c-memory"><span class="em" data-app-icon="brain">🧠</span></div>
       <div class="app-name">动物记忆<br>翻翻乐</div>
     </a>
 
     <a class="app" href="games/number-bubbles/index.html" aria-label="打开 算术泡泡">
-      <div class="app-icon c-number"><span class="em">🫧</span></div>
+      <div class="app-icon c-number"><span class="em" data-app-icon="bubble">🫧</span></div>
       <div class="app-name">算术<br>泡泡</div>
     </a>
 
     <a class="app" href="games/mole-whack/index.html" aria-label="打开 打地鼠">
-      <div class="app-icon c-mole"><span class="em">🔨</span></div>
+      <div class="app-icon c-mole"><span class="em" data-app-icon="hammer">🔨</span></div>
       <div class="app-name">打地鼠</div>
     </a>
 
     <a class="app" href="games/fruit-slash/index.html" aria-label="打开 水果切切乐">
-      <div class="app-icon c-fruit"><span class="em">🍉</span></div>
+      <div class="app-icon c-fruit"><span class="em" data-app-icon="watermelon">🍉</span></div>
       <div class="app-name">水果<br>切切乐</div>
     </a>
 
     <a class="app" href="games/maze-escape/index.html" aria-label="打开 小探险家走迷宫">
-      <div class="app-icon c-maze"><span class="em">🗺️</span></div>
+      <div class="app-icon c-maze"><span class="em" data-app-icon="map">🗺️</span></div>
       <div class="app-name">走迷宫</div>
     </a>
 
     <a class="app" href="games/1024/index.html" aria-label="打开 1024 数字合并">
-      <div class="app-icon c-1024"><span class="em">🔢</span></div>
+      <div class="app-icon c-1024"><span class="em" data-app-icon="hash">🔢</span></div>
       <div class="app-name">1024</div>
     </a>
 
     <a class="app" href="games/hex-2048/index.html" aria-label="打开 六边形2048">
-      <div class="app-icon c-hex2048"><span class="em">⬡</span></div>
+      <div class="app-icon c-hex2048"><span class="em" data-app-icon="hex">⬡</span></div>
       <div class="app-name">六边形<br>2048</div>
     </a>
 
     <a class="app" href="games/hex-2048-v2/index.html" aria-label="打开 六边形2048 V2 随机风暴">
-      <div class="app-icon c-hex2048-v2 v2-icon"><span class="em">⬡</span></div>
+      <div class="app-icon c-hex2048-v2 v2-icon"><span class="em" data-app-icon="hex">⬡</span></div>
       <div class="app-name">六边形<br>2048 V2</div>
     </a>
 
     <a class="app" href="games/gomoku/index.html" aria-label="打开 五子棋">
-      <div class="app-icon c-gomoku"><span class="em">⚫</span></div>
+      <div class="app-icon c-gomoku"><span class="em" data-app-icon="stone-black">⚫</span></div>
       <div class="app-name">五子棋</div>
     </a>
 
     <a class="app" href="games/link-game/index.html" aria-label="打开 连连看">
-      <div class="app-icon c-link"><span class="em">🔗</span></div>
+      <div class="app-icon c-link"><span class="em" data-app-icon="link">🔗</span></div>
       <div class="app-name">连连看</div>
     </a>
 
     <a class="app" href="games/match-three/index.html" aria-label="打开 消消乐">
-      <div class="app-icon c-match"><span class="em">🍬</span></div>
+      <div class="app-icon c-match"><span class="em" data-app-icon="candy">🍬</span></div>
       <div class="app-name">消消乐</div>
     </a>
 
     <a class="app" href="games/snake/index.html" aria-label="打开 贪吃蛇">
-      <div class="app-icon c-snake"><span class="em">🐍</span></div>
+      <div class="app-icon c-snake"><span class="em" data-app-icon="snake">🐍</span></div>
       <div class="app-name">贪吃蛇</div>
     </a>
 
     <a class="app" href="games/breakout/index.html" aria-label="打开 打砖块">
-      <div class="app-icon c-break"><span class="em">🧱</span></div>
+      <div class="app-icon c-break"><span class="em" data-app-icon="brick">🧱</span></div>
       <div class="app-name">打砖块</div>
     </a>
 
     <a class="app" href="games/slide-puzzle/index.html" aria-label="打开 数字华容道">
-      <div class="app-icon c-slide"><span class="em">🔢</span></div>
+      <div class="app-icon c-slide"><span class="em" data-app-icon="tiles">🔢</span></div>
       <div class="app-name">数字<br>华容道</div>
     </a>
 
     <a class="app" href="games/find-difference/index.html" aria-label="打开 火眼金睛找不同">
-      <div class="app-icon c-find"><span class="em">👀</span></div>
+      <div class="app-icon c-find"><span class="em" data-app-icon="eye">👀</span></div>
       <div class="app-name">火眼<br>金睛</div>
     </a>
 
     <a class="app" href="games/arrow-out/index.html" aria-label="打开 箭头消除">
-      <div class="app-icon c-arrow"><span class="em">➡️</span></div>
+      <div class="app-icon c-arrow"><span class="em" data-app-icon="arrow">➡️</span></div>
       <div class="app-name">箭头<br>消除</div>
     </a>
 
     <a class="app" href="games/arrow-out-pro/index.html" aria-label="打开 箭头消除高阶版（成人向）">
-      <div class="app-icon c-arrow-pro pro-icon"><span class="em">➡️</span></div>
+      <div class="app-icon c-arrow-pro pro-icon"><span class="em" data-app-icon="arrow">➡️</span></div>
       <div class="app-name">箭头消除<br>PRO</div>
     </a>
 
     <a class="app" href="games/dino-run/index.html" aria-label="打开 恐龙快跑">
-      <div class="app-icon c-dino"><span class="em">🦖</span></div>
+      <div class="app-icon c-dino"><span class="em" data-app-icon="dino">🦖</span></div>
       <div class="app-name">恐龙<br>快跑</div>
     </a>
 
     <a class="app" href="games/ninja-run/index.html" aria-label="打开 忍者快跑">
-      <div class="app-icon c-ninja"><span class="em">🥷</span></div>
+      <div class="app-icon c-ninja"><span class="em" data-app-icon="ninja">🥷</span></div>
       <div class="app-name">忍者<br>快跑</div>
     </a>
 
     <a class="app" href="games/space-shooter/index.html" aria-label="打开 太空大战">
-      <div class="app-icon c-space"><span class="em">🚀</span></div>
+      <div class="app-icon c-space"><span class="em" data-app-icon="rocket">🚀</span></div>
       <div class="app-name">太空<br>大战</div>
     </a>
 
     <a class="app" href="games/car-race/index.html" aria-label="打开 疯狂赛车">
-      <div class="app-icon c-car"><span class="em">🏎️</span></div>
+      <div class="app-icon c-car"><span class="em" data-app-icon="car">🏎️</span></div>
       <div class="app-name">疯狂<br>赛车</div>
     </a>
 
     <a class="app" href="games/gold-miner/index.html" aria-label="打开 黄金矿工">
-      <div class="app-icon c-miner"><span class="em">⛏️</span></div>
+      <div class="app-icon c-miner"><span class="em" data-app-icon="pickaxe">⛏️</span></div>
       <div class="app-name">黄金<br>矿工</div>
     </a>
 
     <a class="app" href="games/tetris/index.html" aria-label="打开 俄罗斯方块">
-      <div class="app-icon c-tetris"><span class="em">🧱</span></div>
+      <div class="app-icon c-tetris"><span class="em" data-app-icon="tetromino">🧱</span></div>
       <div class="app-name">俄罗斯<br>方块</div>
     </a>
 
     <a class="app" href="games/suika-merge/index.html" aria-label="打开 合成大西瓜">
-      <div class="app-icon c-suika"><span class="em">🍉</span></div>
+      <div class="app-icon c-suika"><span class="em" data-app-icon="watermelon">🍉</span></div>
       <div class="app-name">合成<br>大西瓜</div>
     </a>
 
     <a class="app" href="games/bubble-shooter/index.html" aria-label="打开 泡泡龙">
-      <div class="app-icon c-bubble"><span class="em">🫧</span></div>
+      <div class="app-icon c-bubble"><span class="em" data-app-icon="bubble">🫧</span></div>
       <div class="app-name">泡泡龙</div>
     </a>
 
     <a class="app" href="practice/index.html" aria-label="打开 题目练习">
-      <div class="app-icon c-quiz quiz-icon"><span class="em">✏️</span></div>
+      <div class="app-icon c-quiz quiz-icon"><span class="em" data-app-icon="pencil">✏️</span></div>
       <div class="app-name">题目<br>练习</div>
     </a>
   </main>
