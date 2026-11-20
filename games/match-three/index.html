@@ -30,7 +30,7 @@
     background:linear-gradient(160deg,#fffdfd 0%,#fff1f6 100%);
     box-shadow:0 3px 0 rgba(200,120,150,.16), inset 0 1px 2px rgba(255,255,255,.9);
     cursor:pointer; user-select:none; }
-  .tile svg { width:94%; height:94%; display:block; filter:drop-shadow(0 2px 1.4px rgba(120,60,80,.26)); }
+  .tile svg { width:94%; height:94%; display:block; filter:drop-shadow(0 2px 1.4px rgba(120,60,80,.26)); transform-origin:50% 50%; }
   .tile.sel { box-shadow:0 0 0 4px #ffb703, 0 3px 0 rgba(200,120,150,.16); background:#fff8e1; transform:scale(.92); }
   .tile.clear { animation:clearAnim .28s ease forwards; }
   @keyframes clearAnim { 0%{transform:scale(1)} 50%{transform:scale(1.2)} 100%{transform:scale(0);opacity:0} }
@@ -247,6 +247,29 @@
   function swapValues(a, b) {
     var t = grid[a.r][a.c]; grid[a.r][a.c] = grid[b.r][b.c]; grid[b.r][b.c] = t;
   }
+  // 两枚水果沿对角线互相飞过去：中途轻微放大，落位后再真正交换数据
+  var REDUCED_MOTION = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function animateSwap(a, b, ms) {
+    if (REDUCED_MOTION) return;
+    var ea = cells[a.r][a.c], eb = cells[b.r][b.c];
+    var sa = ea.querySelector("svg"), sb = eb.querySelector("svg");
+    if (!sa || !sb || !sa.animate) return;
+    var ra = ea.getBoundingClientRect(), rb = eb.getBoundingClientRect();
+    var dx = Math.round(rb.left - ra.left), dy = Math.round(rb.top - ra.top);
+    var opts = { duration: ms, easing: "cubic-bezier(.34,1.05,.64,1)", fill: "forwards" };
+    sa.style.position = "relative"; sb.style.position = "relative";
+    sa.style.zIndex = "3"; sb.style.zIndex = "3";
+    sa.animate([
+      { transform: "translate(0,0) scale(1)" },
+      { transform: "translate(" + dx * 0.5 + "px," + dy * 0.5 + "px) scale(1.1)", offset: 0.5 },
+      { transform: "translate(" + dx + "px," + dy + "px) scale(1)" }
+    ], opts);
+    sb.animate([
+      { transform: "translate(0,0) scale(1)" },
+      { transform: "translate(" + (-dx * 0.5) + "px," + (-dy * 0.5) + "px) scale(1.1)", offset: 0.5 },
+      { transform: "translate(" + (-dx) + "px," + (-dy) + "px) scale(1)" }
+    ], opts);
+  }
   function makesMatch(a, b) {
     swapValues(a, b);
     var ok = Object.keys(findMatches()).length > 0;
@@ -342,9 +365,16 @@
     if (!adjacent) { clearSel(); sel = b; cells[b.r][b.c].classList.add("sel"); return; }
     clearSel();
     if (makesMatch(a, b)) {
-      swapValues(a, b);              // 真正执行这次有效交换
       busy = true; steps--; stepsEl.textContent = steps;
-      resolve(findMatches(), 0);
+      var seq = animSeq;
+      animateSwap(a, b, 180);        // 先让两枚水果飞到对方位置
+      setTimeout(function () {
+        if (seq !== animSeq) return; // 动画途中重开则放弃
+        swapValues(a, b);            // 落位后再交换数据，视觉上无缝衔接
+        cells[a.r][a.c].innerHTML = FRUIT_SVG[grid[a.r][a.c]];
+        cells[b.r][b.c].innerHTML = FRUIT_SVG[grid[b.r][b.c]];
+        resolve(findMatches(), 0);
+      }, 190);
     } else {
       cells[a.r][a.c].classList.add("wrong");
       cells[b.r][b.c].classList.add("wrong");
