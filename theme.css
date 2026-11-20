@@ -33,7 +33,9 @@ body {
   min-height: 100vh;
 }
 
-/* ---------- 返回主页按钮（统一 SVG 房子 + 圆形果冻底） ---------- */
+/* ---------- 返回主页按钮（全站统一样式 + 统一 SVG 房子）
+   页面如需特殊摆放，只覆盖 position/left/top/width/height/z-index，
+   不要改底色、边框、圆角与图标，避免白色图标再次看不清。 ---------- */
 .home-btn {
   position: fixed;
   top: calc(12px + env(safe-area-inset-top));
@@ -46,10 +48,11 @@ body {
   justify-content: center;
   border: 3px solid #fff;
   border-radius: 50%;
-  background: linear-gradient(180deg, #ff9bb8, var(--gb-primary));
+  background: linear-gradient(180deg, #ff8fb0, var(--gb-primary-d));
   box-shadow: var(--gb-shadow-sm);
   cursor: pointer;
   padding: 0;
+  font-size: 26px;
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
 }

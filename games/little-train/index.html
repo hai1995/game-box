@@ -40,12 +40,7 @@
   #btnLeft{left:12px} #btnRight{right:12px}
   /* 移动端触摸适配：隐藏左右换轨虚拟键显示，保留按钮及事件；改为在画面上左右滑动换轨 */
   .trackBtn { display:none !important; }
-  .home-btn { position:fixed; top:calc(60px + env(safe-area-inset-top)); left:12px; z-index:8;
-    width:52px; height:52px; border-radius:50%; background:rgba(255,255,255,.92);
-    border:3px solid #ffb703; box-shadow:0 4px 0 rgba(0,0,0,.16);
-    display:flex; align-items:center; justify-content:center; text-decoration:none;
-    font-size:28px; color:#d62828; touch-action:manipulation; }
-  .home-btn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,.16); }
+  .home-btn { top:calc(60px + env(safe-area-inset-top)); width:52px; height:52px; z-index:8; touch-action:manipulation; }
   .hidden { display:none !important; }
   .hint { position:fixed; bottom:120px; left:80px; right:80px; text-align:center; color:#fff;
     font-size:15px; font-weight:700; text-shadow:1px 1px 2px rgba(0,0,0,.45);

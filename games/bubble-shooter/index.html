@@ -9,11 +9,6 @@
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { width:100%; min-height:100%; overflow-x:hidden; font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
   body { background:linear-gradient(160deg,#e8f7ff 0%,#eef0ff 55%,#fdeaff 100%);color:#33415c; padding-bottom:calc(28px + env(safe-area-inset-bottom)); }
-  .home-btn { position:fixed; left:12px; top:calc(12px + env(safe-area-inset-top)); z-index:30;
-    width:46px; height:46px; border-radius:50%; background:rgba(255,255,255,.94);
-    border:3px solid #4facfe; box-shadow:0 4px 0 rgba(40,120,200,.25); color:#1e88e5;
-    display:flex; align-items:center; justify-content:center; font-size:26px; text-decoration:none; }
-  .home-btn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(40,120,200,.25); }
   .hero { text-align:center; padding:calc(18px + env(safe-area-inset-top)) 12px 2px; }
   .hero .logo { font-size:40px; animation:bob 3.4s ease-in-out infinite; }
   @keyframes bob { 0%,100%{transform:translateY(0) rotate(-6deg)} 50%{transform:translateY(-6px) rotate(6deg)} }
@@ -319,7 +314,7 @@
     var x=(clientX-rect.left)*(W/rect.width), y=(clientY-rect.top)*(H/rect.height);
     var dx=x-shooter.x, dy=y-shooter.y;
     if(dy>-10)dy=-10; aimAngle=Math.atan2(dy,dx);
-    aimAngle=Math.max(Math.PI*0.05+Math.PI/2*0, aimAngle); // noop guard
+    // 限制在向上的半圆内，避免朝下方发射
     if(aimAngle> -0.15)aimAngle=-0.15; if(aimAngle<-Math.PI+0.15)aimAngle=-Math.PI+0.15;
   }
   canvas.addEventListener("mousemove",function(e){aim(e.clientX,e.clientY);});
